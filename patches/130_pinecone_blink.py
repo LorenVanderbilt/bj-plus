@@ -1,5 +1,5 @@
 NAME = "pinecone-blink"
-DESCRIPTION = "Pinecone powerup: no grow animation (the hero is always big now) - the hero just blinks"
+DESCRIPTION = "Pinecone powerup: no grow animation (the hero is always big now) - the powerup flashing starts at once"
 
 # Picking up the pinecone puts the hero in state 41: 0x3E6F4 from normal size, 0x4086E from shrunk (C button).
 # After a check (jsr 0x4529E / bne), it plays sound 0x4D, nudges the position, sets the grow animation (47)
@@ -8,9 +8,9 @@ DESCRIPTION = "Pinecone powerup: no grow animation (the hero is always big now) 
 # starts the 512-frame powerup timer (player +0x24), sets form 2 (player +1) and goes back to standing.
 # With hero-big-art the normal hero already looks big, so the zoom just looks like a shrink-and-regrow.
 # After the check, both entries now jump to code that does the finishing step straight away (same sounds
-# and position nudge, no zoom or grow animation) and starts the invincibility blink (player +9, the same
-# timer the game sets after a respawn) so the pickup still reads.
-BLINK_FRAMES = 0x40
+# and position nudge, no zoom or grow animation). The powered-up hero's own flashing (the powerup timer
+# toggling the palette every other frame) then starts at once and is the blink. (An extra respawn-style
+# blink on top, player +9, was tried first: the two per-frame toggles together looked like solid white.)
 ENTRIES = [
     # (address after the check, original bytes there, Y / X position nudge of the original grow)
     (0x3E6FC, "1B7C00290068", 0x0800, 0x0400),   # from normal size
@@ -34,10 +34,10 @@ def apply(rom):
             "    clr.w 12(%%a4)\n"
             "    clr.b 4(%%a4)\n"
             "    clr.b 100(%%a4)\n"
-            "    move.b #%d,9(%%a4)\n"          # blink (the grow cleared this instead)
+            "    clr.b 9(%%a4)\n"
             "    move.b #2,1(%%a4)\n"           # form 2 = powered up
             "    moveq #0,%%d0\n"
-            "    jmp 0x43440\n" % (dy, dx, BLINK_FRAMES),   # back to standing
-            why="pinecone: become powered up at once and blink, instead of the grow")
+            "    jmp 0x43440\n" % (dy, dx),   # back to standing
+            why="pinecone: become powered up at once instead of the grow")
         rom.write(addr, bytes.fromhex("4EF9") + cave.to_bytes(4, "big"), expect=bytes.fromhex(orig),
                   why="pinecone pickup: skip the grow animation")
