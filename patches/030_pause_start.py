@@ -19,9 +19,14 @@ DESCRIPTION = "Pause the game with the Start button (the game's own pause is on 
 # where it left off. The game's pause and unpause routines (0x1541A / 0x15446) now queue those
 # commands with the game's own sound queue (0xA27A), which its wait routine delivers every frame,
 # including while the game is frozen.
+#
+# Both also queue sound effect 0xC5 (chosen with the sound test) right after the pause / resume command -
+# after, because 0xF2 silences everything playing and 0xF3 restores the saved channels over whatever is
+# playing. The queue delivers one command per frame, so the effect starts a frame later.
 PAUSE_ENTER = 0x1541A     # move.w 706(a6),d0 ; bset #3,d0   = 302E 02C2 08C0 0003
 PAUSE_EXIT = 0x15446      # move.w 706(a6),d0 ; bclr #3,d0   = 302E 02C2 0880 0003
 SOUND_PAUSE, SOUND_RESUME = 0xF2, 0xF3
+PAUSE_EFFECT = 0xC5       # played on both pause and resume
 QUEUE_SOUND = 0xA27A      # enqueue the sound command in d0
 CHECK_SITES = [0x11AC0, 0x11B06]   # move.b 0x10FDAD,d0 ; andi.w #10,d0  = 1039 0010 FDAD 0240 000A
 PREV_STATE = 0x10C100              # one spare byte of RAM (0x10A3B0-0x10F2FF is unused by the game)
@@ -48,11 +53,13 @@ def apply(rom):
             "    movem.l %%d0-%%d7/%%a0-%%a5,-(%%sp)\n"
             "    move.w #0x%02X,%%d0\n"
             "    jsr 0x%X\n"
+            "    move.w #0x%02X,%%d0\n"
+            "    jsr 0x%X\n"
             "    movem.l (%%sp)+,%%d0-%%d7/%%a0-%%a5\n"
             "    move.w 706(%%a6),%%d0\n"       # the two original instructions
             "    %s #3,%%d0\n"
-            "    rts\n" % (cmd, QUEUE_SOUND, bit),
-            why="sends the sound driver's %s command, then runs the original first two instructions" % why)
+            "    rts\n" % (cmd, QUEUE_SOUND, PAUSE_EFFECT, QUEUE_SOUND, bit),
+            why="sends the sound driver's %s command and the pause sound, then runs the original first two instructions" % why)
         rom.write(site, bytes.fromhex("4EB9") + cave.to_bytes(4, "big") + bytes.fromhex("4E71"),
                   expect=bytes.fromhex("302E02C2" + orig), why=why + " when the game pauses / resumes")
     for site in CHECK_SITES:
