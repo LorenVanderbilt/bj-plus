@@ -8,3 +8,4 @@ build/
 cfg/
 nvram/
 snap/
+__pycache__/
