@@ -17,6 +17,9 @@ DESCRIPTION = "Debug stage select: after Start on the title, pick any stage from
 # mutes attract-mode sound depending on the BIOS demo-sound setting). Z80 driver ranges: 0x04-0x23 music,
 # 0x24-0xEF sound effects, 0xFF stop all.
 #
+# Both screens take either player's controls (0x10FD96 / 0x10FD9C and both Start bits of 0x10FDAC), so a game
+# started with player 2's Start can pick a stage too.
+#
 # Stage ids (the game's English title cards, table 0x13D9E): 0/1 are the how-to-play copies of the jungle,
 # 12-15 and 20-23 are unused placeholders, 32 shop, 33-40 bosses, 41 route select, 42+ none.
 STAGES = [
@@ -121,10 +124,12 @@ line:
     bcs 5f
     moveq #0,%d7
 5:
-    | buttons: bit 0 up, 1 down, 4-7 A B C D (player 1), bit 8 = Start
+    | buttons: bit 0 up, 1 down, 4-7 A B C D, bit 8 = Start (either player)
     moveq #0,%d0
     move.b 0x10FD96,%d0
-    btst #0,0x10FDAC
+    or.b 0x10FD9C,%d0
+    move.b 0x10FDAC,%d2
+    and.b #5,%d2
     beq 6f
     bset #8,%d0
 6:  move.w %d5,%d1
@@ -263,12 +268,14 @@ queue:
     movem.l (%sp)+,%d0-%d7/%a0-%a5
     rts
 
-| buttons for the sound test: d0 = held (bit 0-3 up down left right, 4-7 A B C D, 8 Start), d1 = newly
+| buttons for the sound test (either player): d0 = held (bit 0-3 up down left right, 4-7 A B C D, 8 Start), d1 = newly
 | pressed, with held directions repeating after REPEAT_DELAY frames every REPEAT_RATE frames
 buttons:
     moveq #0,%d0
     move.b 0x10FD96,%d0
-    btst #0,0x10FDAC
+    or.b 0x10FD9C,%d0
+    move.b 0x10FDAC,%d2
+    and.b #5,%d2
     beq 26f
     bset #8,%d0
 26: move.w %d5,%d1
