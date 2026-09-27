@@ -1,0 +1,6 @@
+# Original game data - never committed, only our patches are
+roms/
+# Working copies extracted from the ROMs and build output
+work/
+build/
+.DS_Store
