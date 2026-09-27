@@ -20,13 +20,17 @@ SHOPS = [
 # Three of these are NPC yes/no screens ("SEE THE LARGE RIVER AHEAD?", "AREN'T YOU BLUE...", the quiz man)
 # whose digits went in a small box at the top right (fix-layer 0x7404). The box is part of the brick-wall
 # background map that every NPC screen shares - the ones that still count down need it - so instead of
-# editing the map, these screens paint bricks over it where the digits used to be drawn. The wall is drawn
-# into full-height background sprite strips; the box covers sprite 16 rows 11-12 (shared with the portrait
-# frame's right edge, tile 0x5343 below the box) and sprites 17-18 rows 10-12 (plain brick, 0x533D).
-BOX_SITES = [0x21AE6, 0x228CA, 0x25A26]
+# editing the map, these screens paint bricks over it just before their fade-in (`jsr 0x1572C`), right
+# after the wall has been decoded - painting it later, where the digits used to be drawn, left the box on
+# screen for the ~1 s fade. The wall is drawn into full-height background sprite strips; the box covers
+# sprite 16 rows 10-12 (shared with the portrait frame's right edge: 0x5343 as below the box, and for the
+# frame's top-right corner 0x535E, which is the corner tile 0x533C without the box's corner pixels) and
+# sprites 17-18 rows 10-12 (plain brick, 0x533D).
+BOX_SITES = [0x21AA4, 0x228B0, 0x25A0C]   # each screen's `jsr 0x1572C` (fade in)
+FADE_IN = 0x1572C
 COVER = [
     # (VRAM address of the first tile word = sprite * 64 + row * 2, tiles going down)
-    (16 * 64 + 11 * 2, [0x5343, 0x5343]),
+    (16 * 64 + 10 * 2, [0x535E, 0x5343, 0x5343]),
     (17 * 64 + 10 * 2, [0x533D] * 3),
     (18 * 64 + 10 * 2, [0x533D] * 3),
 ]
@@ -43,15 +47,14 @@ def apply(rom):
         "%s"
         "    move.w #1,0x3C0004\n"
         "    move.w (%%sp)+,%%sr\n"
-        "    rts\n" % writes,
-        why="paints bricks over the empty timer box on the NPC screens without a countdown")
+        "    jmp 0x%X\n" % (writes, FADE_IN),
+        why="paints bricks over the empty timer box on the NPC screens without a countdown, then fades in")
     for start, draw, draw_bytes in SHOPS:
         rom.write(start + 2, bytes.fromhex("0099"), expect=bytes.fromhex("0015"),
                   why="shop timer starts at 0x99 = never runs (was 0x15 = 15 seconds)")
         n = len(draw_bytes) // 2
-        if draw in BOX_SITES:
-            rom.write(draw, bytes.fromhex("4EB9") + cover.to_bytes(4, "big"), expect=bytes.fromhex(draw_bytes),
-                      why="no countdown digits drawn; the empty box is covered with bricks instead")
-        else:
-            rom.write(draw, bytes.fromhex("4E71") * (n // 2), expect=bytes.fromhex(draw_bytes),
-                      why="no countdown digits drawn")
+        rom.write(draw, bytes.fromhex("4E71") * (n // 2), expect=bytes.fromhex(draw_bytes),
+                  why="no countdown digits drawn")
+    for site in BOX_SITES:
+        rom.write(site, bytes.fromhex("4EB9") + cover.to_bytes(4, "big"), expect=bytes.fromhex("4EB9") + FADE_IN.to_bytes(4, "big"),
+                  why="cover the empty timer box with bricks, then fade in as before")
