@@ -7,3 +7,4 @@ build/
 # MAME writes these next to wherever it is run
 cfg/
 nvram/
+snap/
