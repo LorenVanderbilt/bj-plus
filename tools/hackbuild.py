@@ -6,18 +6,23 @@
     tools/hackbuild.py --skip anim-speed   apply everything except the named patch(es)
     tools/hackbuild.py --list              list the available patches
 
-Output goes to build/roms/ (bjourney.zip = the patched game, neogeo.zip = the BIOS), which
-run.sh points MAME at. The original roms/ folder is never modified.
+Output goes to build/roms/ (the arcade/MVS machine: bjourney.zip = the patched game, neogeo.zip =
+the BIOS) and build/aes/ (the home-console machine: the game as a cartridge plus a software-list
+file, and roms/aes.zip as the BIOS), which run.sh points MAME at. roms/ is never modified.
+
+roms/aes.zip is ngdevkit's open-source AES BIOS (copied from any ngdevkit example's build/rom/aes.zip);
+the official AES BIOS is not needed. Without it only the arcade build is produced.
 
 A patch is a Python file in patches/ defining NAME, DESCRIPTION and apply(rom). `rom` is a Rom
 (below) holding the program ROM in normal 68000 byte order; patches change it with rom.write(),
 and add new code with rom.place_code(), which assembles it into unused space at the end of the ROM.
 """
-import argparse, glob, importlib.util, os, shutil, subprocess, sys, tempfile, zipfile
+import argparse, glob, hashlib, importlib.util, os, shutil, subprocess, sys, tempfile, zipfile, zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ORIG_ZIP = os.path.join(ROOT, "roms", "bjourney.zip")
 OUT_DIR = os.path.join(ROOT, "build", "roms")
+AES_DIR = os.path.join(ROOT, "build", "aes")
 P1_NAME = "022-p1.p1"
 # The program ROM ends in ~300KB of unused 0xFF bytes starting at 0xB69A0; new code goes here.
 FREE_START = 0xB6A00
@@ -84,6 +89,68 @@ class Rom:
         return swap_pairs(bytes(self.data))
 
 
+def write_aes_set(entries, p1_patched):
+    """Write build/aes/: the game as an AES cartridge (a MAME software-list entry) plus the BIOS."""
+    src_bios = os.path.join(ROOT, "roms", "aes.zip")
+    if not os.path.exists(src_bios):
+        print("(no roms/aes.zip - skipping the AES build; copy one from an ngdevkit example's build/rom/)")
+        return
+    os.makedirs(AES_DIR, exist_ok=True)
+    game = {}
+    for info, data in entries:
+        if info.filename.startswith("022-"):
+            game[info.filename] = p1_patched if info.filename == P1_NAME else data
+    with zipfile.ZipFile(os.path.join(AES_DIR, "bjourney.zip"), "w", zipfile.ZIP_DEFLATED) as z:
+        for name, data in sorted(game.items()):
+            z.writestr(name, data)
+
+    def rom(name, offset, flag=None):
+        d = game[name]
+        fl = ' loadflag="%s"' % flag if flag else ""
+        return ('\t\t\t\t<rom%s name="%s" offset="%s" size="0x%06x" crc="%08x" sha1="%s" />'
+                % (fl, name, offset, len(d), zlib.crc32(d) & 0xFFFFFFFF, hashlib.sha1(d).hexdigest()))
+    xml = """<?xml version="1.0"?>
+<!DOCTYPE softwarelist SYSTEM "softwarelist.dtd">
+<softwarelist name="neogeo" description="Neo-Geo cartridges">
+\t<software name="bjourney">
+\t\t<description>Blue's Journey / Raguy (hack)</description>
+\t\t<year>1990</year>
+\t\t<sharedfeat name="release" value="MVS,AES" />
+\t\t<sharedfeat name="compatibility" value="MVS,AES" />
+\t\t<publisher>Alpha Denshi</publisher>
+\t\t<part name="cart" interface="neo_cart">
+\t\t\t<dataarea name="maincpu" width="16" endianness="big" size="0x100000">
+%s
+\t\t\t</dataarea>
+\t\t\t<dataarea name="fixed" size="0x20000">
+%s
+\t\t\t</dataarea>
+\t\t\t<dataarea name="audiocpu" size="0x20000">
+%s
+\t\t\t</dataarea>
+\t\t\t<dataarea name="ymsnd:adpcma" size="0x200000">
+%s
+%s
+\t\t\t</dataarea>
+\t\t\t<dataarea name="sprites" size="0x300000">
+%s
+%s
+%s
+%s
+\t\t\t</dataarea>
+\t\t</part>
+\t</software>
+</softwarelist>
+""" % (rom("022-p1.p1", "0x000000", "load16_word_swap"), rom("022-s1.s1", "0x000000"), rom("022-m1.m1", "0x000000"),
+       rom("022-v11.v11", "0x000000"), rom("022-v22.v22", "0x100000"),
+       rom("022-c1.c1", "0x000000", "load16_byte"), rom("022-c2.c2", "0x000001", "load16_byte"),
+       rom("022-c3.c3", "0x200000", "load16_byte"), rom("022-c4.c4", "0x200001", "load16_byte"))
+    open(os.path.join(AES_DIR, "neogeo.xml"), "w").write(xml)
+    shutil.copy(src_bios, os.path.join(AES_DIR, "aes.zip"))
+    shutil.copy(os.path.join(ROOT, "roms", "neogeo.zip"), os.path.join(AES_DIR, "neogeo.zip"))
+    print("Built build/aes/ (home-console set)")
+
+
 def load_patches():
     found = {}
     for path in sorted(glob.glob(os.path.join(ROOT, "patches", "*.py"))):
@@ -131,6 +198,7 @@ def main():
             z.writestr(info.filename, rom.patched_p1_file() if info.filename == P1_NAME else data)
     shutil.copy(os.path.join(ROOT, "roms", "neogeo.zip"), os.path.join(OUT_DIR, "neogeo.zip"))
     print("Built build/roms/bjourney.zip")
+    write_aes_set(entries, rom.patched_p1_file())
 
 
 if __name__ == "__main__":
