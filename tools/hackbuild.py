@@ -70,10 +70,12 @@ class Rom:
 
     def place_code(self, source, why=""):
         """Assemble 68000 source into free space and return the address it was placed at."""
-        size = len(self._assemble(source, 0))
-        addr = self.alloc(size)
+        # Assemble at the address it will actually live at: the assembler's output size can differ
+        # with the address (branch/immediate sizes), so sizing it at address 0 is not reliable.
+        addr = (self.next_free + 1) & ~1
         code = self._assemble(source, addr)
-        assert len(code) == size
+        size = len(code)
+        assert self.alloc(size) == addr
         self.data[addr:addr + size] = code
         self.log.append("  0x%06X  %d byte(s) of new code  %s" % (addr, size, why))
         return addr
