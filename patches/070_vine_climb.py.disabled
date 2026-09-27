@@ -1,0 +1,66 @@
+NAME = "vine-climb"
+DESCRIPTION = "Press Up/Down to slide along a vine instead of being stuck in place"
+
+# Found by tracing a recorded vine-touch (recordings/vine.inp) with tools/find_writer.py: the hero's
+# position froze completely (Y=0x7A74, X=0x8BF4 for 13+ seconds, then death) because the per-frame
+# "on vine" state handler at 0x3C74A never gives the hero any vertical velocity, and nothing reads the
+# joystick while this state is active. The hero's Y-velocity ("vy") lives at object offset +12 (added
+# into the Y position, offset +0, by the shared position-integrator at 0xA258 that runs every frame
+# regardless of state) - it's simply always 0 while grabbing a vine, so the position never changes.
+#
+# PLAY-TESTED 2026-09-27 AND FOUND BROKEN: normal jumping no longer returned the hero to the ground.
+# Root cause found the next session: 0x3C74A is NOT vine-exclusive. Its address is stored into the same
+# object field (offset +108, the "current per-frame handler" pointer) from TWO different places:
+#   - 0x3C730, which also sets the state-id byte (offset +104) to 3 - this is the real vine grab.
+#   - 0x3D816, which sets state-id to 21 (0x15) and gives vy an initial +768 (falling) before handing
+#     off to the very same 0x3C74A handler - almost certainly an unrelated "drop through/past something"
+#     mechanic, not a vine.
+# The first version of this patch overwrote vy from the joystick unconditionally every time 0x3C74A ran,
+# for BOTH of those states. For state 21 that meant vy got zeroed to 0 whenever Up/Down weren't held,
+# freezing the object in mid-fall instead of letting it keep dropping - exactly the "doesn't return to
+# the ground" symptom. Fixed by gating the whole override on state-id == 3, so state 21 (and anything
+# else that might reuse this handler) is left completely alone.
+#
+# State 3's per-frame handler at 0x3C74A is reached only through that stored function pointer, so it's
+# hooked here at its own fixed address rather than at a call site. Each frame, before any of the state's
+# own logic runs, this reads BIOS_P1CURRENT (0x10FD96: bit 0 = Up, bit 1 = Down, both held-down/
+# active-high - see ngdevkit's asm/bios-ram.h) and sets vy to climb up, down, or hold still. It's
+# rewritten every frame, so it wins over anything the state's own logic does to vy afterwards (e.g. it
+# clears vy under some conditions).
+#
+# Still not verified live even for state 3 (the previous test may have exercised state 21 instead, or
+# both were tangled together): which way the hero actually moves on screen for a given vy sign
+# (Y-down-screen is assumed, i.e. negative vy = up), whether CLIMB_SPEED feels right, and whether the
+# state's own exit check (0x42B0E, which detects leaving the vine) still triggers correctly while
+# sliding. Chosen deliberately >= 512 (2 px/frame in the game's 8.8 fixed point) because the handler has
+# a special case that nudges Y by another 160 units when 0 < |vy| < 512, which a slower climb speed
+# would trigger on every frame.
+HANDLER = 0x3C74A
+STATE_ID = 104          # object offset: which per-frame handler is active (3 = grabbing a vine)
+VINE_STATE = 3
+BIOS_P1CURRENT = 0x10FD96
+CLIMB_SPEED = 512
+
+
+def apply(rom):
+    cave = rom.place_code(
+        "    cmpi.b #%d,%d(%%a5)\n"     # only override vy for the real vine-grab state
+        "    bne.s 4f\n"
+        "    move.l %%d0,-(%%sp)\n"
+        "    moveq #0,%%d0\n"
+        "    move.b 0x%X,%%d0\n"        # BIOS_P1CURRENT
+        "    btst #0,%%d0\n"            # Up
+        "    beq.s 1f\n"
+        "    move.w #-%d,12(%%a5)\n"    # vy = -CLIMB_SPEED (up)
+        "    bra.s 3f\n"
+        "1:  btst #1,%%d0\n"            # Down
+        "    beq.s 2f\n"
+        "    move.w #%d,12(%%a5)\n"     # vy = CLIMB_SPEED (down)
+        "    bra.s 3f\n"
+        "2:  clr.w 12(%%a5)\n"          # neither: hold still
+        "3:  move.l (%%sp)+,%%d0\n"
+        "4:  jsr 0x42B0E\n"             # the original first instruction
+        "    jmp 0x%X\n" % (VINE_STATE, STATE_ID, BIOS_P1CURRENT, CLIMB_SPEED, CLIMB_SPEED, HANDLER + 6),
+        why="read Up/Down and set vy, but only while state == 3 (grabbing a vine)")
+    rom.write(HANDLER, bytes.fromhex("4EF9") + cave.to_bytes(4, "big"),
+              expect=bytes.fromhex("4EB900042B0E"), why="hook the per-frame vine-holding handler")
