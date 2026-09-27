@@ -2,6 +2,8 @@
 # Build the patched ROM set and play it in MAME - as the AES home console by default.
 #   ./run.sh                          AES (home console) mode, all patches
 #   ./run.sh --mvs                    arcade (MVS) mode instead (coin = 5, start = 1)
+#   ./run.sh --bios unibios40         use a different BIOS: AES machine: asia (default), japan, devel, unibios40, unibios33 ...
+#                                     arcade machine (--mvs): euro (default), us, japan, unibios40 ...
 #   ./run.sh --only anim-speed        just that patch
 #   ./run.sh --skip anim-speed        everything except that patch (--skip every patch = the original game)
 #   ./run.sh [options] -- [MAME options]     anything after -- goes to MAME
@@ -11,11 +13,13 @@
 # Left Ctrl/Alt/Space/Shift = A/B/C/D, Tab = MAME menu, Esc = quit.
 cd "$(dirname "$0")" || exit 1
 mode=aes
+bios=""
 build_args=""
 while [ $# -gt 0 ] && [ "$1" != "--" ]; do
     case "$1" in
         --mvs) mode=mvs ;;
         --aes) mode=aes ;;
+        --bios) shift; bios="-bios $1" ;;
         *) build_args="$build_args $1" ;;
     esac
     shift
@@ -25,6 +29,6 @@ python3 tools/hackbuild.py $build_args || exit 1
 mkdir -p recordings
 if [ "$mode" = aes ]; then
     [ -f build/aes/neogeo.xml ] || { echo "No AES build (need roms/aes.zip) - use --mvs, or see tools/hackbuild.py"; exit 1; }
-    exec mame aes -hash build/aes -rompath build/aes -cart bjourney -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
+    exec mame aes -hash build/aes -rompath build/aes -cart bjourney $bios -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
 fi
-exec mame bjourney -rompath build/roms -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
+exec mame bjourney -rompath build/roms $bios -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
