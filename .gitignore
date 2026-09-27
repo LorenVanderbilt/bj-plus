@@ -4,3 +4,6 @@ roms/
 work/
 build/
 .DS_Store
+# MAME writes these next to wherever it is run
+cfg/
+nvram/
