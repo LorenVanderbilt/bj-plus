@@ -11,8 +11,9 @@ DESCRIPTION = "Title menu (AES): Start opens NEW GAME / OPTIONS on the title; OP
 #     closed, calls the PUSH START routine as before. While the menu is open it holds the title's timeout, draws
 #     the menu where PUSH START was (the selected line blinks), and reads Up / Down / A.
 #   * PLAYER_START's call of 0x108DA now goes through `start_pressed`: on the title (it was on screen this frame or
-#     the last) the first Start opens the menu instead of starting a game (the Start request is dropped, the
-#     player(s) who pressed it remembered); a Start while the menu is open selects, like A.
+#     the last, or it is being set up - a flag from the start of its set-up, 0x1AE10, to its end, 0x1B026 - and no
+#     game is running) the first Start opens the menu instead of starting a game (the Start request is dropped,
+#     the player(s) who pressed it remembered); a Start while the menu is open selects, like A.
 #   * Selecting an entry stores the choice, puts the remembered Start request back and calls 0x108DA itself, so
 #     the game starts exactly as it did before (the title ends, the new game runs mode 3).
 # In mode 3 (a new game, 0x112C0) the card load call (`jsr 0xEEF2` at 0x11322, which offered LOAD YES / NO) now
@@ -52,6 +53,8 @@ OPTIONS = ["LEVEL SELECT", "SOUND TEST", "BACK TO TITLE"]
 
 TITLE_PUSH_START = 0x1AF94   # tst.w 31600(a6) ; bne.s +4 ; jsr 0x1B034(pc)
 PUSH_START = 0x1B034
+TITLE_BODY = 0x1AE10         # the title screen: move.b #32,12293(a6) ... (set-up, ~1 s, then its loop)
+TITLE_END = 0x1B026          # the end of the title: jsr 0x9FBE ; jsr 0xA136 ; rts
 PLAYER_START_CALL = 0x947E   # jsr 0x108DA (inside the BIOS's PLAYER_START entry)
 PLAYER_START = 0x108DA
 LOAD_CALL = 0x11322          # jsr 0xEEF2 (mode 3: offer to load from the card)
@@ -83,6 +86,7 @@ CHOICE = 0x10C208
 STAGE_PICK = 0x10C209        # a stage picked in the level select (0 = none)
 SELECT_REQ = 0x10C20A        # Start pressed while the menu was open
 OPT_CURSOR = 0x10C20B
+TITLE_PHASE = 0x10C20C       # 1 from the start of the title screen's set-up until the title ends
 PAL = 15                     # fix palette for the options screens' text
 TITLE_PAL = 5                # the title's PUSH START palette
 MENU_COL, MENU_ROW = 16, 20  # title menu: first line (fix column / row), a line every other row
@@ -114,6 +118,8 @@ def apply(rom):
     bra.w new_game                   | +8
     bra.w how_to_play                | +12
     bra.w mode3_end                  | +16
+    bra.w title_enter                | +20
+    bra.w title_leave                | +24
 
 | ================= title: once per frame, in place of the PUSH START call
 menu_frame:
@@ -204,14 +210,28 @@ select:
     movem.l (%sp)+,%d0-%d7/%a0-%a6
     rts
 
+| ================= the title screen's set-up and end: the title phase
+title_enter:
+    move.b #1,TITLE_PHASE
+    move.b #32,0x103005              | the instruction this call replaced
+    rts
+title_leave:
+    clr.b TITLE_PHASE
+    jmp CLEAR_FIX                    | the call this replaced
+
 | ================= BIOS PLAYER_START, in place of its jsr 0x108DA
 start_pressed:
     tst.b SYSTEM_MODE
     bne 9f
+    tst.b 0x106800
+    bne 9f                           | a game is running (player 2 joining): as before
+    tst.b TITLE_PHASE                | the title is being set up (or is up): the menu
+    bne 7f
     move.b FRAME,%d0
     sub.b ON_TITLE,%d0
     cmp.b #2,%d0
     bcc 9f                           | not on the title: as before
+7:
     tst.b MENU_OPEN
     bne 8f
     move.b #1,MENU_OPEN              | open the menu
@@ -618,7 +638,7 @@ TABLES
         "CURSOR": "0x%X" % CURSOR, "SOUND_NO": "0x%X" % SOUND_NO, "MENU_OPEN": "0x%X" % MENU_OPEN,
         "MENU_CURSOR": "0x%X" % MENU_CURSOR, "MENU_PREV": "0x%X" % MENU_PREV, "ON_TITLE": "0x%X" % ON_TITLE,
         "START_BITS": "0x%X" % START_BITS, "CHOICE": "0x%X" % CHOICE, "STAGE_PICK": "0x%X" % STAGE_PICK,
-        "SELECT_REQ": "0x%X" % SELECT_REQ, "OPT_CURSOR": "0x%X" % OPT_CURSOR, "PAL": str(PAL),
+        "SELECT_REQ": "0x%X" % SELECT_REQ, "TITLE_PHASE": "0x%X" % TITLE_PHASE, "OPT_CURSOR": "0x%X" % OPT_CURSOR, "PAL": str(PAL),
         "BLINK_ON": str(BLINK_ON), "BLINK_OFF": str(BLINK_OFF),
         "REPEAT_DELAY": str(REPEAT_DELAY), "REPEAT_RATE": str(REPEAT_RATE),
     }
@@ -626,7 +646,8 @@ TABLES
         src = src.replace(k, consts[k])
     base = rom.place_code(src, why="title menu, options screen (level select, sound test)")
     labels = {name: base + 4 * i for i, name in
-              enumerate(("menu_frame", "start_pressed", "new_game", "how_to_play", "mode3_end"))}
+              enumerate(("menu_frame", "start_pressed", "new_game", "how_to_play", "mode3_end",
+                         "title_enter", "title_leave"))}
     rom.write(TITLE_PUSH_START, bytes.fromhex("4EB9") + labels["menu_frame"].to_bytes(4, "big") + bytes.fromhex("4E714E71"),
               expect=bytes.fromhex("4A6E7B7066044EBA0098"), why="title: the menu instead of PUSH START once Start is pressed")
     rom.write(PLAYER_START_CALL, bytes.fromhex("4EB9") + labels["start_pressed"].to_bytes(4, "big"),
@@ -637,5 +658,9 @@ TABLES
               expect=bytes.fromhex("1D6E6800789E6100FDE8"), why="new game: the how-to-play unless a stage was picked")
     rom.write(MODE3_END, bytes.fromhex("4EB9") + labels["mode3_end"].to_bytes(4, "big"),
               expect=bytes.fromhex("1D7C00003004"), why="new game: start a stage picked in the level select")
+    rom.write(TITLE_BODY, bytes.fromhex("4EB9") + labels["title_enter"].to_bytes(4, "big"),
+              expect=bytes.fromhex("1D7C00203005"), why="title set-up: note the title phase")
+    rom.write(TITLE_END, bytes.fromhex("4EB9") + labels["title_leave"].to_bytes(4, "big"),
+              expect=bytes.fromhex("4EB900009FBE"), why="title end: the title phase is over")
     rom.write(CARD_SUB_SET + 3, bytes([HACK_CARD_SUB]), expect=bytes.fromhex("00"),
               why="memory card: the hack's saves use sub-number 1 (the original game's use 0)")
