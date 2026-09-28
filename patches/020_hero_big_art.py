@@ -75,14 +75,17 @@ FRAME_SUBSTITUTES = {0xB0: BIG_WINDUP, 0xB4: BIG_RELEASE, 0xB8: BIG_WINDUP, 0xBC
                      # with the big crawling poses
                      0x8C: BIG_WINDUP, 0x90: BIG_RELEASE, 0x94: 0x330, 0x98: 0x334, 0x9C: 0x338}
 HERO_UP_PX = 15
-# ... per animation: the big art is lined up by its feet, which is wrong where the hero hangs by his hands:
-#   0x1C, hanging from the balloon (player 2 floating in): the big pose's hands are 2px lower in its frame
-#   than the normal pose's, so it only goes up 2px (15 lifted his hands well above the balloon's string)
-UP_PX = {0x1C: 2}
-# ... and further toward the art's back per animation (mirrored facing left):
-#   0x1C, hanging from the balloon: the big pose's raised hand is ~10px further out than the normal pose's, so
-#     the string ran through his body; 10px more puts the hand on the string, the body beside it
-SIDE_PX = {0x1C: 10}
+# ... per hero state (+104): the big art is lined up by its feet, which is wrong where the hero hangs by his hands:
+#   44, hanging from the balloon (player 2 floating in): the big pose's hands are 2px lower in its frame than the
+#   normal pose's, so it only goes up 2px (15 lifted his hands well above the balloon's string)
+# (by state, not animation: hanging from a swinging vine, state 20, uses the same animation, 0x1C, and is right
+# as it is)
+UP_PX = {44: 2}
+# ... and further toward the art's back per state (mirrored facing left):
+#   44, hanging from the balloon: the big pose's raised hand is ~10px further out than the normal pose's, so the
+#     string ran through his body; 10px more puts the hand on the string, the body beside it
+SIDE_PX = {44: 10}
+STATES = 0x80
 # An enemy the hero carries sits on his head: the routine at CARRIED_CODE (the carried enemy's code) puts it
 # above the normal hero's head every frame, so with the big art it is drawn CARRY_UP_PX higher.
 CARRIED_CODE = 0x466B6
@@ -142,7 +145,7 @@ def x_shift(dreg, px=None, facing_left=False):
     n = _vine_labels[0]
     checks = "".join("    cmp.b #%d,104(%%a0)\n    beq vine%d\n" % (st, n) for st in VINE_STATES)
     vine = "    %s.w #%d,%%%s\n" % ("add" if facing_left else "sub", VINE_PX * 128, dreg)
-    per_anim = ("    movem.l %%d0/%%a1,-(%%sp)\n    moveq #0,%%d0\n    move.b 102(%%a0),%%d0\n    and.w #0x3F,%%d0\n"
+    per_anim = ("    movem.l %%d0/%%a1,-(%%sp)\n    moveq #0,%%d0\n    move.b 104(%%a0),%%d0\n    and.w #0x7F,%%d0\n"
                 "    add.w %%d0,%%d0\n    lea 0x%X,%%a1\n    move.w (%%a1,%%d0.w),%%d0\n    %s.w %%d0,%%%s\n"
                 "    movem.l (%%sp)+,%%d0/%%a1\n" % (_side_table[0], "add" if facing_left else "sub", dreg))
     return ("    sub.w #%d,%%%s\n" % ((HERO_LEFT_PX if px is None else px) * 128, dreg) + per_anim +
@@ -154,8 +157,8 @@ _side_table = [None]
 
 
 def y_shift(dreg):
-    """Raise the big art by the hero's animation's entry in the UP_PX table (HERO_UP_PX unless overridden)."""
-    return ("    movem.l %%d0/%%a1,-(%%sp)\n    moveq #0,%%d0\n    move.b 102(%%a0),%%d0\n    and.w #0x3F,%%d0\n"
+    """Raise the big art by the hero's state's entry in the UP_PX table (HERO_UP_PX unless overridden)."""
+    return ("    movem.l %%d0/%%a1,-(%%sp)\n    moveq #0,%%d0\n    move.b 104(%%a0),%%d0\n    and.w #0x7F,%%d0\n"
             "    add.w %%d0,%%d0\n    lea 0x%X,%%a1\n    move.w (%%a1,%%d0.w),%%d0\n    add.w %%d0,%%%s\n"
             "    movem.l (%%sp)+,%%d0/%%a1\n" % (_up_table[0], dreg))
 
@@ -506,11 +509,11 @@ DATA
               expect=bytes.fromhex("1C2800210206"), why="height offset: +36 from the normal frame for the hero")
 
     _side_table[0] = rom.place_code(
-        "    .word %s\n" % ",".join(str(SIDE_PX.get(n, 0) * 128) for n in range(NORMAL_ANIMS)),
-        why="hero big art: how far sideways to draw it, per animation")
+        "    .word %s\n" % ",".join(str(SIDE_PX.get(n, 0) * 128) for n in range(STATES)),
+        why="hero big art: how far sideways to draw it, per hero state")
     _up_table[0] = rom.place_code(
-        "    .word %s\n" % ",".join(str(UP_PX.get(n, HERO_UP_PX) * 128) for n in range(NORMAL_ANIMS)),
-        why="hero big art: how far up to draw it, per animation")
+        "    .word %s\n" % ",".join(str(UP_PX.get(n, HERO_UP_PX) * 128) for n in range(STATES)),
+        why="hero big art: how far up to draw it, per hero state")
     hook(rom, DRAW_X_ZOOMED, "044540003C3C0100",
          "    sub.w #0x4000,%d5\n" + hero_only("a0", x_shift("d5", HERO_LEFT_PX_FACING_LEFT, True)) +
          "    move.w #256,%d6\n    rts\n",
