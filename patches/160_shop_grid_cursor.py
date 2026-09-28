@@ -12,6 +12,8 @@ DESCRIPTION = "Fairy shop: no floating cursor - move box to box, the selected bo
 #   moves it one box per new Up/Down/Left/Right press (stopping at the edges), and returns the item object
 #   sitting in that box (or "nothing" for an empty box) exactly like 0xB642 did - so the descriptions,
 #   buying and EXIT all work as before. It also hides the pointer (+8 = 0, as the game itself does).
+# - The pointers are also spawned hidden: the shop set-up creates them with 0xA158 from inline data whose
+#   fourth field is the starting graphic (+8); that is 0 now, so they don't show during the fade-in.
 # - The joystick direction the movement reads (0x1FE30) is replaced by 0, so the hidden pointer stays put.
 # - The shop's main loop (0x1F86E, and the closing loop at 0x1F8D2) calls `frames` each frame, which draws
 #   a thin frame just inside the gold border of each player's box on the fix layer: blue for player 1,
@@ -33,6 +35,7 @@ BLUE, GREEN = 0x126F, 0x23F3                                # Neo Geo colors
 BLANK = 0x0520                                              # the fix layer's blank cell (as 0x9FBE fills it)
 
 PICK_SITE = 0x1FDAE        # jsr 0xB642
+SPAWN_GRAPHICS = [(0x1FB2C, 0x3044), (0x1FB5E, 0x3048), (0x1FBAE, 0x3048)]   # P1, P2, P2 (another layout)
 MOVE_SITE = 0x1FE30        # move.b 0x786A(a6),d2  (joystick direction for the pointer's velocity)
 LOOP_SITES = [(0x1F86E, "422E78664EBA1CEE"), (0x1F8D2, "422E78664EBA1C8A")]   # clr.b 0x7866(a6) ; jsr 0x21562
 TYPEWRITER = 0x21562
@@ -275,6 +278,8 @@ DATA
               why="shop pointer: the item comes from the player's box, not from collision")
     rom.write(MOVE_SITE, bytes.fromhex("74004E71"), expect=bytes.fromhex("142E786A"),
               why="shop pointer: no free movement")
+    for site, graphic in SPAWN_GRAPHICS:
+        rom.write(site, bytes(2), expect=graphic.to_bytes(2, "big"), why="shop pointer: spawned hidden")
     for site, orig in LOOP_SITES:
         rom.write(site, bytes.fromhex("4EB9") + frames.to_bytes(4, "big") + bytes.fromhex("4E71"),
                   expect=bytes.fromhex(orig), why="shop loop: draw the selection frames each frame")
