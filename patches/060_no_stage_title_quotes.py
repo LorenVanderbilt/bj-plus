@@ -1,5 +1,5 @@
 NAME = "no-stage-title-quotes"
-DESCRIPTION = "Stage title cards: no quotation marks around the act number, and each name centered (e.g. JUNGLE ZONE 1)"
+DESCRIPTION = "Stage title cards: no quotation marks around the act number, each name centered (e.g. JUNGLE ZONE 1), STRANGE SPACE spelled right"
 
 # Each stage's English title card (e.g. ` JUNGLE ZONE  "1"`) is a plain ASCII string in the program ROM, one
 # per zone/act (6 zones x 4 acts = 24), printed by a small per-act routine: `lea string,a0 ; move.w #pos,d0 ;
@@ -15,10 +15,13 @@ ROUTINES = [0x147A8 + 0x26 * i for i in range(4)] + [   # JUNGLE ZONE (acts 3-4 
     0x14840, 0x14876, 0x148AC, 0x148E2,                   # THE LOWER EARTH EMPIRE
     0x14918, 0x14940, 0x14968, 0x14990,                   # EMPIRE MARSH
     0x14A60, 0x14A8A, 0x14AB4, 0x14ADE,                   # MECHANICAL CITY
-    0x14BB0, 0x14BD8, 0x14C00, 0x14C28,                   # STARGE SPACE
+    0x14BB0, 0x14BD8, 0x14C00, 0x14C28,                   # STARGE SPACE (sic)
     0x14C50, 0x14C78, 0x14CA0, 0x14CC8,                   # DARUMA EMPIRE
 ]
 SCREEN_COLUMNS = 40
+# The English version misspells one zone: its Japanese name, 不思議空間 ("mysterious space"), was meant as
+# STRANGE SPACE.
+RENAMES = {"STARGE SPACE": "STRANGE SPACE"}
 
 
 def apply(rom):
@@ -30,6 +33,8 @@ def apply(rom):
         start_col = rom.u16(r + 6) // 32
         old = bytes(rom.data[text_at:rom.data.index(0xFF, text_at)])
         name = " ".join(old.decode("ascii").replace('"', " ").split())
+        for a, b in RENAMES.items():
+            name = name.replace(a, b)
         lead = (SCREEN_COLUMNS - len(name)) // 2 - start_col
         if lead < 0 or lead + len(name) > len(old):
             raise SystemExit("can't center %r in its %d-byte string" % (name, len(old)))

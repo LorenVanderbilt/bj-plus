@@ -42,7 +42,7 @@ STAGES = [
     (6, "THE LOWER EARTH EMPIRE 3"), (7, "THE LOWER EARTH EMPIRE 4"),
     (8, "EMPIRE MARSH 1"), (10, "EMPIRE MARSH 2"), (9, "EMPIRE MARSH 3"), (11, "EMPIRE MARSH 4"),
     (16, "MECHANICAL CITY 1"), (17, "MECHANICAL CITY 2"), (18, "MECHANICAL CITY 3"), (19, "MECHANICAL CITY 4"),
-    (24, "STARGE SPACE 1"), (25, "STARGE SPACE 2"), (26, "STARGE SPACE 3"), (27, "STARGE SPACE 4"),
+    (24, "STRANGE SPACE 1"), (25, "STRANGE SPACE 2"), (26, "STRANGE SPACE 3"), (27, "STRANGE SPACE 4"),
     (28, "DARUMA EMPIRE 1"), (29, "DARUMA EMPIRE 2"), (30, "DARUMA EMPIRE 3"), (31, "DARUMA EMPIRE 4"),
 ]
 # Stage ids (the game's English title cards, table 0x13D9E): 0/1 are the how-to-play copies of the jungle,
