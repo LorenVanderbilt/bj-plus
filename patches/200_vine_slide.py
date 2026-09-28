@@ -15,6 +15,11 @@ DESCRIPTION = "Swinging vines: hold Up / Down to slide smoothly along the vine"
 # it only does while the calling segment still has the flag). A step in progress always finishes; while the button is still
 # held the next one starts straight away. It stops at the bottom segment and at MIN_DISTANCE from the pivot.
 # Only vine segments with a "holding" value are touched, so letting go works as before.
+# The hero's animation on a vine: the hanging state (+104 = 20) climbs (animation 0x1B, else 0x1C hanging still)
+# only while the joystick (0x103908, masked with 0x0F) is exactly Up or exactly Down, so a diagonal slid the hero
+# along the vine without climbing. The six checks (hanging and climbing, one pair per hero size) now mask with
+# 3 - Up / Down count whatever Left / Right do.
+CLIMB_CHECKS = [0x3D770, 0x3D7BC, 0x3FD48, 0x3FD94, 0x41C62, 0x41CAE]   # move.b 14600(a6),d0 ; andi.w #15,d0
 SITES = [(0x4FE72, "2D6D00004000", 52, 0x10FD96, 0x104000), (0x4FEEE, "2D6D00004080", 53, 0x10FD9C, 0x104080)]
 SEGMENT_CODE = 0x4FD30
 STEP = 6                  # distance between segments (+56)
@@ -27,6 +32,9 @@ LAST_FRAME = 0x10EA0C     # and one byte per player: the frame counter's low byt
 
 
 def apply(rom):
+    for site in CLIMB_CHECKS:
+        rom.write(site + 4, bytes.fromhex("02400003"), expect=bytes.fromhex("0240000F"),
+                  why="on a vine: Up / Down climb even with Left / Right held")
     for n, (site, orig, flag, joy, hero) in enumerate(SITES):
         src = r"""
 | a5 = the segment holding this player's hero. RAM: +0 word = that segment (low word of its address, to spot a
