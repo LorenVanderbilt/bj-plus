@@ -16,6 +16,7 @@ the official AES BIOS is not needed. Without it only the arcade build is produce
 A patch is a Python file in patches/ defining NAME, DESCRIPTION and apply(rom). `rom` is a Rom
 (below) holding the program ROM in normal 68000 byte order; patches change it with rom.write(),
 and add new code with rom.place_code(), which assembles it into unused space at the end of the ROM.
+rom.put_fix_tile() adds 8x8 tiles to the fix-layer ROM (022-s1.s1) in slots that are blank.
 """
 import argparse, glob, hashlib, importlib.util, os, shutil, subprocess, sys, tempfile, zipfile, zlib
 
@@ -24,6 +25,7 @@ ORIG_ZIP = os.path.join(ROOT, "roms", "bjourney.zip")
 OUT_DIR = os.path.join(ROOT, "build", "roms")
 AES_DIR = os.path.join(ROOT, "build", "aes")
 P1_NAME = "022-p1.p1"
+S1_NAME = "022-s1.s1"
 # The program ROM ends in ~300KB of unused 0xFF bytes starting at 0xB69A0; new code goes here.
 FREE_START = 0xB6A00
 AS, LD, OBJCOPY = "m68k-neogeo-elf-as", "m68k-neogeo-elf-ld", "m68k-neogeo-elf-objcopy"
@@ -37,9 +39,11 @@ def swap_pairs(b):
 
 
 class Rom:
-    def __init__(self, data):
+    def __init__(self, data, fix=b""):
         self.data = bytearray(data)
         self.orig = bytes(data)
+        self.fix = bytearray(fix)          # the fix-layer ROM (S ROM): 32 bytes per 8x8 tile, 4 bits per pixel
+        self.fix_orig = bytes(fix)
         self.next_free = FREE_START
         self.log = []
 
@@ -85,11 +89,36 @@ class Rom:
         self.log.append("  0x%06X  %d byte(s) of new code  %s" % (addr, size, why))
         return addr
 
+    # Byte and nibble holding fix-tile pixel (x, y): columns 0-1 are in bytes 16-23, 2-3 in 24-31, 4-5 in
+    # 0-7, 6-7 in 8-15 (one byte per row); the even column is the low nibble.
+    FIX_COLUMN_BYTE = (16, 16, 24, 24, 0, 0, 8, 8)
+
+    def put_fix_tile(self, index, pixels, why=""):
+        """Store an 8x8 fix-layer tile (pixels[y][x] = color index 0-15, 0 = transparent) at tile number
+        index. The slot must be blank (all zero) in the original S ROM."""
+        at = index * 32
+        if any(self.fix_orig[at:at + 32]):
+            raise SystemExit("fix tile 0x%X is not blank in the original S ROM" % index)
+        tile = bytearray(32)
+        for y in range(8):
+            for x in range(8):
+                b = self.FIX_COLUMN_BYTE[x] + y
+                tile[b] |= (pixels[y][x] & 15) << (0 if x % 2 == 0 else 4)
+        self.fix[at:at + 32] = tile
+        self.log.append("  fix 0x%03X  tile  %s" % (index, why))
+
     def patched_p1_file(self):
         return swap_pairs(bytes(self.data))
 
+    def patched_files(self):
+        """The ROM files this build changes: {file name: new contents}."""
+        files = {P1_NAME: self.patched_p1_file()}
+        if bytes(self.fix) != self.fix_orig:
+            files[S1_NAME] = bytes(self.fix)
+        return files
 
-def write_aes_set(entries, p1_patched):
+
+def write_aes_set(entries, patched):
     """Write build/aes/: the game as an AES cartridge (a MAME software-list entry) plus the BIOS."""
     src_bios = os.path.join(ROOT, "roms", "aes.zip")
     if not os.path.exists(src_bios):
@@ -99,7 +128,7 @@ def write_aes_set(entries, p1_patched):
     game = {}
     for info, data in entries:
         if info.filename.startswith("022-"):
-            game[info.filename] = p1_patched if info.filename == P1_NAME else data
+            game[info.filename] = patched.get(info.filename, data)
     with zipfile.ZipFile(os.path.join(AES_DIR, "bjourney.zip"), "w", zipfile.ZIP_DEFLATED) as z:
         for name, data in sorted(game.items()):
             z.writestr(name, data)
@@ -183,7 +212,8 @@ def main():
     with zipfile.ZipFile(ORIG_ZIP) as z:
         entries = [(i, z.read(i)) for i in z.infolist()]
     p1 = next(d for i, d in entries if i.filename == P1_NAME)
-    rom = Rom(swap_pairs(p1))
+    s1 = next(d for i, d in entries if i.filename == S1_NAME)
+    rom = Rom(swap_pairs(p1), s1)
 
     print("Applying %d patch(es): %s" % (len(chosen), ", ".join(chosen) or "(none)"))
     for n in chosen:
@@ -192,13 +222,14 @@ def main():
     for line in rom.log:
         print(line)
 
+    patched = rom.patched_files()
     os.makedirs(OUT_DIR, exist_ok=True)
     with zipfile.ZipFile(os.path.join(OUT_DIR, "bjourney.zip"), "w", zipfile.ZIP_DEFLATED) as z:
         for info, data in entries:
-            z.writestr(info.filename, rom.patched_p1_file() if info.filename == P1_NAME else data)
+            z.writestr(info.filename, patched.get(info.filename, data))
     shutil.copy(os.path.join(ROOT, "roms", "neogeo.zip"), os.path.join(OUT_DIR, "neogeo.zip"))
     print("Built build/roms/bjourney.zip")
-    write_aes_set(entries, rom.patched_p1_file())
+    write_aes_set(entries, patched)
 
 
 if __name__ == "__main__":
