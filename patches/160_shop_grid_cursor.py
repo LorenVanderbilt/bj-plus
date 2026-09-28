@@ -52,7 +52,7 @@ CLOSE_SITE = 0x1F8F4       # jsr 0x15724 - the shop's fade-out
 FADE_OUT = 0x15724
 TYPEWRITER = 0x21562
 FRAME_COUNTER = 0x100204   # long, +1 every vblank
-RAM = 0x10C220             # spare RAM: see the offsets in the code
+RAM = 0x10E920             # spare RAM: see the offsets in the code
 
 
 def box_middle(box):

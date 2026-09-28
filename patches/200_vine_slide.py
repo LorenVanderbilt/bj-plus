@@ -22,8 +22,8 @@ MIN_DISTANCE = 6          # don't slide right up to the pivot
 UP_RATE = 10              # frames per segment climbing up
 DOWN_RATE = 6             # and sliding down
 NEAR = 0x1000             # a neighbouring segment of the same vine is within 16 px
-RAM = 0x10C304            # spare RAM, 4 bytes per player: segment (low word), step direction, step progress
-LAST_FRAME = 0x10C30C     # and one byte per player: the frame counter's low byte when it last moved
+RAM = 0x10EA04            # spare RAM, 4 bytes per player: segment (low word), step direction, step progress
+LAST_FRAME = 0x10EA0C     # and one byte per player: the frame counter's low byte when it last moved
 
 
 def apply(rom):

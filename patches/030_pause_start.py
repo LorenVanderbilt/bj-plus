@@ -32,8 +32,12 @@ SOUND_PAUSE, SOUND_RESUME = 0xF2, 0xF3
 PAUSE_EFFECT = 0xC5       # played on pause
 QUEUE_SOUND = 0xA27A      # enqueue the sound command in d0
 CHECK_SITES = [0x11AC0, 0x11B06]   # move.b 0x10FDAD,d0 ; andi.w #10,d0  = 1039 0010 FDAD 0240 000A
-PREV_STATE = 0x10C100              # one spare byte of RAM (0x10A3B0-0x10F2FF is unused by the game)
-PREV_PLAYERS = 0x10C101            # and the players-in-game byte (0x106800) at the previous check
+# Spare RAM for the patches: 0x10E700-0x10EFFF. The game zeroes 0x10D000-0x10EFFF at the start of each attract
+# cycle (0x13450) and otherwise leaves it alone - gameplay, the shop and NPC rooms never write it. (0x10A800-
+# 0x10CFFF, which looks unused in play, is where the shop / NPC rooms keep a copy of the level's objects - RAM
+# there gets copied back over the objects when the room closes.)
+PREV_STATE = 0x10E800              # one byte
+PREV_PLAYERS = 0x10E801            # and the players-in-game byte (0x106800) at the previous check
 PLAYERS = 0x106800
 
 

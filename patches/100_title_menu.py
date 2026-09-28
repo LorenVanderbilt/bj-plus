@@ -74,19 +74,19 @@ WAIT_FRAME = 0xE856          # the game's wait-for-next-frame
 QUEUE_SOUND = 0xA27A         # the game's sound command queue (d0 = command)
 ATTRACT_TOGGLE = 0x1033CA   # bit 0: which attract cycle runs next (0x106A0: 0 = the one with the title)
 FIRST_SOUND, LAST_SOUND, FIRST_EFFECT = 0x04, 0xEF, 0x24
-# spare RAM (0x10A3B0-0x10F2FF is unused by the game)
-CURSOR = 0x10C200            # the level select's last choice
-SOUND_NO = 0x10C201          # the sound test's last number
-MENU_OPEN = 0x10C202
-MENU_CURSOR = 0x10C203
-MENU_PREV = 0x10C204         # (word) the menu's last frame's buttons
-ON_TITLE = 0x10C206          # FRAME when the title was last on screen
-START_BITS = 0x10C207        # which players pressed the Start that opened the menu
-CHOICE = 0x10C208
-STAGE_PICK = 0x10C209        # a stage picked in the level select (0 = none)
-SELECT_REQ = 0x10C20A        # Start pressed while the menu was open
-OPT_CURSOR = 0x10C20B
-TITLE_PHASE = 0x10C20C       # 1 from the start of the title screen's set-up until the title ends
+# spare RAM: 0x10E700-0x10EFFF (see 030_pause_start.py)
+CURSOR = 0x10E900            # the level select's last choice
+SOUND_NO = 0x10E901          # the sound test's last number
+MENU_OPEN = 0x10E902
+MENU_CURSOR = 0x10E903
+MENU_PREV = 0x10E904         # (word) the menu's last frame's buttons
+ON_TITLE = 0x10E906          # FRAME when the title was last on screen
+START_BITS = 0x10E907        # which players pressed the Start that opened the menu
+CHOICE = 0x10E908
+STAGE_PICK = 0x10E909        # a stage picked in the level select (0 = none)
+SELECT_REQ = 0x10E90A        # Start pressed while the menu was open
+OPT_CURSOR = 0x10E90B
+TITLE_PHASE = 0x10E90C       # 1 from the start of the title screen's set-up until the title ends
 PAL = 15                     # fix palette for the options screens' text
 TITLE_PAL = 5                # the title's PUSH START palette
 MENU_COL, MENU_ROW = 16, 20  # title menu: first line (fix column / row), a line every other row

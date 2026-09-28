@@ -49,7 +49,7 @@ NORMAL_FRAMES = 0x190             # the normal hero's frames are 0-0x18C (0x134-
 #     every fourth frame; like the normal cycle (0x6C 0x70 0x74 0x70) it repeats its second pose instead.
 ROW_OVERRIDES = {0x2D: "breathe", 0x2B: "none", 0x18: [0x330, 0x334, 0x338, 0x334]}
 BREATHE = (0x364, 0x368)
-PAIR_RAM = [0x10C320, 0x10C330]   # spare RAM per player: +0 normal frame, +2 the big frame drawn for it, +4 the
+PAIR_RAM = [0x10EA20, 0x10EA30]   # spare RAM per player: +0 normal frame, +2 the big frame drawn for it, +4 the
                                   # normal frame's width in tiles, +5 1 if this draw used the big frame, +6 its
                                   # height, +7 which of +34 / +36 / +38 (bits 0-2) to set back after the draw,
                                   # +8 / +10 / +12 the values to set them to
@@ -127,7 +127,7 @@ def hero_only(reg, body, tag=""):
                     for i, ram in enumerate(PAIR_RAM))
     mark = ""
     if _DEBUG_MARKS:
-        mark = "    addq.b #1,0x%X\n" % (0x10C000 + len(_marks))
+        mark = "    addq.b #1,0x%X\n" % (0x10E700 + len(_marks))
         _marks[len(_marks)] = tag
     return (checks + "    bra done%s\n%shero%s:\n%s%sdone%s:\n"
             % (tag, flags, tag, mark, body, tag))

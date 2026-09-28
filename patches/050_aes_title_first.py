@@ -34,8 +34,8 @@ SYSTEM_MODE = 0x10FD82
 P1_CURRENT, P2_CURRENT = 0x10FD96, 0x10FD9C   # BIOS: buttons held (bits 4-7 = A B C D)
 START_FLAGS = 0x10FDB4                        # BIOS: bit 0 / 1 = player 1 / 2 pressed Start
 START_FLAG_OF_GAME = 0x106800                 # game: non-zero ends an attract screen / starts a game
-IN_CINEMA = 0x10C110    # spare RAM: MAGIC while a story scene runs
-ABORT = 0x10C111        # spare RAM: 1 = a button was pressed in the cinema
+IN_CINEMA = 0x10E810    # spare RAM: MAGIC while a story scene runs
+ABORT = 0x10E811        # spare RAM: 1 = a button was pressed in the cinema
 MAGIC = 0xA5
 
 
