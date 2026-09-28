@@ -1,8 +1,6 @@
 NAME = "item-text"
 DESCRIPTION = "BLUE'S ITEM screens: new English item names and descriptions, a third screen, no PUSH START over them"
 
-import os
-
 # The attract mode's item screens draw their English text (non-Japanese consoles; 0x10FD83 != 0) with
 # `lea string,a0 ; move.w #position,d0 ; jsr 0x4DBB8` per line: an ASCII string ending in FF, drawn in the
 # 2-row-tall text font from fix address 0x7000 + position (column * 32 + row). Each item's name is at column
@@ -12,29 +10,39 @@ import os
 # edge). (The "x" in SILVERx5 is part of the box artwork.)
 #
 # The first two screens' text calls are replaced by a call to new code drawing the new lines (so a line can be
-# longer than the original string, or split in two), followed by a branch over the old calls; the leaders'
-# fix addresses are rewritten for the layout:
-#   "left":  names at column 11, the leader, then the description (the original layout)
-#   "right": names right-aligned against the leader
-#   "follow": names at column 11, the leader right after each name, the description right after that
-LAYOUT = os.environ.get("BJ_ITEM_LAYOUT", "left")
+# longer than the original string, or split in two), followed by a branch over the old calls, and the leaders'
+# fix addresses are rewritten: on each screen the leader sits right after its longest name (the screens group
+# names of similar length: the short ones on screen 1), the descriptions right after it.
 NAME_COLUMN = 11
 BOX_LAST_COLUMN = 34              # a description may not run past this column
 LEADER_TILE = 0x582C
 DRAW_TEXT, DRAW_LEADER = 0x4DBB8, 0x2183A
-# (first old text call, end of the old text calls, leader position immediates, leader column, items)
+# (first old text call, end of the old text calls, leader position immediates, items)
 # item = (name, row, [description lines]) - one line on the item's row, two a row above and below
 SCREENS = [
-    (0x35DCA, 0x35DFA, [0x35DFC, 0x35E0A, 0x35E18], 17, [
-        ("CLOVER", 10, ["REVEAL SHOP"]),
-        ("KEY", 16, ["UNLOCK", "BONUS ROOM"]),
+    (0x35DCA, 0x35DFA, [0x35DFC, 0x35E0A, 0x35E18], [
+        ("FERN", 10, ["SPEED UP"]),
+        ("KEY", 16, ["UNLOCK BONUS ROOM"]),
         ("LEAF", 22, ["ATTACK UP"]),
     ]),
-    (0x35EF0, 0x35F40, [0x35F50, 0x35F5E, 0x35F6C], 17, [
+    (0x35EF0, 0x35F40, [0x35F50, 0x35F5E, 0x35F6C], [
         ("COCOON", 10, ["GOLD 1UP", "SILVER 5 1UP"]),
         ("NECTAR", 16, ["RESTORE 1 HEALTH"]),
-        ("FERN", 22, ["SPEED UP"]),
+        ("CLOVER", 22, ["REVEAL SHOP"]),
     ]),
+]
+# The clover (originally screen 1's top item) and the fern (screen 2's bottom one) swap places, icons too. Screen
+# 1's icon objects are spawned from data at 0x35BFA (per icon: y, x, code, frame ... palette); screen 2 (0x35E62)
+# gives them its frames and palettes and moves each 8px left (its icons are 4 tiles wide, screen 1's 3).
+ICON_SWAP = [
+    # (address, original bytes, new bytes, why)
+    (0x35C00, "5000", "4C00", "screen 1 top icon: the fern (4 tiles wide) 8px further left"),
+    (0x35C06, "348C", "3040", "screen 1 top icon: the fern (was the clover)"),
+    (0x35C12, "D6", "C5", "screen 1 top icon: the fern's palette"),
+    (0x35E76, "3040", "348C", "screen 2 bottom icon: the clover (was the fern)"),
+    (0x35E88, "00C5", "00D6", "screen 2 bottom icon: the clover's palette"),
+    (0x35E8E, "0400", "0000", "screen 2 top icon: already 8px left (the fern's place)"),
+    (0x35E9A, "0400", "0000", "screen 2 bottom icon: the clover (3 tiles wide) stays put"),
 ]
 PUSH_START_CALL = 0x35C9C         # jsr 0x35B00 in the item screens' loop: blinks PUSH START over the boxes
 
@@ -42,7 +50,7 @@ PUSH_START_CALL = 0x35C9C         # jsr 0x35B00 in the item screens' loop: blink
 # loop (0x35C60) with a countdown at 0x1078F0 set to 0x200 (0x35C6C); at 0x100 it switches to screen 2
 # (0x35E62: clear the fix layer, give the three icon objects screen 2's frames / palettes / positions, draw the
 # header and text). The countdown now starts at 0x300 and a hook in place of the switch shows screen 2 at 0x200
-# and screen 3 at 0x100. Screen 3's leader is a column further right so a 7-letter name fits.
+# and screen 3 at 0x100.
 TIMER = 0x1078F0
 TIMER_INIT = 0x35C6C              # move.w #0x200,30960(a6)
 SWITCH = 0x35CA8                  # cmpi.w #0x100,30960(a6) ; bne.s +4 ; jsr 0x35E62(pc)
@@ -50,7 +58,6 @@ SCREEN2 = 0x35E62
 CLEAR_FIX = 0x9FBE
 HEADER_CALL = 0x35E9E             # screen 2's header call (item-header makes it a jsr to the re-spaced header)
 ICON_OBJECTS = [0x104980, 0x104A00, 0x104A80]
-SCREEN3_LEADER_COLUMN = 18
 # (name, row, [description lines], icon) - an icon is a level item's 16x16 tile, drawn 2x as big (2x2 tiles), with
 # its level palette's colors (the palettes are loaded into two slots the attract mode never uses; the bamboo shoot
 # and the flower share one - 14 colors between them).
@@ -65,25 +72,19 @@ ICONS = {   # level tile, its level palette (16 colors), the palette slot it is 
     "catfish": (0x502F, "0000 8000 8777 4fd0 6f90 8c60 dec7 8fa8 ef78 eff0 897f c63d c50a aa40 4720 ffff", 0x7E),
 }
 PALETTE_RAM = 0x400000
-# Screen 2's icons are 4 tiles wide and 3 high; these are 2x2, so they move 16px right and 8px down to sit
-# centered where screen 2's were (object +2 = x, +0 = y, 128 per pixel, y up).
-ICON_DX, ICON_DY = 16 * 128, -8 * 128
+# Screen 1's icons (3x3 tiles) are at x 0x5000 and y 0x9000 / 0x7800 / 0x6000 (object +2 / +0, 128 per pixel,
+# y up); these are 2x2, so 8px right and 8px down of that to sit centered.
+ICON_X, ICON_YS = 0x5000 + 8 * 128, [0x9000 - 8 * 128, 0x7800 - 8 * 128, 0x6000 - 8 * 128]
 
 
-def item_lines(items, leader_col):
-    """[(column, row, text)] for the names and descriptions, and the leaders' fix addresses."""
+def item_lines(items):
+    """[(column, row, text)] for the names and descriptions, and the leaders' fix addresses: the leader right
+    after the screen's longest name."""
+    lead = NAME_COLUMN + max(len(name) for name, row, descriptions in items)
+    desc_col = lead + 2
     lines, leaders = [], []
     for name, row, descriptions in items:
-        if LAYOUT == "right":
-            name_col, lead = leader_col - len(name), leader_col
-        elif LAYOUT == "follow":
-            name_col, lead = NAME_COLUMN, NAME_COLUMN + len(name)
-        else:
-            name_col, lead = NAME_COLUMN, leader_col
-        if name_col + len(name) > lead:
-            raise SystemExit("item-text: name %r runs into the leader" % name)
-        desc_col = lead + 2
-        lines.append((name_col, row, name))
+        lines.append((NAME_COLUMN, row, name))
         rows = [row] if len(descriptions) == 1 else [row - 1, row + 1]
         for r, text in zip(rows, descriptions):
             if desc_col + len(text) - 1 > BOX_LAST_COLUMN:
@@ -134,8 +135,10 @@ def build_icons(rom):
 def apply(rom):
     rom.write(PUSH_START_CALL, bytes.fromhex("4E71") * 3, expect=bytes.fromhex("4EB900035B00"),
               why="item screens: no PUSH START blinking over the boxes")
-    for first, end, leader_sites, leader_col, items in SCREENS:
-        lines, leaders = item_lines(items, leader_col)
+    for addr, orig, new, why in ICON_SWAP:
+        rom.write(addr, bytes.fromhex(new), expect=bytes.fromhex(orig), why=why)
+    for first, end, leader_sites, items in SCREENS:
+        lines, leaders = item_lines(items)
         src, data = text_source(lines, "")
         code = rom.place_code(src + "    rts\n" + data, why="item screen text")
         skip = end - (first + 6) - 2
@@ -153,16 +156,16 @@ def apply(rom):
         raise SystemExit("item-text needs item-header (screen 2's header call should be a jsr)")
     header = rom.u32(HEADER_CALL + 2)
     frames, palettes = build_icons(rom)
-    lines, leaders = item_lines([(n, r, d) for n, r, d, icon in SCREEN3], SCREEN3_LEADER_COLUMN)
+    lines, leaders = item_lines([(n, r, d) for n, r, d, icon in SCREEN3])
     text, data = text_source(lines, "3_")
     src = "    jsr 0x%X\n" % CLEAR_FIX
     for slot, colors in palettes.items():
         src += "    lea 0x%X,%%a0\n" % (PALETTE_RAM + slot * 32)
         src += "".join("    move.w #0x%04X,(%%a0)+\n" % c for c in colors)
-    for obj, (name, row, desc, icon) in zip(ICON_OBJECTS, SCREEN3):
+    for obj, y, (name, row, desc, icon) in zip(ICON_OBJECTS, ICON_YS, SCREEN3):
         frame, slot = frames[icon]
-        src += ("    move.w #0x%X,0x%X\n    move.b #0x%X,0x%X\n    add.w #%d,0x%X\n    add.w #%d,0x%X\n"
-                % (frame, obj + 8, slot, obj + 0x20, ICON_DX, obj + 2, ICON_DY, obj))
+        src += ("    move.w #0x%X,0x%X\n    move.b #0x%X,0x%X\n    move.w #0x%X,0x%X\n    move.w #0x%X,0x%X\n"
+                % (frame, obj + 8, slot, obj + 0x20, ICON_X, obj + 2, y, obj))
     src += "    jsr 0x%X\n" % header + text
     src += "".join("    move.w #0x%X,%%d0\n    move.w #0x%X,%%d1\n    jsr 0x%X\n" % (a, LEADER_TILE, DRAW_LEADER)
                    for a in leaders)
