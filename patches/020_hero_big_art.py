@@ -49,8 +49,15 @@ ROW_OVERRIDES = {0x2D: "breathe", 0x2B: "none"}
 BREATHE = (0x364, 0x368)
 PAIR_RAM = [0x10C320, 0x10C330]   # spare RAM per player: +0 normal frame, +2 the big frame drawn for it, +4 the
                                   # normal frame's width in tiles, +5 1 if this draw used the big frame, +6 its
-                                  # height, +7 which of +34 / +36 (bit 0 / 1) to set back after the draw, +8 / +10
-                                  # the values to set them to
+                                  # height, +7 which of +34 / +36 / +38 (bits 0-2) to set back after the draw,
+                                  # +8 / +10 / +12 the values to set them to
+# The C-button shrink zooms the hero (object+38: horizontal and vertical zoom bytes, 0xFF = full size) from
+# full size down to 0xC7 and then shows the shrunk form's art; growing back zooms from 0x7F up. The big art
+# is half as tall again as the normal art, so at those ends it would still be much bigger than the shrunk
+# art it switches with: while drawn big it is zoomed further - 0xFF - (0xFF - zoom) * ZOOM_x / 16, which
+# makes both ends match what the normal art showed (the zoom is set back after the draw).
+ZOOM_SHRINK = 35
+ZOOM_GROW = 22
 DRAW_LOOP_RETURN = 0xA3FE         # the object drawing loop calls the drawing routine with this return address
 FLIP_OFFSET = 0xA4FC              # computes object+34 from the drawn frame's width: move.b 33(a0),d6 ; andi.b #12,d6
 HEIGHT_OFFSET = 0xA55A            # and object+36 from its height (zoomed drawing): move.b 33(a0),d6 ; andi.b #3,d6
@@ -211,8 +218,9 @@ def apply(rom):
 
     restores = "".join(
         "    lea 0x%X,%%a1\n    lea 0x%X,%%a0\n    btst #0,7(%%a1)\n    beq no34_%d\n    move.w 8(%%a1),34(%%a0)\n"
-        "no34_%d:\n    btst #1,7(%%a1)\n    beq no36_%d\n    move.w 10(%%a1),36(%%a0)\nno36_%d:\n    clr.b 7(%%a1)\n"
-        % (ram, obj, i, i, i, i) for i, (ram, obj) in enumerate(zip(PAIR_RAM, HERO_OBJECTS)))
+        "no34_%d:\n    btst #1,7(%%a1)\n    beq no36_%d\n    move.w 10(%%a1),36(%%a0)\nno36_%d:\n"
+        "    btst #2,7(%%a1)\n    beq nozoom_%d\n    move.w 12(%%a1),38(%%a0)\nnozoom_%d:\n    clr.b 7(%%a1)\n"
+        % (ram, obj, i, i, i, i, i, i) for i, (ram, obj) in enumerate(zip(PAIR_RAM, HERO_OBJECTS)))
     src = r"""
     bra.w step                      | +0: from the animation step
     bra.w draw                      | +4: from the drawing routine
@@ -296,11 +304,41 @@ PAIR_A0    clr.b 5(%a1)                    | (1 = this draw uses a big frame: th
 4:  addq.l #2,%sp
 8:  tst.b 5(%a1)                    | drawn big: return through `restore` (the stack holds a1, the return
     beq 7f                          | to 0xA430, then the drawing loop's return address)
+    cmpi.w #0xFFFF,38(%a0)          | being zoomed (the C-button shrink): zoom the big art further
+    beq 6f
+    movem.l %d0-%d2,-(%sp)
+    move.w 38(%a0),12(%a1)          | (set back after the draw)
+    bset #2,7(%a1)
+    moveq #ZOOM_SHRINK,%d2          | shrinking (still the normal form) or growing back (+98 shrunk)
+    tst.w 98(%a0)
+    beq 1f
+    moveq #ZOOM_GROW,%d2
+1:  moveq #0,%d0
+    move.b 38(%a0),%d0
+    bsr zoom
+    move.b %d0,38(%a0)
+    moveq #0,%d0
+    move.b 39(%a0),%d0
+    bsr zoom
+    move.b %d0,39(%a0)
+    movem.l (%sp)+,%d0-%d2
+6:
     cmpi.l #DRAW_LOOP_RETURN,8(%sp)
     bne 7f
     move.l #restore,8(%sp)
 7:  move.l (%sp)+,%a1
 9:  move.l (%a3,%d3.w),%a5
+    rts
+
+| d0 = a zoom byte (0xFF = full size) -> 0xFF - (0xFF - d0) * d2 / 16, at least 0x0F
+zoom:
+    not.b %d0
+    mulu %d2,%d0
+    lsr.l #4,%d0
+    cmp.w #0xF0,%d0
+    bls 1f
+    move.w #0xF0,%d0
+1:  not.b %d0
     rts
 
 | ---- 0xA4FC, copied exactly (d4 = the drawn frame's width in tiles; returns d6, sets +34 and 664(a6)),
@@ -429,7 +467,8 @@ DATA
            .replace("PAIR_A5", pair("a5", "a2")).replace("PAIR_A0", pair("a0", "a1"))
            .replace("NORMAL_ANIMS", "0x%X" % NORMAL_ANIMS).replace("NORMAL_FRAMES", "0x%X" % NORMAL_FRAMES)
            .replace("ANIM_TABLE", "0x%X" % ANIM_TABLE)
-           .replace("DRAW_LOOP_RETURN", "0x%X" % DRAW_LOOP_RETURN).replace("RESTORES", restores).replace("DATA", data))
+           .replace("DRAW_LOOP_RETURN", "0x%X" % DRAW_LOOP_RETURN)
+           .replace("ZOOM_SHRINK", str(ZOOM_SHRINK)).replace("ZOOM_GROW", str(ZOOM_GROW)).replace("RESTORES", restores).replace("DATA", data))
     base = rom.place_code(src, why="hero big art: pick and draw the big frame for the normal hero's frame")
     for site in STEP_SITES:
         rom.write(site, bytes.fromhex("4EB9") + base.to_bytes(4, "big") + bytes.fromhex("4E71"),
@@ -442,8 +481,9 @@ DATA
               expect=bytes.fromhex("1C2800210206"), why="height offset: +36 from the normal frame for the hero")
 
     hook(rom, DRAW_X_ZOOMED, "044540003C3C0100",
-         "    sub.w #0x4000,%d5\n" + hero_only("a0", x_shift("d5")) + "    move.w #256,%d6\n    rts\n",
-         "sprite X (zoomed path)")
+         "    sub.w #0x4000,%d5\n" + hero_only("a0", x_shift("d5", HERO_LEFT_PX_FACING_LEFT, True)) +
+         "    move.w #256,%d6\n    rts\n",
+         "sprite X (facing left, zoomed)")
     hook(rom, DRAW_X_PLAIN, "044640003486",
          "    sub.w #0x4000,%d6\n" + hero_only("a0", x_shift("d6")) + "    move.w %d6,(%a2)\n    rts\n",
          "sprite X (usual path)")
