@@ -38,7 +38,15 @@ ANIM_TABLE = 0x5393A
 STEP_SITES = [0x43520, 0x4354E]   # move.w d0,8(a5) ; andi.w #3,d1  = 3B40 0008 0241 0003
 DRAW_FRAME = 0xA428               # move.w 8(a0),d3 ; move.l (a3,d3.w),a5  = 3628 0008 2A73 3000
 NORMAL_ANIMS = 0x40
-NORMAL_FRAMES = 0x138             # the normal hero's frames are 0-0x134
+NORMAL_FRAMES = 0x190             # the normal hero's frames are 0-0x18C (0x134-0x174 the idle fidget, 0x178-0x180
+                                  # swimming)
+# Animations whose big version doesn't fit:
+#   0x2D, the idle fidget (after standing still a while he bends down, picks something up and looks at it):
+#     the big form has no such art (its 0x2D is the standing pose), so he stands and breathes - the big
+#     standing pair 0x364 / 0x368 alternating with each fidget frame;
+#   0x2B (frames 0x184-0x18C, sparkles rather than the hero) is left as it is.
+ROW_OVERRIDES = {0x2D: "breathe", 0x2B: "none"}
+BREATHE = (0x364, 0x368)
 PAIR_RAM = [0x10C320, 0x10C330]   # spare RAM per player: +0 normal frame, +2 the big frame drawn for it, +4 the
                                   # normal frame's width in tiles, +5 1 if this draw used the big frame, +6 its
                                   # height, +7 which of +34 / +36 (bit 0 / 1) to set back after the draw, +8 / +10
@@ -170,6 +178,11 @@ def big_frame_tables(rom):
                 continue
             j = max([k for k in big_frames if k <= i] or [big_frames[0]])
             b = big[j] & 0x3FFC
+            if ROW_OVERRIDES.get(n) == "none":
+                row.append(0)
+                continue
+            if ROW_OVERRIDES.get(n) == "breathe":
+                b = BREATHE[sum(1 for k in range(i) if is_frame(small, k)) % 2]
             row.append(b)
             if (small[i] & 0x3FFC) < NORMAL_FRAMES:
                 frame_map.setdefault(small[i] & 0x3FFC, b)
