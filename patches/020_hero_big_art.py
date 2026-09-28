@@ -79,6 +79,10 @@ HERO_UP_PX = 15
 #   0x1C, hanging from the balloon (player 2 floating in): the big pose's hands are 2px lower in its frame
 #   than the normal pose's, so it only goes up 2px (15 lifted his hands well above the balloon's string)
 UP_PX = {0x1C: 2}
+# ... and further toward the art's back per animation (mirrored facing left):
+#   0x1C, hanging from the balloon: the big pose's raised hand is ~10px further out than the normal pose's, so
+#     the string ran through his body; 10px more puts the hand on the string, the body beside it
+SIDE_PX = {0x1C: 10}
 # An enemy the hero carries sits on his head: the routine at CARRIED_CODE (the carried enemy's code) puts it
 # above the normal hero's head every frame, so with the big art it is drawn CARRY_UP_PX higher.
 CARRIED_CODE = 0x466B6
@@ -138,11 +142,15 @@ def x_shift(dreg, px=None, facing_left=False):
     n = _vine_labels[0]
     checks = "".join("    cmp.b #%d,104(%%a0)\n    beq vine%d\n" % (st, n) for st in VINE_STATES)
     vine = "    %s.w #%d,%%%s\n" % ("add" if facing_left else "sub", VINE_PX * 128, dreg)
-    return ("    sub.w #%d,%%%s\n" % ((HERO_LEFT_PX if px is None else px) * 128, dreg) +
+    per_anim = ("    movem.l %%d0/%%a1,-(%%sp)\n    moveq #0,%%d0\n    move.b 102(%%a0),%%d0\n    and.w #0x3F,%%d0\n"
+                "    add.w %%d0,%%d0\n    lea 0x%X,%%a1\n    move.w (%%a1,%%d0.w),%%d0\n    %s.w %%d0,%%%s\n"
+                "    movem.l (%%sp)+,%%d0/%%a1\n" % (_side_table[0], "add" if facing_left else "sub", dreg))
+    return ("    sub.w #%d,%%%s\n" % ((HERO_LEFT_PX if px is None else px) * 128, dreg) + per_anim +
             checks + "    bra novine%d\nvine%d:\n%snovine%d:\n" % (n, n, vine, n))
 
 
 _up_table = [None]
+_side_table = [None]
 
 
 def y_shift(dreg):
@@ -497,6 +505,9 @@ DATA
     rom.write(HEIGHT_OFFSET, bytes.fromhex("4EF9") + (base + 12).to_bytes(4, "big"),
               expect=bytes.fromhex("1C2800210206"), why="height offset: +36 from the normal frame for the hero")
 
+    _side_table[0] = rom.place_code(
+        "    .word %s\n" % ",".join(str(SIDE_PX.get(n, 0) * 128) for n in range(NORMAL_ANIMS)),
+        why="hero big art: how far sideways to draw it, per animation")
     _up_table[0] = rom.place_code(
         "    .word %s\n" % ",".join(str(UP_PX.get(n, HERO_UP_PX) * 128) for n in range(NORMAL_ANIMS)),
         why="hero big art: how far up to draw it, per animation")
