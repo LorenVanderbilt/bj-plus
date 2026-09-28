@@ -18,6 +18,9 @@ A patch is a Python file in patches/ defining NAME, DESCRIPTION and apply(rom). 
 and add new code with rom.place_code(), which assembles it into unused space at the end of the ROM.
 rom.add_fix_tile() adds an 8x8 tile to the fix-layer ROM (022-s1.s1) in the next free slot of a run that is
 blank in the original and never drawn by the game (0x2FC-0x3FF) and returns its tile number.
+rom.add_sprite_tile() does the same for a 16x16 sprite tile in the sprite (C) ROMs (free run 0x2F9C-0x2FFF), and
+rom.add_frame() adds a sprite frame (the definition the game draws an object's +8 frame number from) built
+from such tiles, in a free frame number (0x3F00-0x3FFC), and returns that frame number.
 """
 import argparse, glob, hashlib, importlib.util, os, shutil, subprocess, sys, tempfile, zipfile, zlib
 
@@ -27,11 +30,19 @@ OUT_DIR = os.path.join(ROOT, "build", "roms")
 AES_DIR = os.path.join(ROOT, "build", "aes")
 P1_NAME = "022-p1.p1"
 S1_NAME = "022-s1.s1"
+C_NAMES = ["022-c1.c1", "022-c2.c2", "022-c3.c3", "022-c4.c4"]
 # The program ROM ends in ~300KB of unused 0xFF bytes starting at 0xB69A0; new code goes here.
 FREE_START = 0xB6A00
 # Fix tiles 0x2FC-0x3FF are blank in the S ROM and never drawn by the game (checked by watching every fix-layer
 # write through the attract cycle, gameplay and the shop); new fix tiles go here.
 FIX_FREE_START, FIX_FREE_END = 0x2FC, 0x3FF
+# Sprite tiles 0x2F9C-0x2FFF are blank in the C ROMs (the end of a bank), no frame definition uses them, and the
+# game never writes them to the sprite tables (checked through the attract cycle and several levels).
+SPRITE_FREE_START, SPRITE_FREE_END = 0x2F9C, 0x2FFF
+# The sprite frame table (frame number / 4 -> definition address) ends in filler: frames 0x34D0-0x3FFC all point at
+# one definition and nothing uses them. New frames go at the very end.
+FRAME_TABLE = 0x60772
+FRAME_FREE_START, FRAME_FREE_END = 0x3F00, 0x3FFC
 AS, LD, OBJCOPY = "m68k-neogeo-elf-as", "m68k-neogeo-elf-ld", "m68k-neogeo-elf-objcopy"
 
 
@@ -43,13 +54,18 @@ def swap_pairs(b):
 
 
 class Rom:
-    def __init__(self, data, fix=b""):
+    def __init__(self, data, fix=b"", sprites=None):
         self.data = bytearray(data)
         self.orig = bytes(data)
         self.fix = bytearray(fix)          # the fix-layer ROM (S ROM): 32 bytes per 8x8 tile, 4 bits per pixel
         self.fix_orig = bytes(fix)
+        # the sprite ROMs, {file name: contents}: c1/c2 hold tiles 0-0x3FFF, c3/c4 the rest
+        self.sprites = {n: bytearray(d) for n, d in (sprites or {}).items()}
+        self.sprites_orig = {n: bytes(d) for n, d in (sprites or {}).items()}
         self.next_free = FREE_START
         self.next_fix_tile = FIX_FREE_START
+        self.next_sprite_tile = SPRITE_FREE_START
+        self.next_frame = FRAME_FREE_START
         self.log = []
 
     def u16(self, addr): return int.from_bytes(self.data[addr:addr + 2], "big")
@@ -123,6 +139,91 @@ class Rom:
         self.next_fix_tile = n + 1
         return n
 
+    # A 16x16 sprite tile is 128 bytes, 64 in each ROM of its pair (c1/c2 for tiles 0-0x3FFF, c3/c4 above), in four
+    # 8x8 blocks of 16 bytes: x 8-15 y 0-7, x 8-15 y 8-15, x 0-7 y 0-7, x 0-7 y 8-15. Each block row is 2 bytes in
+    # each ROM - bitplanes 0 and 1 in the first ROM, 2 and 3 in the second - with bit x of a plane = pixel x.
+    SPRITE_TILES_PER_PAIR = 0x4000
+
+    def _sprite_at(self, index):
+        if index < self.SPRITE_TILES_PER_PAIR:
+            return C_NAMES[0], C_NAMES[1], index * 64
+        return C_NAMES[2], C_NAMES[3], (index - self.SPRITE_TILES_PER_PAIR) * 64
+
+    def sprite_tile(self, index):
+        """The original 16x16 sprite tile at tile number index, as pixels[y][x] (color indices)."""
+        a, b, at = self._sprite_at(index)
+        A, B = self.sprites_orig[a], self.sprites_orig[b]
+        px = [[0] * 16 for _ in range(16)]
+        for blk in range(4):
+            bx, by = (8 if blk < 2 else 0), (0 if blk % 2 == 0 else 8)
+            for y in range(8):
+                o = at + blk * 16 + y * 2
+                p = (A[o], A[o + 1], B[o], B[o + 1])
+                for x in range(8):
+                    px[by + y][bx + x] = sum(((p[k] >> x) & 1) << k for k in range(4))
+        return px
+
+    def put_sprite_tile(self, index, pixels, why=""):
+        """Store a 16x16 sprite tile (pixels[y][x] = color index 0-15, 0 = transparent) at tile number index.
+        The slot must be blank in the original C ROMs."""
+        a, b, at = self._sprite_at(index)
+        if any(self.sprites_orig[a][at:at + 64]) or any(self.sprites_orig[b][at:at + 64]):
+            raise SystemExit("sprite tile 0x%X is not blank in the original C ROMs" % index)
+        for blk in range(4):
+            bx, by = (8 if blk < 2 else 0), (0 if blk % 2 == 0 else 8)
+            for y in range(8):
+                planes = [0, 0, 0, 0]
+                for x in range(8):
+                    v = pixels[by + y][bx + x] & 15
+                    for p in range(4):
+                        planes[p] |= ((v >> p) & 1) << x
+                o = at + blk * 16 + y * 2
+                self.sprites[a][o:o + 2] = bytes(planes[0:2])
+                self.sprites[b][o:o + 2] = bytes(planes[2:4])
+        self.log.append("  sprite 0x%04X  tile  %s" % (index, why))
+
+    def add_sprite_tile(self, pixels, why=""):
+        """Store a 16x16 sprite tile in the next free slot and return its tile number."""
+        n = self.next_sprite_tile
+        if n > SPRITE_FREE_END:
+            raise SystemExit("out of free sprite tiles (0x%X-0x%X)" % (SPRITE_FREE_START, SPRITE_FREE_END))
+        self.put_sprite_tile(n, pixels, why)
+        self.next_sprite_tile = n + 1
+        return n
+
+    def add_frame(self, tiles, palette, why=""):
+        """Add a sprite frame: tiles[row][col] = a tile number or None (blank), drawn with palette (0-255) unless the
+        object overrides it. Returns the new frame number (what the game stores in an object's +8).
+        The definition uses the per-tile form (see 0xA996): columns-1, rows-1, 0, palette, the tile number's high
+        byte; then for each column top to bottom a byte: 0 = blank, else the tile number's low byte - or, when the
+        high byte changes (or the low byte is 0 or 1), 1, 0x20, the new high byte, the low byte."""
+        rows, cols = len(tiles), len(tiles[0])
+        first = next(t for row in tiles for t in row if t is not None)
+        if any(t is not None and t > 0xFFFF for row in tiles for t in row):
+            raise SystemExit("add_frame: tiles above 0xFFFF need the attribute bits")
+        hi = first >> 8
+        body = bytearray([cols - 1, rows - 1, 0, palette, hi])
+        for c in range(cols):
+            for r in range(rows):
+                t = tiles[r][c]
+                if t is None:
+                    body.append(0)
+                elif t >> 8 == hi and (t & 0xFF) > 1:
+                    body.append(t & 0xFF)
+                else:
+                    hi = t >> 8
+                    body += bytes([1, 0x20, hi, t & 0xFF])
+        body.append(0xFF)
+        addr = self.alloc(len(body))
+        self.data[addr:addr + len(body)] = body
+        n = self.next_frame
+        if n > FRAME_FREE_END:
+            raise SystemExit("out of free frame numbers")
+        self.next_frame = n + 4
+        self.write(FRAME_TABLE + n, addr.to_bytes(4, "big"), why="frame 0x%X -> new definition (%s)" % (n, why))
+        self.log.append("  0x%06X  %d byte(s)  frame 0x%X definition: %s" % (addr, len(body), n, why))
+        return n
+
     def patched_p1_file(self):
         return swap_pairs(bytes(self.data))
 
@@ -131,6 +232,9 @@ class Rom:
         files = {P1_NAME: self.patched_p1_file()}
         if bytes(self.fix) != self.fix_orig:
             files[S1_NAME] = bytes(self.fix)
+        for name, d in self.sprites.items():
+            if bytes(d) != self.sprites_orig[name]:
+                files[name] = bytes(d)
         return files
 
 
@@ -229,7 +333,7 @@ def main():
         entries = [(i, z.read(i)) for i in z.infolist()]
     p1 = next(d for i, d in entries if i.filename == P1_NAME)
     s1 = next(d for i, d in entries if i.filename == S1_NAME)
-    rom = Rom(swap_pairs(p1), s1)
+    rom = Rom(swap_pairs(p1), s1, {i.filename: d for i, d in entries if i.filename in C_NAMES})
 
     print("Applying %d patch(es): %s" % (len(chosen), ", ".join(chosen) or "(none)"))
     for n in chosen:
