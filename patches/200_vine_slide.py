@@ -3,7 +3,8 @@ DESCRIPTION = "Swinging vines: hold Up / Down to slide smoothly along the vine"
 
 # A swinging vine is a root object at the pivot plus a chain of segment objects (code 0x4FD30), each with its
 # distance from the pivot at +56 (0, 6, 12 ...) and moving with the swing. The hero hangs from one segment:
-# player 1's attach flag is that segment's +52 (player 2's +53), 2 while holding; every frame the segment code
+# player 1's attach flag is that segment's +52 (player 2's +53), 1 (shrunk hero) or 2 while holding, negative
+# while letting go; every frame the segment code
 # (0x4FD82) calls 0x4FE72 (player 1) / 0x4FEEE (player 2), which puts the hero at that segment's position plus
 # a fixed offset. Grabbing picks the segment touched - normally the bottom one - and the hero stays there.
 #
@@ -13,10 +14,9 @@ DESCRIPTION = "Swinging vines: hold Up / Down to slide smoothly along the vine"
 # at the end the attach flag is handed over (after the game's routine has added its hanging offset, which
 # it only does while the calling segment still has the flag). A step in progress always finishes; while the button is still
 # held the next one starts straight away. It stops at the bottom segment and at MIN_DISTANCE from the pivot.
-# Only vine segments with the steady "holding" value are touched, so grabbing and letting go work as before.
+# Only vine segments with a "holding" value are touched, so letting go works as before.
 SITES = [(0x4FE72, "2D6D00004000", 52, 0x10FD96, 0x104000), (0x4FEEE, "2D6D00004080", 53, 0x10FD9C, 0x104080)]
 SEGMENT_CODE = 0x4FD30
-HOLDING = 2
 STEP = 6                  # distance between segments (+56)
 MIN_DISTANCE = 6          # don't slide right up to the pivot
 UP_RATE = 10              # frames per segment climbing up
@@ -35,8 +35,8 @@ def apply(rom):
     move.l (%a5),%d4                | d4 = where the hero goes: the segment's position (y, x) ...
     cmp.l #SEGMENT_CODE,4(%a5)
     bne done
-    cmp.b #HOLDING,FLAG(%a5)
-    bne done
+    tst.b FLAG(%a5)                 | holding: 1 (shrunk) or 2 (normal); 0 / negative = not holding / letting go
+    ble done
     lea RAM,%a1
     move.b 0x100207,%d0             | at most one step of progress per frame (going down, the segment it was
     cmp.b LAST(%a1),%d0             | handed to runs again later in the same frame)
@@ -136,7 +136,7 @@ neighbour:
     rts
 """
         for k, v in (("SEGMENT_CODE", "0x%X" % SEGMENT_CODE), ("MIN_DISTANCE", str(MIN_DISTANCE)),
-                     ("HOLDING", str(HOLDING)), ("FLAG", str(flag)), ("JOY", "0x%X" % joy),
+                     ("FLAG", str(flag)), ("JOY", "0x%X" % joy),
                      ("STEP", str(STEP)), ("UP_RATE", str(UP_RATE)), ("DOWN_RATE", str(DOWN_RATE)), ("NEAR", "0x%X" % NEAR),
                      ("HERO", "0x%X" % hero), ("RAM", "0x%X" % (RAM + 4 * n)), ("TAIL", "0x%X" % (site + 6)),
                      ("LAST", "0x%X" % (LAST_FRAME + n - (RAM + 4 * n)))):
