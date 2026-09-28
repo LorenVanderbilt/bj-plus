@@ -17,7 +17,7 @@ A patch is a Python file in patches/ defining NAME, DESCRIPTION and apply(rom). 
 (below) holding the program ROM in normal 68000 byte order; patches change it with rom.write(),
 and add new code with rom.place_code(), which assembles it into unused space at the end of the ROM.
 rom.add_fix_tile() adds an 8x8 tile to the fix-layer ROM (022-s1.s1) in the next free slot of a run that is
-blank in the original and never drawn by the game (0x2FC-0x3FF) and returns its tile number.
+blank in the original and never drawn by the game (0x2FC-0x31F, 0x360-0x3FF) and returns its tile number.
 rom.add_sprite_tile() does the same for a 16x16 sprite tile in the sprite (C) ROMs (free run 0x2F9C-0x2FFF), and
 rom.add_frame() adds a sprite frame (the definition the game draws an object's +8 frame number from) built
 from such tiles, in a free frame number (0x3F00-0x3FFC), and returns that frame number.
@@ -33,9 +33,14 @@ S1_NAME = "022-s1.s1"
 C_NAMES = ["022-c1.c1", "022-c2.c2", "022-c3.c3", "022-c4.c4"]
 # The program ROM ends in ~300KB of unused 0xFF bytes starting at 0xB69A0; new code goes here.
 FREE_START = 0xB6A00
-# Fix tiles 0x2FC-0x3FF are blank in the S ROM and never drawn by the game (checked by watching every fix-layer
-# write through the attract cycle, gameplay and the shop); new fix tiles go here.
+# Fix tiles 0x2FC-0x3FF are the S ROM's only run of blank tiles; new fix tiles go here (watching every fix-layer
+# write through the attract cycle - both BIOSes -, gameplay, the shop and NPC rooms, continue, game over and the
+# memory card screens, the original game draws only 0x320 from it).
 FIX_FREE_START, FIX_FREE_END = 0x2FC, 0x3FF
+# ... except that the game's inline text routine (0x9FE6) draws character c as tile 0x300 + c until a string sets
+# another base, so those "blank" tiles are drawn: 0x320 (a space) clears the continue screen's speech bubble.
+# 0x320-0x35F (space, punctuation, digits, capitals at that base) stay untouched; new tiles use the rest.
+FIX_FREE_RANGES = [(0x2FC, 0x31F), (0x360, 0x3FF)]
 # Sprite tiles 0x2F9C-0x2FFF are blank in the C ROMs (the end of a bank), no frame definition uses them, and the
 # game never writes them to the sprite tables (checked through the attract cycle and several levels).
 SPRITE_FREE_START, SPRITE_FREE_END = 0x2F9C, 0x2FFF
@@ -63,7 +68,7 @@ class Rom:
         self.sprites = {n: bytearray(d) for n, d in (sprites or {}).items()}
         self.sprites_orig = {n: bytes(d) for n, d in (sprites or {}).items()}
         self.next_free = FREE_START
-        self.next_fix_tile = FIX_FREE_START
+        self.free_fix_tiles = [t for a, b in FIX_FREE_RANGES for t in range(a, b + 1)]
         self.next_sprite_tile = SPRITE_FREE_START
         self.next_frame = FRAME_FREE_START
         self.log = []
@@ -132,11 +137,10 @@ class Rom:
 
     def add_fix_tile(self, pixels, why=""):
         """Store an 8x8 fix tile in the next free slot and return its tile number."""
-        n = self.next_fix_tile
-        if n > FIX_FREE_END:
-            raise SystemExit("out of free fix tiles (0x%X-0x%X)" % (FIX_FREE_START, FIX_FREE_END))
+        if not self.free_fix_tiles:
+            raise SystemExit("out of free fix tiles (%s)" % ", ".join("0x%X-0x%X" % r for r in FIX_FREE_RANGES))
+        n = self.free_fix_tiles.pop(0)
         self.put_fix_tile(n, pixels, why)
-        self.next_fix_tile = n + 1
         return n
 
     # A 16x16 sprite tile is 128 bytes, 64 in each ROM of its pair (c1/c2 for tiles 0-0x3FFF, c3/c4 above), in four
