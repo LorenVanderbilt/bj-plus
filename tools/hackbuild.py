@@ -191,16 +191,14 @@ class Rom:
         self.next_sprite_tile = n + 1
         return n
 
-    def add_frame(self, tiles, palette, why=""):
-        """Add a sprite frame: tiles[row][col] = a tile number or None (blank), drawn with palette (0-255) unless the
-        object overrides it. Returns the new frame number (what the game stores in an object's +8).
-        The definition uses the per-tile form (see 0xA996): columns-1, rows-1, 0, palette, the tile number's high
-        byte; then for each column top to bottom a byte: 0 = blank, else the tile number's low byte - or, when the
-        high byte changes (or the low byte is 0 or 1), 1, 0x20, the new high byte, the low byte."""
+    def _frame_definition(self, tiles, palette):
+        """The bytes of a frame definition in the per-tile form (see 0xA996): columns-1, rows-1, 0, palette, the tile
+        number's high byte; then for each column top to bottom a byte: 0 = blank, else the tile number's low byte -
+        or, when the high byte changes (or the low byte is 0 or 1), 1, 0x20, the new high byte, the low byte."""
         rows, cols = len(tiles), len(tiles[0])
         first = next(t for row in tiles for t in row if t is not None)
         if any(t is not None and t > 0xFFFF for row in tiles for t in row):
-            raise SystemExit("add_frame: tiles above 0xFFFF need the attribute bits")
+            raise SystemExit("frame definitions: tiles above 0xFFFF need the attribute bits")
         hi = first >> 8
         body = bytearray([cols - 1, rows - 1, 0, palette, hi])
         for c in range(cols):
@@ -214,6 +212,30 @@ class Rom:
                     hi = t >> 8
                     body += bytes([1, 0x20, hi, t & 0xFF])
         body.append(0xFF)
+        return bytes(body)
+
+    def frame_tiles(self, frame):
+        """(tiles[row][col] or None, palette) of an original frame whose definition uses one palette and no flips."""
+        p = self.u32(FRAME_TABLE + frame)
+        cols, rows, mode, attr, hi = self.orig[p:p + 5]
+        cols, rows = cols + 1, rows + 1
+        tiles = [[None] * cols for _ in range(rows)]
+        q = p + 5
+        for c in range(cols):
+            for r in range(rows):
+                b = self.orig[q]
+                q += 1
+                if b == 0:
+                    continue
+                if b == 1:
+                    raise SystemExit("frame_tiles: frame 0x%X uses per-tile attributes" % frame)
+                tiles[r][c] = (hi << 8) | b
+        return tiles, attr
+
+    def add_frame(self, tiles, palette, why=""):
+        """Add a sprite frame: tiles[row][col] = a tile number or None (blank), drawn with palette (0-255) unless the
+        object overrides it. Returns the new frame number (what the game stores in an object's +8)."""
+        body = self._frame_definition(tiles, palette)
         addr = self.alloc(len(body))
         self.data[addr:addr + len(body)] = body
         n = self.next_frame
@@ -223,6 +245,14 @@ class Rom:
         self.write(FRAME_TABLE + n, addr.to_bytes(4, "big"), why="frame 0x%X -> new definition (%s)" % (n, why))
         self.log.append("  0x%06X  %d byte(s)  frame 0x%X definition: %s" % (addr, len(body), n, why))
         return n
+
+    def replace_frame(self, frame, tiles, palette, why=""):
+        """Point an existing frame number at a new definition built from tiles (as add_frame)."""
+        body = self._frame_definition(tiles, palette)
+        addr = self.alloc(len(body))
+        self.data[addr:addr + len(body)] = body
+        self.write(FRAME_TABLE + frame, addr.to_bytes(4, "big"), why="frame 0x%X -> new definition (%s)" % (frame, why))
+        self.log.append("  0x%06X  %d byte(s)  frame 0x%X definition: %s" % (addr, len(body), frame, why))
 
     def patched_p1_file(self):
         return swap_pairs(bytes(self.data))

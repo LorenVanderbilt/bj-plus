@@ -45,7 +45,9 @@ NORMAL_FRAMES = 0x190             # the normal hero's frames are 0-0x18C (0x134-
 #     the big form has no such art (its 0x2D is the standing pose), so he stands and breathes - the big
 #     standing pair 0x364 / 0x368 alternating with each fidget frame;
 #   0x2B (frames 0x184-0x18C, sparkles rather than the hero) is left as it is.
-ROW_OVERRIDES = {0x2D: "breathe", 0x2B: "none"}
+#   0x18, swimming: the big version's fourth frame (0x33C) is a walking pose, so the swim cycle flashed upright
+#     every fourth frame; like the normal cycle (0x6C 0x70 0x74 0x70) it repeats its second pose instead.
+ROW_OVERRIDES = {0x2D: "breathe", 0x2B: "none", 0x18: [0x330, 0x334, 0x338, 0x334]}
 BREATHE = (0x364, 0x368)
 PAIR_RAM = [0x10C320, 0x10C330]   # spare RAM per player: +0 normal frame, +2 the big frame drawn for it, +4 the
                                   # normal frame's width in tiles, +5 1 if this draw used the big frame, +6 its
@@ -188,6 +190,8 @@ def big_frame_tables(rom):
             if ROW_OVERRIDES.get(n) == "none":
                 row.append(0)
                 continue
+            if isinstance(ROW_OVERRIDES.get(n), list):
+                b = ROW_OVERRIDES[n][sum(1 for k in range(i) if is_frame(small, k)) % len(ROW_OVERRIDES[n])]
             if ROW_OVERRIDES.get(n) == "breathe":
                 b = BREATHE[sum(1 for k in range(i) if is_frame(small, k)) % 2]
             row.append(b)
