@@ -53,8 +53,15 @@ BIG_SET = 0x80
 # arm-raised frame, the release (arm forward) with the arm-out pose.
 BIG_WINDUP, BIG_RELEASE = 0x384, 0x3BC
 FRAME_SUBSTITUTES = {0xB0: BIG_WINDUP, 0xB4: BIG_RELEASE, 0xB8: BIG_WINDUP, 0xBC: BIG_RELEASE,
-                     0xC0: BIG_WINDUP, 0xC4: BIG_RELEASE, 0xC8: BIG_WINDUP, 0xCC: BIG_RELEASE}
+                     0xC0: BIG_WINDUP, 0xC4: BIG_RELEASE, 0xC8: BIG_WINDUP, 0xCC: BIG_RELEASE,
+                     # throwing a carried enemy (animation 0x20), and the lying-down throws (0x21 / 0x22)
+                     # with the big crawling poses
+                     0x8C: BIG_WINDUP, 0x90: BIG_RELEASE, 0x94: 0x330, 0x98: 0x334, 0x9C: 0x338}
 HERO_UP_PX = 15
+# An enemy the hero carries sits on his head: the routine at CARRIED_CODE (the carried enemy's code) puts it
+# above the normal hero's head every frame, so with the big art it is drawn CARRY_UP_PX higher.
+CARRIED_CODE = 0x466B6
+CARRY_UP_PX = 16
 HERO_LEFT_PX = 5           # facing right: the big art is centred ~5px right of the small art's centre
 HERO_LEFT_PX_FACING_LEFT = 10   # facing left: it sits ~10px right of centre (measured), so it needs twice the nudge
 # Climbing a vine (hero state 20, object+104) the big art's hands are ~12px right of the vine (the small
@@ -116,6 +123,15 @@ def x_shift(dreg, px=None, facing_left=False):
 
 def y_shift(dreg):
     return "    add.w #%d,%%%s\n" % (HERO_UP_PX * 128, dreg)
+
+
+def carried_shift(dreg, tag=""):
+    """Raise an enemy being carried (code CARRIED_CODE; +126 = which player carries it) while that player's
+    hero is drawn big - drawing only, its real position is the game's."""
+    return ("    cmpi.l #0x%X,4(%%a0)\n    bne cdone%s\n    tst.b 126(%%a0)\n    bne cp2%s\n    tst.b 0x%X\n"
+            "    bra ctest%s\ncp2%s:\n    tst.b 0x%X\nctest%s:\n    beq cdone%s\n    add.w #%d,%%%s\ncdone%s:\n"
+            % (CARRIED_CODE, tag, tag, PAIR_RAM[0] + 5, tag, tag, PAIR_RAM[1] + 5, tag, tag, CARRY_UP_PX * 128,
+               dreg, tag))
 
 
 def hook(rom, site, expect_hex, source, why):
@@ -419,13 +435,13 @@ DATA
          "    sub.w #0x4000,%d6\n" + hero_only("a0", x_shift("d6")) + "    move.w %d6,(%a2)\n    rts\n",
          "sprite X (usual path)")
     hook(rom, DRAW_Y_ZOOMED, "0445B7FF7C01",
-         "    sub.w #-18433,%d5\n" + hero_only("a0", y_shift("d5")) + "    moveq #1,%d6\n    rts\n",
+         "    sub.w #-18433,%d5\n" + hero_only("a0", y_shift("d5")) + carried_shift("d5", "") + "    moveq #1,%d6\n    rts\n",
          "sprite Y (zoomed path)")
     hook(rom, DRAW_Y_PLAIN, "0447B7FFDE433487",
-         "    sub.w #-18433,%d7\n    add.w %d3,%d7\n" + hero_only("a0", y_shift("d7")) + "    move.w %d7,(%a2)\n    rts\n",
+         "    sub.w #-18433,%d7\n    add.w %d3,%d7\n" + hero_only("a0", y_shift("d7")) + carried_shift("d7", "") + "    move.w %d7,(%a2)\n    rts\n",
          "sprite Y (usual path)")
     hook(rom, PIECES_BASE, "0447B7FF48473E2E029804474000",
-         "    sub.w #-18433,%d7\n" + hero_only("a0", y_shift("d7"), "y") +
+         "    sub.w #-18433,%d7\n" + hero_only("a0", y_shift("d7"), "y") + carried_shift("d7", "y") +
          "    swap %d7\n    move.w 664(%fp),%d7\n    sub.w #0x4000,%d7\n" + hero_only("a0", x_shift("d7"), "x") +
          "    rts\n",
          "sprite pieces' base position")
@@ -435,10 +451,10 @@ DATA
          "    sub.w #0x4000,%d5\n" + hero_only("a0", x_shift("d5", HERO_LEFT_PX_FACING_LEFT, True), "lx") + "    move.w %d5,(%a2)\n    rts\n",
          "sprite X (facing left)")
     hook(rom, LEFT_Y, "0447B7FFDE433487",
-         "    sub.w #-18433,%d7\n    add.w %d3,%d7\n" + hero_only("a0", y_shift("d7"), "ly") + "    move.w %d7,(%a2)\n    rts\n",
+         "    sub.w #-18433,%d7\n    add.w %d3,%d7\n" + hero_only("a0", y_shift("d7"), "ly") + carried_shift("d7", "ly") + "    move.w %d7,(%a2)\n    rts\n",
          "sprite Y (facing left)")
     hook(rom, LEFT_PIECES, "0447B7FF48473E28000204474000",
-         "    sub.w #-18433,%d7\n" + hero_only("a0", y_shift("d7"), "py") +
+         "    sub.w #-18433,%d7\n" + hero_only("a0", y_shift("d7"), "py") + carried_shift("d7", "py") +
          "    swap %d7\n    move.w 2(%a0),%d7\n    sub.w #0x4000,%d7\n" + hero_only("a0", x_shift("d7", HERO_LEFT_PX_FACING_LEFT, True), "px") +
          "    rts\n",
          "sprite pieces' base position (facing left)")
@@ -446,5 +462,5 @@ DATA
          "    sub.w #0x4000,%d6\n" + hero_only("a0", x_shift("d6"), "rzx") + "    move.w %d6,(%a2)\n    rts\n",
          "sprite X (facing right, zoomed)")
     hook(rom, RIGHT_Y_ZOOMED, "0445B7FF7C01",
-         "    sub.w #-18433,%d5\n" + hero_only("a0", y_shift("d5"), "rzy") + "    moveq #1,%d6\n    rts\n",
+         "    sub.w #-18433,%d5\n" + hero_only("a0", y_shift("d5"), "rzy") + carried_shift("d5", "rzy") + "    moveq #1,%d6\n    rts\n",
          "sprite Y (facing right, zoomed)")
