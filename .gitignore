@@ -10,3 +10,5 @@ nvram/
 snap/
 __pycache__/
 recordings/
+# MAME save states (made while testing)
+sta/

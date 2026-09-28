@@ -23,6 +23,10 @@ BIG_SET = 0x80
 HERO_UP_PX = 15
 HERO_LEFT_PX = 5           # facing right: the big art is centred ~5px right of the small art's centre
 HERO_LEFT_PX_FACING_LEFT = 10   # facing left: it sits ~10px right of centre (measured), so it needs twice the nudge
+# Climbing a vine (hero state 20, object+104) the big art's hands are ~12px right of the vine (the small
+# art grips it), so while climbing it is moved that much further toward the hands' side.
+VINE_STATES = [20]
+VINE_PX = 12
 
 DRAW_X_ZOOMED = 0xA604    # subi.w #0x4000,d5 ; move.w #256,d6
 DRAW_X_PLAIN = 0xA6AA     # subi.w #0x4000,d6 ; move.w d6,(a2)
@@ -57,8 +61,17 @@ def hero_only(reg, body, tag=""):
             % (tag, tag, mark, reg, tag, body, tag))
 
 
-def x_shift(dreg, px=None):
-    return "    sub.w #%d,%%%s\n" % ((HERO_LEFT_PX if px is None else px) * 128, dreg)
+_vine_labels = [0]
+
+
+def x_shift(dreg, px=None, facing_left=False):
+    """Nudge the big art left (plus the vine-climbing correction while on a vine; mirrored facing left)."""
+    _vine_labels[0] += 1
+    n = _vine_labels[0]
+    checks = "".join("    cmp.b #%d,104(%%a0)\n    beq vine%d\n" % (st, n) for st in VINE_STATES)
+    vine = "    %s.w #%d,%%%s\n" % ("add" if facing_left else "sub", VINE_PX * 128, dreg)
+    return ("    sub.w #%d,%%%s\n" % ((HERO_LEFT_PX if px is None else px) * 128, dreg) +
+            checks + "    bra novine%d\nvine%d:\n%snovine%d:\n" % (n, n, vine, n))
 
 
 def y_shift(dreg):
@@ -102,13 +115,13 @@ def apply(rom):
 
     # The same three hooks for the hero facing left.
     hook(rom, LEFT_X, "044540003485",
-         "    sub.w #0x4000,%d5\n" + hero_only("a0", x_shift("d5", HERO_LEFT_PX_FACING_LEFT), "lx") + "    move.w %d5,(%a2)\n    rts\n",
+         "    sub.w #0x4000,%d5\n" + hero_only("a0", x_shift("d5", HERO_LEFT_PX_FACING_LEFT, True), "lx") + "    move.w %d5,(%a2)\n    rts\n",
          "sprite X (facing left)")
     hook(rom, LEFT_Y, "0447B7FFDE433487",
          "    sub.w #-18433,%d7\n    add.w %d3,%d7\n" + hero_only("a0", y_shift("d7"), "ly") + "    move.w %d7,(%a2)\n    rts\n",
          "sprite Y (facing left)")
     hook(rom, LEFT_PIECES, "0447B7FF48473E28000204474000",
          "    sub.w #-18433,%d7\n" + hero_only("a0", y_shift("d7"), "py") +
-         "    swap %d7\n    move.w 2(%a0),%d7\n    sub.w #0x4000,%d7\n" + hero_only("a0", x_shift("d7", HERO_LEFT_PX_FACING_LEFT), "px") +
+         "    swap %d7\n    move.w 2(%a0),%d7\n    sub.w #0x4000,%d7\n" + hero_only("a0", x_shift("d7", HERO_LEFT_PX_FACING_LEFT, True), "px") +
          "    rts\n",
          "sprite pieces' base position (facing left)")
