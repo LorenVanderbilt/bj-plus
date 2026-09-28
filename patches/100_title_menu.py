@@ -26,7 +26,8 @@ DESCRIPTION = "Title menu (AES): Start opens NEW GAME / OPTIONS on the title; OP
 #   SOUND TEST   - Left / Right step the sound command by 1, Up / Down by 16, A plays, B stops all, Start back.
 #                  Commands go straight into the game's sound queue (0xA27A); Z80 driver ranges: 0x04-0x23
 #                  music, 0x24-0xEF sound effects, 0xFF stop all.
-#   BACK TO TITLE - a soft reset (the BIOS reset entry 0xC00402)
+#   BACK TO TITLE - ends the "game" the way a finished one ends (mode 8: START_GAME's mode loop at 0x10D20 cleans
+#                   up and returns to the attract sequence), with the attract toggle set so the title comes next
 # Both screens take either player's controls (0x10FD96 / 0x10FD9C and both Start bits of 0x10FDAC).
 #
 # ---- Memory card: the hack's saves never touch the original game's
@@ -68,7 +69,7 @@ CLEAR_FIX = 0x9FBE           # fills the fix layer with the blank tile
 CLEAR_SPRITES = 0xA1BC       # d0..d1 = first..last sprite to hide
 WAIT_FRAME = 0xE856          # the game's wait-for-next-frame
 QUEUE_SOUND = 0xA27A         # the game's sound command queue (d0 = command)
-BIOS_RESET = 0xC00402
+ATTRACT_TOGGLE = 0x1033CA   # bit 0: which attract cycle runs next (0x106A0: 0 = the one with the title)
 FIRST_SOUND, LAST_SOUND, FIRST_EFFECT = 0x04, 0xEF, 0x24
 # spare RAM (0x10A3B0-0x10F2FF is unused by the game)
 CURSOR = 0x10C200            # the level select's last choice
@@ -85,7 +86,7 @@ OPT_CURSOR = 0x10C20B
 PAL = 15                     # fix palette for the options screens' text
 TITLE_PAL = 5                # the title's PUSH START palette
 MENU_COL, MENU_ROW = 16, 20  # title menu: first line (fix column / row), a line every other row
-PUSH_START_ADDR = 0x71D5     # where the title's PUSH START is (column 14, row 21, 10 characters)
+PUSH_START_ADDR = 0x71D5     # where the title's PUSH START is (column 14, row 21: " PUSH START", 11 characters)
 TITLE_ROW, LIST_ROW, COL = 3, 6, 8
 BLINK_ON, BLINK_OFF = 20, 10                 # frames the selected line is shown / hidden
 REPEAT_DELAY, REPEAT_RATE = 20, 6            # holding a direction: first repeat after, then every, N frames
@@ -240,6 +241,12 @@ new_game:
     movem.l %d1-%d7/%a0-%a5,-(%sp)
     bsr options
     movem.l (%sp)+,%d1-%d7/%a0-%a5
+    tst.w %d0
+    beq 2f
+    bclr #0,ATTRACT_TOGGLE           | BACK TO TITLE: the next attract cycle is the title one
+    move.b #8,0x103004               | mode 8 ends the game (START_GAME's mode loop cleans up and returns)
+    addq.l #4,%sp                    | and leave mode 3 now, straight back to that loop
+    rts
 2:  moveq #-1,%d0                    | nothing loaded: a fresh game
     rts
 
@@ -262,7 +269,7 @@ mode3_end:
 1:  move.b #0,0x103004
     rts
 
-| ================= the options screen
+| ================= the options screen: returns d0 = 0 to start the game (a stage picked), 1 = back to the title
 options:
     bsr screen_setup
     lea opt_title(%pc),%a0
@@ -280,12 +287,14 @@ options:
     tst.b STAGE_PICK
     beq options
     jsr CLEAR_FIX
+    moveq #0,%d0
     rts
 1:  cmp.w #1,%d6
     bne 2f
     bsr sound_test                   | SOUND TEST
     bra options
-2:  jmp BIOS_RESET                   | BACK TO TITLE
+2:  moveq #1,%d0                     | BACK TO TITLE
+    rts
 
 level_select:
     bsr screen_setup
@@ -552,7 +561,7 @@ blank:
     .ascii "BLANK_TEXT"
     .byte 0
 push_blank:
-    .ascii "          "
+    .ascii "           "
     .byte 0
 opt_title:
     .ascii "OPTIONS"
@@ -602,7 +611,7 @@ TABLES
         "TITLE_TIMEOUT": "0x%X" % TITLE_TIMEOUT, "SYSTEM_MODE": "0x%X" % SYSTEM_MODE,
         "START_FLAGS": "0x%X" % START_FLAGS, "FRAME": "0x%X" % FRAME, "PUSH_START": "0x%X" % PUSH_START,
         "PLAYER_START": "0x%X" % PLAYER_START, "LOAD": "0x%X" % LOAD, "HOW_TO_PLAY": "0x%X" % HOW_TO_PLAY,
-        "BIOS_RESET": "0x%X" % BIOS_RESET, "CLEAR_FIX": "0x%X" % CLEAR_FIX,
+        "ATTRACT_TOGGLE": "0x%X" % ATTRACT_TOGGLE, "CLEAR_FIX": "0x%X" % CLEAR_FIX,
         "CLEAR_SPRITES": "0x%X" % CLEAR_SPRITES, "WAIT_FRAME": "0x%X" % WAIT_FRAME,
         "QUEUE_SOUND": "0x%X" % QUEUE_SOUND, "FIRST_SOUND": "0x%X" % FIRST_SOUND,
         "LAST_SOUND": "0x%X" % LAST_SOUND, "FIRST_EFFECT": "0x%X" % FIRST_EFFECT,
