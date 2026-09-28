@@ -12,6 +12,9 @@ DESCRIPTION = "Pause the game with the Start button (the game's own pause is on 
 # BIOS sets that "changed" byte for one frame per press, but the open-source AES BIOS keeps it set
 # for as long as the button is held, which made the pause flip on and off every frame. So the check
 # below looks at the "current" byte 0x10FDAC and remembers last frame's state in spare RAM.
+# Player 1's Start is also how player 1 joins a game player 2 started, so it only counts as pause if player 1
+# was already in the game on the previous check (bit 0 of 0x106800, remembered in PREV_PLAYERS) - otherwise
+# the join and a pause happened together and the game sat paused without player 1.
 #
 # The music: the Z80 sound driver (022-m1.m1) already has a pause and a resume, they are just never
 # used by the game. Command 0xF2 (handled at Z80 0xD35D) copies the whole channel state (0x2C0 bytes
@@ -30,6 +33,8 @@ PAUSE_EFFECT = 0xC5       # played on pause
 QUEUE_SOUND = 0xA27A      # enqueue the sound command in d0
 CHECK_SITES = [0x11AC0, 0x11B06]   # move.b 0x10FDAD,d0 ; andi.w #10,d0  = 1039 0010 FDAD 0240 000A
 PREV_STATE = 0x10C100              # one spare byte of RAM (0x10A3B0-0x10F2FF is unused by the game)
+PREV_PLAYERS = 0x10C101            # and the players-in-game byte (0x106800) at the previous check
+PLAYERS = 0x106800
 
 
 def apply(rom):
@@ -42,9 +47,12 @@ def apply(rom):
         "    move.b %%d0,0x%X\n"
         "    not.b %%d1\n"
         "    and.b %%d1,%%d0\n"            # down now and not before = a new press
+        "    move.b 0x%X,%%d1\n"           # player 1 in the game at the previous check? (not joining now)
+        "    move.b 0x%X,0x%X\n"
+        "    and.b %%d1,%%d0\n"
         "    move.l (%%sp)+,%%d1\n"
         "    tst.b %%d0\n"                 # Z set = no new press (what the caller's beq tests)
-        "    rts\n" % (PREV_STATE, PREV_STATE),
+        "    rts\n" % (PREV_STATE, PREV_STATE, PREV_PLAYERS, PLAYERS, PREV_PLAYERS),
         why="Start press detector (returns Z clear on a new press)")
     for site, cmds, orig, why in ((PAUSE_ENTER, (SOUND_PAUSE, PAUSE_EFFECT), "08C00003", "pause the music, play the pause sound"),
                                   (PAUSE_EXIT, (SOUND_RESUME,), "08800003", "resume the music")):
