@@ -1,5 +1,5 @@
 NAME = "item-header"
-DESCRIPTION = "BLUE'S ITEM screens: the apostrophe sits snug against the letters (was a full-width gap: BLUE ' S)"
+DESCRIPTION = "Item screens' header: BLUE'S ITEMS (was BLUE'S ITEM), the apostrophe snug against the letters"
 
 # The attract mode's two item screens (0x35CE0 and 0x35E9E) draw their "BLUE'S ITEM" header with
 # `lea table,a0 ; move.w #0x7126,d0 ; jsr 0x36034`: a table of 2x2-tile letters from the 16x16 silver font
@@ -7,15 +7,15 @@ DESCRIPTION = "BLUE'S ITEM screens: the apostrophe sits snug against the letters
 # row 6. The apostrophe (tile 0xAE4) is a small mark in the middle of its own 16-pixel cell, so it floats
 # between E and S with a gap on each side.
 #
-# Both header calls now draw a copy laid out pixel by pixel instead: the letters on their usual 16-pixel
-# spacing, the apostrophe trimmed to its ink plus a pixel either side, the whole line re-centered on the
-# screen, cut into new fix tiles (rom.add_fix_tile).
+# Both header calls now draw a copy laid out pixel by pixel instead - reading BLUE'S ITEMS, plural: the letters
+# on their usual 16-pixel spacing, the apostrophe trimmed to its ink plus a pixel either side, the whole line
+# re-centered on the screen, cut into new fix tiles (rom.add_fix_tile).
 SITES = [(0x35CE0, "41F900035D4E303C71264EBA0348"), (0x35E9E, "41F900035FC0303C71264EBA018A")]
-TEXT = "BLUE'S ITEM"
+TEXT = "BLUE'S ITEMS"             # the original says ITEM
 FONT = {"B": 0x904, "L": 0x928, "U": 0x94A, "E": 0x90A, "'": 0xAE4, "S": 0x946, "I": 0x922, "T": 0x948,
         "M": 0x92A}
 APOSTROPHE_COLUMNS = (4, 12)      # pixel columns of the apostrophe's 16-pixel cell that are kept
-FIRST_COLUMN, COLUMNS, ROW, PALETTE = 9, 22, 6, 5
+FIRST_COLUMN, COLUMNS, ROW, PALETTE = 8, 24, 6, 5
 SCREEN_CENTER_X = 160
 BLANK = 0x0520
 FIX_COLUMN_BYTE = (16, 16, 24, 24, 0, 0, 8, 8)   # see tools/hackbuild.py
