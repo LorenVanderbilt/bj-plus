@@ -86,10 +86,12 @@ class Rom:
         """Assemble 68000 source into free space and return the address it was placed at."""
         # Assemble at the address it will actually live at: the assembler's output size can differ
         # with the address (branch/immediate sizes), so sizing it at address 0 is not reliable.
-        addr = (self.next_free + 1) & ~1
+        # 4-byte aligned: the linker aligns the code to 4 and would pad a 2-aligned start with a NOP,
+        # shifting every label by 2 from what the caller expects.
+        addr = (self.next_free + 3) & ~3
         code = self._assemble(source, addr)
         size = len(code)
-        assert self.alloc(size) == addr
+        assert self.alloc(size, align=4) == addr
         self.data[addr:addr + size] = code
         self.log.append("  0x%06X  %d byte(s) of new code  %s" % (addr, size, why))
         return addr
