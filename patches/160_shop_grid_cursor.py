@@ -23,25 +23,26 @@ DESCRIPTION = "Fairy shop: no floating cursor - move box to box; the selected bo
 #   on player 2's, both at once (passing each other) on a shared box.
 #
 # The frame is made of new fix-layer tiles (fix tiles 0x300+, a run that is blank in the S ROM and never
-# drawn by the game), generated below from the boxes' inner edges. Every frame pixel carries a segment
-# number (color index 1-14): the loop is cut into 14 segments clockwise from the top middle, 1-7 on the
-# right half and 8-14 on the left, so the split at the top/bottom middle falls between segments. The chasing
-# light is palette cycling: each frame, `frames` copies one step of a precomputed table into fix palettes 14
-# (player 1: blue), 13 (player 2: green) and 12 (shared box: green right half, blue left half) - palettes the
-# fix layer never uses. The game does load colors into them, though, so `frames` saves palettes 12-14 the
-# first time it runs and the shop's closing (before its fade-out, 0x1F8F4) puts them back.
+# drawn by the game), generated below from the boxes' inner edges. The loop is cut into 30 segments clockwise
+# from the top middle: 15 on the right half and 15 on the left, split at a tile boundary near the middle (x 64
+# / 128), so every tile belongs to one half and each half gets its own palette. A pixel's color index is its
+# segment number within its half (1-15). The chasing light is palette cycling: each frame, `frames` copies
+# one step of a precomputed table into six fix palettes - right / left half for player 1 (blue), player 2
+# (green) and a shared box (green right, blue left) - palettes the fix layer never uses. The game does load
+# colors into them, though, so `frames` saves them the first time it runs and the shop's closing (before its
+# fade-out, 0x1F8F4) puts them back.
 BOX_COLUMNS = [(38, 90), (101, 153)]                        # inner (black) area of each box, screen x
 BOX_ROWS = [(22, 58), (69, 106), (117, 154), (165, 201)]    # and screen y, top to bottom
 GRID_X = [0x5000, 0x7000]                                   # item object x / y for each column / row
 GRID_Y = [0xA800, 0x9000, 0x7800, 0x6000]
 START_BOX = [6, 7]                                          # player 1 bottom left, player 2 bottom right (EXIT)
 THICKNESS = 2                                               # frame line width in pixels
-FIRST_TILE = 0x300
-SEGMENTS = 14                                               # color indices 1-14; 1-7 right half, 8-14 left
-PALETTES = [14, 13, 12]                                     # player 1, player 2, both on one box
+FIRST_TILE, LAST_TILE = 0x300, 0x3DF                         # (0x3E0-0x3FF are shop-title's)
+HALF_SEGMENTS = 15                                          # color indices 1-15 in each half
+PALETTES = [(14, 13), (12, 11), (9, 7)]                     # (right, left) for player 1, player 2, both
 BLUE, GREEN, WHITE = (4, 12, 31), (6, 31, 6), (31, 31, 31)  # 5-bit R, G, B
-STEPS = 64                                                  # animation steps per lap (one per frame), power of 2
-TAIL = 3.5                                                  # length of the fading tail, in segments
+STEPS = 96                                                  # animation steps per lap (one per frame)
+TAIL = 0.25                                                 # length of the fading tail, as a part of a lap
 BLANK = 0x0520                                              # the fix layer's blank cell (as 0x9FBE fills it)
 
 PICK_SITE = 0x1FDAE        # jsr 0xB642
@@ -55,12 +56,18 @@ FRAME_COUNTER = 0x100204   # long, +1 every vblank
 RAM = 0x10C220             # spare RAM: see the offsets in the code
 
 
+def box_middle(box):
+    """x where the right half starts: the tile boundary nearest the box's middle."""
+    x0, x1 = BOX_COLUMNS[box % 2]
+    return round((x0 + x1 + 1) / 2 / 8) * 8
+
+
 def frame_pixels(box):
-    """{(x, y) fix-layer pixel: segment 1-14} of one box's frame."""
+    """{(x, y) fix-layer pixel: segment 1-15 within its half} of one box's frame."""
     (x0, x1), (y0, y1) = BOX_COLUMNS[box % 2], BOX_ROWS[box // 2]
     y0, y1 = y0 + 16, y1 + 16                    # screen y 0 is fix row 2
-    mid = (x0 + x1 + 1) // 2
-    height, half = SEGMENTS // 2, y1 - y0 + 1
+    mid = box_middle(box)
+    height, half = HALF_SEGMENTS, y1 - y0 + 1
     out = {}
     for y in range(y0, y1 + 1):
         for x in range(x0, x1 + 1):
@@ -76,7 +83,7 @@ def frame_pixels(box):
                 b = mid - x0
                 edge = min(db, x - x0, dt)
                 pos = mid - 1 - x if edge == db else b + db if edge == x - x0 else b + half + (x - x0)
-                out[(x, y)] = 1 + height + min(height - 1, pos * height // (2 * b + half))
+                out[(x, y)] = 1 + min(height - 1, pos * height // (2 * b + half))
     return out
 
 
@@ -86,20 +93,22 @@ def neo_color(rgb):
 
 
 def animation():
-    """STEPS rows of 3 palettes x 14 colors (indices 1-14): player 1, player 2, shared box."""
+    """STEPS rows of 6 palettes x 15 colors (indices 1-15), in the order of PALETTES flattened."""
+    lap = 2 * HALF_SEGMENTS
     rows = []
     for step in range(STEPS):
-        head = step * SEGMENTS / STEPS                       # clockwise light; player 2's runs the other way
+        head = step * lap / STEPS                            # clockwise light; player 2's runs the other way
         rows.append([])
-        for palette in range(3):
-            for seg in range(1, SEGMENTS + 1):
-                c = seg - 0.5
-                cw = (head - c) % SEGMENTS                   # how far behind each light this segment is
-                ccw = (c - (SEGMENTS - head)) % SEGMENTS
-                light = [cw, ccw, min(cw, ccw)][palette]
-                glow = max(0.0, 1 - light / TAIL)
-                base = [BLUE, GREEN, GREEN if seg <= SEGMENTS // 2 else BLUE][palette]
-                rows[-1].append(neo_color([bc + (wc - bc) * glow for bc, wc in zip(base, WHITE)]))
+        for mode in range(3):
+            for right in (True, False):
+                for seg in range(1, HALF_SEGMENTS + 1):
+                    c = (seg - 0.5 + (0 if right else HALF_SEGMENTS)) # position around the loop, clockwise
+                    cw = (head - c) % lap                    # how far behind each light this segment is
+                    ccw = (c - (lap - head)) % lap
+                    light = [cw, ccw, min(cw, ccw)][mode] / lap
+                    glow = max(0.0, 1 - light / TAIL) ** 1.5
+                    base = [BLUE, GREEN, GREEN if right else BLUE][mode]
+                    rows[-1].append(neo_color([bc + (wc - bc) * glow for bc, wc in zip(base, WHITE)]))
     return rows
 
 
@@ -114,12 +123,12 @@ def apply(rom):
             rows = tuple(tuple(px.get((cx * 8 + x, cy * 8 + y), 0) for x in range(8)) for y in range(8))
             if rows not in tiles:
                 tiles[rows] = FIRST_TILE + len(tiles)
-            box_tiles.append((0x7000 + cx * 32 + cy, tiles[rows]))
-        for palette in PALETTES:                  # the same tiles in each mode, just another palette
-            draws.append([(addr, palette << 12 | tile) for addr, tile in box_tiles])
-        erases.append([addr for addr, tile in box_tiles])
-    if len(tiles) > 0x100:
-        raise SystemExit("shop frame needs %d tiles, more than the 256 free slots" % len(tiles))
+            box_tiles.append((0x7000 + cx * 32 + cy, tiles[rows], cx * 8 >= box_middle(box)))
+        for right_pal, left_pal in PALETTES:      # the same tiles in each mode, just other palettes
+            draws.append([(addr, (right_pal if right else left_pal) << 12 | tile) for addr, tile, right in box_tiles])
+        erases.append([addr for addr, tile, right in box_tiles])
+    if FIRST_TILE + len(tiles) > LAST_TILE + 1:
+        raise SystemExit("shop frame needs %d tiles, more than fix tiles 0x%X-0x%X" % (len(tiles), FIRST_TILE, LAST_TILE))
     for rows, n in tiles.items():
         rom.put_fix_tile(n, rows, why="shop selection frame piece")
 
@@ -135,7 +144,7 @@ def apply(rom):
 
     # RAM (bytes from RAM): +0/+1 each player's box, +2/+3 last frame's joystick, +4..+11 the frame number each
     # player's pointer last ran (long each), +12/+13 the boxes the frames are drawn on (0xFF none), +14 word
-    # 0x5AA5 while palettes 12-14 are saved, +0x20..+0x7F the saved palettes
+    # 0x5AA5 while the palettes are saved, +16 word animation step, +0x20.. the saved palettes (32 bytes each)
     src = r"""
 | ---- replaces jsr 0xB642 in the pointer's per-frame code: a5 = pointer object, a4 = player block.
 | Returns a0 = the item object in this player's box and Z clear, or Z set if the box is empty.
@@ -228,31 +237,20 @@ frames:
     jsr TYPEWRITER
     movem.l %d0-%d7/%a0-%a2,-(%sp)
     lea RAM,%a1
-    cmp.w #0x5AA5,14(%a1)           | the first time: save palettes 12-14 (put back when the shop closes)
+    cmp.w #0x5AA5,14(%a1)           | the first time: save the palettes (put back when the shop closes)
     beq 30f
-    lea 0x400000+12*32,%a0
-    lea 0x20(%a1),%a2
-    moveq #47,%d0
-31: move.w (%a0)+,(%a2)+
-    dbf %d0,31b
+SAVE_PALETTES
     move.w #0x5AA5,14(%a1)
-30: move.l FRAME_COUNTER,%d0        | the chasing light: this frame's step of the color table
-    and.w #STEPS-1,%d0
-    mulu #3*SEGMENTS*2,%d0
+30: move.w 16(%a1),%d0              | the chasing light: this frame's step of the color table
+    addq.w #1,%d0
+    cmp.w #STEPS,%d0
+    bcs 37f
+    moveq #0,%d0
+37: move.w %d0,16(%a1)
+    mulu #6*HALF_SEGMENTS*2,%d0
     lea anim_tab(%pc),%a0
     add.l %d0,%a0
-    lea 0x400000+P1_PALETTE*32+2,%a2
-    moveq #SEGMENTS-1,%d0
-32: move.w (%a0)+,(%a2)+
-    dbf %d0,32b
-    lea 0x400000+P2_PALETTE*32+2,%a2
-    moveq #SEGMENTS-1,%d0
-33: move.w (%a0)+,(%a2)+
-    dbf %d0,33b
-    lea 0x400000+BOTH_PALETTE*32+2,%a2
-    moveq #SEGMENTS-1,%d0
-34: move.w (%a0)+,(%a2)+
-    dbf %d0,34b
+CYCLE_PALETTES
     move.l FRAME_COUNTER,%d0
     moveq #-1,%d4                   | d4 / d5 = player 1 / 2 box, 0xFF = not in the shop
     moveq #-1,%d5
@@ -295,17 +293,13 @@ frames:
     rts
 """
     close_src = r"""
-| ---- the shop is closing (in place of its jsr to the fade-out): put palettes 12-14 back
+| ---- the shop is closing (in place of its jsr to the fade-out): put the saved palettes back
 close:
     movem.l %d0/%a0-%a2,-(%sp)
     lea RAM,%a1
     cmp.w #0x5AA5,14(%a1)
     bne 36f
-    lea 0x20(%a1),%a0
-    lea 0x400000+12*32,%a2
-    moveq #47,%d0
-35: move.w (%a0)+,(%a2)+
-    dbf %d0,35b
+RESTORE_PALETTES
     clr.w 14(%a1)
 36: movem.l (%sp)+,%d0/%a0-%a2
     jmp FADE_OUT
@@ -348,12 +342,27 @@ erase:
 
 DATA
 """
+    saved = sorted({p for pair in PALETTES for p in pair})
+
+    def copies(palettes, save):
+        """Code copying each palette (16 words) to / from its slot in the save area (a1 = RAM)."""
+        out = ""
+        for i, pal in enumerate(palettes):
+            ram, hw = "0x%X(%%a1)" % (0x20 + i * 32), "0x%X" % (0x400000 + pal * 32)
+            src, dst = (hw, ram) if save else (ram, hw)
+            out += "    lea %s,%%a0\n    lea %s,%%a2\n    moveq #15,%%d0\n5%d%d: move.w (%%a0)+,(%%a2)+\n    dbf %%d0,5%d%db\n" % (
+                src, dst, int(save), i, int(save), i)
+        return out
+
     consts = {
         "RAM": "0x%X" % RAM, "FRAME_COUNTER": "0x%X" % FRAME_COUNTER, "TYPEWRITER": "0x%X" % TYPEWRITER,
         "GRID_X": ",".join("0x%04X" % v for v in GRID_X), "GRID_Y": ",".join("0x%04X" % v for v in GRID_Y),
         "START_BOX": ",".join(str(v) for v in START_BOX),
-        "P1_PALETTE": str(PALETTES[0]), "P2_PALETTE": str(PALETTES[1]), "BOTH_PALETTE": str(PALETTES[2]),
-        "SEGMENTS": str(SEGMENTS), "STEPS": str(STEPS), "FADE_OUT": "0x%X" % FADE_OUT,
+        "SAVE_PALETTES": copies(saved, True), "RESTORE_PALETTES": copies(saved, False),
+        "CYCLE_PALETTES": "".join("    lea 0x%X,%%a2\n    moveq #%d,%%d0\n4%d: move.w (%%a0)+,(%%a2)+\n    dbf %%d0,4%db\n"
+                                  % (0x400002 + pal * 32, HALF_SEGMENTS - 1, i, i)
+                                  for i, pal in enumerate(p for pair in PALETTES for p in pair)),
+        "HALF_SEGMENTS": str(HALF_SEGMENTS), "STEPS": str(STEPS), "FADE_OUT": "0x%X" % FADE_OUT,
         "BLANK": "0x%04X" % BLANK, "DATA": data,
     }
     for k in sorted(consts, key=len, reverse=True):
@@ -362,7 +371,7 @@ DATA
         close_src = close_src.replace(k, consts[k])
     pick = rom.place_code(src, why="shop grid cursor: each player's box, moved one box per press")
     frames = rom.place_code(frames_src, why="shop grid cursor: draws / erases the frames, cycles the chasing light")
-    close = rom.place_code(close_src, why="shop grid cursor: puts palettes 12-14 back when the shop closes")
+    close = rom.place_code(close_src, why="shop grid cursor: puts the saved palettes back when the shop closes")
     rom.write(CLOSE_SITE, bytes.fromhex("4EB9") + close.to_bytes(4, "big"),
               expect=bytes.fromhex("4EB9") + FADE_OUT.to_bytes(4, "big"), why="shop closing: restore palettes first")
     rom.write(PICK_SITE, bytes.fromhex("4EB9") + pick.to_bytes(4, "big"), expect=bytes.fromhex("4EB90000B642"),
