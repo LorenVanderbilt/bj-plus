@@ -8,8 +8,9 @@ DESCRIPTION = "Remove the 15-second countdown in the shop and on three NPC quest
 # The 0x218A0 tick has other callers, so it is left untouched; only these start-ups change.
 # (Despite the name, only the first is the fairy shop; the others are NPC yes/no screens - see BOX_SITES.)
 # Two more start-ups with the same 15-second countdown (0x24536 and 0x283E2, with their own digit drawing
-# 0x245FC / 0x284A8 at fix 0x7283) turned out to be duel mini-games reached from NPC rooms ("WHOEVER RECEIVES
-# ANY DAMAGE IS THE LOSER"), not shops; they keep their countdown.
+# 0x245FC / 0x284A8 at fix 0x7283) are not shops and keep their countdown: 0x283E2 is a duel mini-game
+# reached from an NPC room ("WHOEVER RECEIVES ANY DAMAGE IS THE LOSER"), 0x24536 a timed scene in the good
+# ending (after "THEN BLUE WAS FROZEN BY NROS'S CURSE ... JUST A MINUTE!").
 SHOPS = [
     # (address of `move.b #0x15,0x783F(a6)`, address of the call that draws the digits, its bytes)
     (0x1F7E0, 0x1F7F4, "4EBA20DE"),        # jsr 0x218D4 (pc-relative)
