@@ -75,6 +75,10 @@ FRAME_SUBSTITUTES = {0xB0: BIG_WINDUP, 0xB4: BIG_RELEASE, 0xB8: BIG_WINDUP, 0xBC
                      # with the big crawling poses
                      0x8C: BIG_WINDUP, 0x90: BIG_RELEASE, 0x94: 0x330, 0x98: 0x334, 0x9C: 0x338}
 HERO_UP_PX = 15
+# ... per animation: the big art is lined up by its feet, which is wrong where the hero hangs by his hands:
+#   0x1C, hanging from the balloon (player 2 floating in): the big pose's hands are 2px lower in its frame
+#   than the normal pose's, so it only goes up 2px (15 lifted his hands well above the balloon's string)
+UP_PX = {0x1C: 2}
 # An enemy the hero carries sits on his head: the routine at CARRIED_CODE (the carried enemy's code) puts it
 # above the normal hero's head every frame, so with the big art it is drawn CARRY_UP_PX higher.
 CARRIED_CODE = 0x466B6
@@ -138,8 +142,14 @@ def x_shift(dreg, px=None, facing_left=False):
             checks + "    bra novine%d\nvine%d:\n%snovine%d:\n" % (n, n, vine, n))
 
 
+_up_table = [None]
+
+
 def y_shift(dreg):
-    return "    add.w #%d,%%%s\n" % (HERO_UP_PX * 128, dreg)
+    """Raise the big art by the hero's animation's entry in the UP_PX table (HERO_UP_PX unless overridden)."""
+    return ("    movem.l %%d0/%%a1,-(%%sp)\n    moveq #0,%%d0\n    move.b 102(%%a0),%%d0\n    and.w #0x3F,%%d0\n"
+            "    add.w %%d0,%%d0\n    lea 0x%X,%%a1\n    move.w (%%a1,%%d0.w),%%d0\n    add.w %%d0,%%%s\n"
+            "    movem.l (%%sp)+,%%d0/%%a1\n" % (_up_table[0], dreg))
 
 
 def carried_shift(dreg, tag=""):
@@ -487,6 +497,9 @@ DATA
     rom.write(HEIGHT_OFFSET, bytes.fromhex("4EF9") + (base + 12).to_bytes(4, "big"),
               expect=bytes.fromhex("1C2800210206"), why="height offset: +36 from the normal frame for the hero")
 
+    _up_table[0] = rom.place_code(
+        "    .word %s\n" % ",".join(str(UP_PX.get(n, HERO_UP_PX) * 128) for n in range(NORMAL_ANIMS)),
+        why="hero big art: how far up to draw it, per animation")
     hook(rom, DRAW_X_ZOOMED, "044540003C3C0100",
          "    sub.w #0x4000,%d5\n" + hero_only("a0", x_shift("d5", HERO_LEFT_PX_FACING_LEFT, True)) +
          "    move.w #256,%d6\n    rts\n",
