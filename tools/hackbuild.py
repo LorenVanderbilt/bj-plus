@@ -16,7 +16,8 @@ the official AES BIOS is not needed. Without it only the arcade build is produce
 A patch is a Python file in patches/ defining NAME, DESCRIPTION and apply(rom). `rom` is a Rom
 (below) holding the program ROM in normal 68000 byte order; patches change it with rom.write(),
 and add new code with rom.place_code(), which assembles it into unused space at the end of the ROM.
-rom.put_fix_tile() adds 8x8 tiles to the fix-layer ROM (022-s1.s1) in slots that are blank.
+rom.add_fix_tile() adds an 8x8 tile to the fix-layer ROM (022-s1.s1) in the next free slot of a run that is
+blank in the original and never drawn by the game (0x2FC-0x3FF) and returns its tile number.
 """
 import argparse, glob, hashlib, importlib.util, os, shutil, subprocess, sys, tempfile, zipfile, zlib
 
@@ -28,6 +29,9 @@ P1_NAME = "022-p1.p1"
 S1_NAME = "022-s1.s1"
 # The program ROM ends in ~300KB of unused 0xFF bytes starting at 0xB69A0; new code goes here.
 FREE_START = 0xB6A00
+# Fix tiles 0x2FC-0x3FF are blank in the S ROM and never drawn by the game (checked by watching every fix-layer
+# write through the attract cycle, gameplay and the shop); new fix tiles go here.
+FIX_FREE_START, FIX_FREE_END = 0x2FC, 0x3FF
 AS, LD, OBJCOPY = "m68k-neogeo-elf-as", "m68k-neogeo-elf-ld", "m68k-neogeo-elf-objcopy"
 
 
@@ -45,6 +49,7 @@ class Rom:
         self.fix = bytearray(fix)          # the fix-layer ROM (S ROM): 32 bytes per 8x8 tile, 4 bits per pixel
         self.fix_orig = bytes(fix)
         self.next_free = FREE_START
+        self.next_fix_tile = FIX_FREE_START
         self.log = []
 
     def u16(self, addr): return int.from_bytes(self.data[addr:addr + 2], "big")
@@ -106,6 +111,15 @@ class Rom:
                 tile[b] |= (pixels[y][x] & 15) << (0 if x % 2 == 0 else 4)
         self.fix[at:at + 32] = tile
         self.log.append("  fix 0x%03X  tile  %s" % (index, why))
+
+    def add_fix_tile(self, pixels, why=""):
+        """Store an 8x8 fix tile in the next free slot and return its tile number."""
+        n = self.next_fix_tile
+        if n > FIX_FREE_END:
+            raise SystemExit("out of free fix tiles (0x%X-0x%X)" % (FIX_FREE_START, FIX_FREE_END))
+        self.put_fix_tile(n, pixels, why)
+        self.next_fix_tile = n + 1
+        return n
 
     def patched_p1_file(self):
         return swap_pairs(bytes(self.data))

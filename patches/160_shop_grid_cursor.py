@@ -22,7 +22,7 @@ DESCRIPTION = "Fairy shop: no floating cursor - move box to box; the selected bo
 #   A white light with a fading tail chases around each frame - clockwise on player 1's, counter-clockwise
 #   on player 2's, both at once (passing each other) on a shared box.
 #
-# The frame is made of new fix-layer tiles (fix tiles 0x300+, a run that is blank in the S ROM and never
+# The frame is made of new fix-layer tiles (rom.add_fix_tile: slots that are blank in the S ROM and never
 # drawn by the game), generated below from the boxes' inner edges. The loop is cut into 30 segments clockwise
 # from the top middle: 15 on the right half and 15 on the left, split at a tile boundary near the middle (x 64
 # / 128), so every tile belongs to one half and each half gets its own palette. A pixel's color index is its
@@ -37,7 +37,6 @@ GRID_X = [0x5000, 0x7000]                                   # item object x / y 
 GRID_Y = [0xA800, 0x9000, 0x7800, 0x6000]
 START_BOX = [6, 7]                                          # player 1 bottom left, player 2 bottom right (EXIT)
 THICKNESS = 2                                               # frame line width in pixels
-FIRST_TILE, LAST_TILE = 0x300, 0x3DF                         # (0x3E0-0x3FF are shop-title's)
 HALF_SEGMENTS = 15                                          # color indices 1-15 in each half
 PALETTES = [(14, 13), (12, 11), (9, 7)]                     # (right, left) for player 1, player 2, both
 BLUE, GREEN, WHITE = (4, 12, 31), (6, 31, 6), (31, 31, 31)  # 5-bit R, G, B
@@ -122,15 +121,11 @@ def apply(rom):
         for cx, cy in cells:
             rows = tuple(tuple(px.get((cx * 8 + x, cy * 8 + y), 0) for x in range(8)) for y in range(8))
             if rows not in tiles:
-                tiles[rows] = FIRST_TILE + len(tiles)
+                tiles[rows] = rom.add_fix_tile(rows, why="shop selection frame piece")
             box_tiles.append((0x7000 + cx * 32 + cy, tiles[rows], cx * 8 >= box_middle(box)))
         for right_pal, left_pal in PALETTES:      # the same tiles in each mode, just other palettes
             draws.append([(addr, (right_pal if right else left_pal) << 12 | tile) for addr, tile, right in box_tiles])
         erases.append([addr for addr, tile, right in box_tiles])
-    if FIRST_TILE + len(tiles) > LAST_TILE + 1:
-        raise SystemExit("shop frame needs %d tiles, more than fix tiles 0x%X-0x%X" % (len(tiles), FIRST_TILE, LAST_TILE))
-    for rows, n in tiles.items():
-        rom.put_fix_tile(n, rows, why="shop selection frame piece")
 
     def table(name, lists, fmt):
         out = "%s:\n" % name + "".join("    .word %s_%d-%s\n" % (name, i, name) for i in range(len(lists)))

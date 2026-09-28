@@ -9,7 +9,7 @@ DESCRIPTION = "Fairy shop: \"SHOP\" on the plate at the top (where the countdown
 # below, eight letters per band of 0x20 tiles starting at 0x900 (A = 0x902 ... G = 0x90E, H = 0x920 ...,
 # P = 0x940 ...). Set on the font's own 16-pixel grid the letters of SHOP looked cramped, so the four glyphs
 # are copied out of the S ROM onto a pixel canvas with LETTER_GAP extra pixels between them, centered on the
-# plate, and the canvas is cut into new fix tiles (0x3E0-0x3FF, blank in the original S ROM).
+# plate, and the canvas is cut into new fix tiles (rom.add_fix_tile).
 #
 # It is drawn during the shop's set-up, before the fade-in, at the spot where the countdown digits used to be
 # drawn: `move.w #0x71C2,d0` (their position) followed by the call no-shop-timer turned into NOPs - so this
@@ -20,7 +20,6 @@ TEXT, PALETTE = "SHOP", 5
 LETTER_GAP = 3                    # extra pixels between letters
 PLATE_CENTER_X = 96               # screen x
 FIRST_COLUMN, COLUMNS, ROW = 7, 10, 2
-FIRST_TILE = 0x3E0
 BLANK = 0x0520
 FIX_COLUMN_BYTE = (16, 16, 24, 24, 0, 0, 8, 8)   # see tools/hackbuild.py
 
@@ -43,19 +42,16 @@ def apply(rom):
                     v = glyph_pixel(rom.fix_orig, tile, x, y)
                     if v:
                         canvas[ty * 8 + y][left + i * (16 + LETTER_GAP) + tx * 8 + x] = v
-    writes, n = "", FIRST_TILE
+    writes = ""
     for col in range(COLUMNS):
         for row in range(2):
             pixels = [canvas[row * 8 + y][col * 8:col * 8 + 8] for y in range(8)]
             addr = 0x7000 + (FIRST_COLUMN + col) * 32 + ROW + row
             if any(any(r) for r in pixels):
-                rom.put_fix_tile(n, pixels, why="shop title piece")
-                word, n = PALETTE << 12 | n, n + 1
+                word = PALETTE << 12 | rom.add_fix_tile(pixels, why="shop title piece")
             else:
                 word = BLANK
             writes += "    move.w #0x%04X,0x3C0000\n    move.w #0x%04X,0x3C0002\n" % (addr, word)
-    if n > 0x400:
-        raise SystemExit("shop title needs more than fix tiles 0x3E0-0x3FF")
     code = rom.place_code(
         "    move.w %%sr,-(%%sp)\n"
         "    or.w #0x0700,%%sr\n"
