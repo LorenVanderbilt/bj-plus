@@ -285,27 +285,30 @@ HERO_A0    bra 9f
 1:  move.l %a1,-(%sp)
 PAIR_A0    clr.b 5(%a1)                    | (1 = this draw uses a big frame: the +34 fix and the position nudges)
     clr.b 7(%a1)
+    move.w %d3,-(%sp)               | the frame in +8 (player 2's hero draws player 2's copies, 0x800 further on)
+    and.w #0x7FF,%d3                | as player 1's frame
     cmp.w #NORMAL_FRAMES,%d3        | only a normal-size frame is swapped (whatever the form: growing
-    bcc 8f                          | back from the shrink zooms the normal frame while +98 is still shrunk)
-    move.l (%a3,%d3.w),%a5          | the normal frame's width and height in tiles
+    bcc 4f                          | back from the shrink zooms the normal frame while +98 is still shrunk)
+    move.w (%sp),%d4
+    move.l (%a3,%d4.w),%a5          | the normal frame's width and height in tiles
     move.b (%a5),4(%a1)
     move.b 1(%a5),6(%a1)
-    cmp.w (%a1),%d3                 | still the frame the step picked a big one for?
+    cmp.w (%a1),%d4                 | still the frame the step picked a big one for?
     bne 3f
-    tst.w 2(%a1)
+    move.w 2(%a1),%d4
     beq 3f
-    move.w 2(%a1),%d3
-    move.b #1,5(%a1)
-    bra 8f
-3:  move.w %d3,-(%sp)               | set some other way: the plain table, or as it is
-    lsr.w #1,%d3
+    move.w %d4,%d3
+    bra 5f
+3:  lsr.w #1,%d3                    | set some other way: the plain table, or as it is
     lea frame_map(%pc),%a5
     move.w (%a5,%d3.w),%d3
-    bne 5f
-    move.w (%sp),%d3
-    bra 4f
+    beq 4f
 5:  move.b #1,5(%a1)
-4:  addq.l #2,%sp
+    move.w (%sp)+,%d4
+    and.w #0x800,%d4
+    add.w %d4,%d3                   | player 2: its copy of the big frame
+    bra 8f
+4:  move.w (%sp)+,%d3               | as it is
 8:  tst.b 5(%a1)                    | drawn big: return through `restore` (the stack holds a1, the return
     beq 7f                          | to 0xA430, then the drawing loop's return address)
     cmpi.w #0xFFFF,38(%a0)          | being zoomed (the C-button shrink): zoom the big art further
