@@ -1,20 +1,21 @@
 NAME = "no-shop-timer"
-DESCRIPTION = "Remove the 15-second countdown in the shops (all six shop versions) and the empty box it leaves behind"
+DESCRIPTION = "Remove the 15-second countdown in the shop and on three NPC question screens, and the empty box it leaves behind"
 
 # Each shop start-up stores BCD 0x15 (15 seconds) in the counter at 0x10783F and calls a routine that
 # draws the digits. A per-frame tick routine (0x218A0, with copies at 0x245C8 and 0x28474) counts it
 # down and, on expiry, sets the time-up flag at 0x107868. The tick routines return early ("no expiry")
 # when the counter holds 0x99, so each shop now starts at 0x99 and the digit-drawing call is removed.
-# The 0x218A0 tick has other callers, so it is left untouched; only these six start-ups change.
-# (Despite the name, only the first is the fairy shop; three are NPC yes/no screens - see BOX_SITES.)
+# The 0x218A0 tick has other callers, so it is left untouched; only these start-ups change.
+# (Despite the name, only the first is the fairy shop; the others are NPC yes/no screens - see BOX_SITES.)
+# Two more start-ups with the same 15-second countdown (0x24536 and 0x283E2, with their own digit drawing
+# 0x245FC / 0x284A8 at fix 0x7283) turned out to be duel mini-games reached from NPC rooms ("WHOEVER RECEIVES
+# ANY DAMAGE IS THE LOSER"), not shops; they keep their countdown.
 SHOPS = [
     # (address of `move.b #0x15,0x783F(a6)`, address of the call that draws the digits, its bytes)
     (0x1F7E0, 0x1F7F4, "4EBA20DE"),        # jsr 0x218D4 (pc-relative)
     (0x21AD2, 0x21AE6, "4EB9000218D4"),    # jsr 0x218D4
     (0x228B6, 0x228CA, "4EB9000218D4"),
-    (0x24536, 0x24546, "4EBA00B4"),        # jsr 0x245FC (this shop's own digit drawing)
     (0x25A12, 0x25A26, "4EB9000218D4"),
-    (0x283E2, 0x283F2, "4EBA00B4"),        # jsr 0x284A8
 ]
 
 # Three of these are NPC yes/no screens ("SEE THE LARGE RIVER AHEAD?", "AREN'T YOU BLUE...", the quiz man)
