@@ -9,7 +9,7 @@ DESCRIPTION = "Swinging vines: hold Up / Down to slide smoothly along the vine"
 #
 # Both routines start with `move.l (a5),hero` (6 bytes); that is now a call to `slide`. Pressing Up / Down
 # starts a step toward the next segment up / down the same vine (found by distance +-6 and closeness to the
-# current one); over RATE frames the hero's position is blended from the current segment to that one, and
+# current one); over UP_RATE / DOWN_RATE frames the hero's position is blended from the current segment to that one, and
 # at the end the attach flag is handed over (after the game's routine has added its hanging offset, which
 # it only does while the calling segment still has the flag). A step in progress always finishes; while the button is still
 # held the next one starts straight away. It stops at the bottom segment and at MIN_DISTANCE from the pivot.
@@ -19,7 +19,8 @@ SEGMENT_CODE = 0x4FD30
 HOLDING = 2
 STEP = 6                  # distance between segments (+56)
 MIN_DISTANCE = 6          # don't slide right up to the pivot
-RATE = 10                 # frames per segment
+UP_RATE = 10              # frames per segment climbing up
+DOWN_RATE = 6             # and sliding down
 NEAR = 0x1000             # a neighbouring segment of the same vine is within 16 px
 RAM = 0x10C304            # spare RAM, 4 bytes per player: segment (low word), step direction, step progress
 LAST_FRAME = 0x10C30C     # and one byte per player: the frame counter's low byte when it last moved
@@ -62,8 +63,12 @@ def apply(rom):
     clr.w 2(%a1)                    | none (end of the vine): stop
     bra done
 3:  addq.b #1,3(%a1)
-    cmp.b #RATE,3(%a1)
-    bcs 4f
+    moveq #UP_RATE,%d3              | d3 = frames per segment in this step's direction
+    cmp.b #1,2(%a1)
+    beq 14f
+    moveq #DOWN_RATE,%d3
+14: cmp.b 3(%a1),%d3
+    bhi 4f
     move.b FLAG(%a5),FLAG(%a2)      | step done: hand the hero over to that segment
     move.w %a2,(%a1)
     clr.w 2(%a1)
@@ -79,12 +84,12 @@ def apply(rom):
     move.w (%a2),%d0
     sub.w (%a5),%d0
     muls %d2,%d0
-    divs #RATE,%d0
+    divs %d3,%d0
     add.w (%a5),%d0
     move.w 2(%a2),%d1
     sub.w 2(%a5),%d1
     muls %d2,%d1
-    divs #RATE,%d1
+    divs %d3,%d1
     add.w 2(%a5),%d1
     swap %d0
     move.w %d1,%d0
@@ -132,7 +137,7 @@ neighbour:
 """
         for k, v in (("SEGMENT_CODE", "0x%X" % SEGMENT_CODE), ("MIN_DISTANCE", str(MIN_DISTANCE)),
                      ("HOLDING", str(HOLDING)), ("FLAG", str(flag)), ("JOY", "0x%X" % joy),
-                     ("STEP", str(STEP)), ("RATE", str(RATE)), ("NEAR", "0x%X" % NEAR),
+                     ("STEP", str(STEP)), ("UP_RATE", str(UP_RATE)), ("DOWN_RATE", str(DOWN_RATE)), ("NEAR", "0x%X" % NEAR),
                      ("HERO", "0x%X" % hero), ("RAM", "0x%X" % (RAM + 4 * n)), ("TAIL", "0x%X" % (site + 6)),
                      ("LAST", "0x%X" % (LAST_FRAME + n - (RAM + 4 * n)))):
             src = src.replace(k, v)
