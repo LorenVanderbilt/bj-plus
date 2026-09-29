@@ -31,7 +31,7 @@ DRAW_BEHIND = 0xA3A0
 DROWN_CODE = 0x3DE90         # the sinking hero
 SPLASH_CODE = 0x3DEC4
 POOL_DOWN = 12               # px the sinking hero and splash are drawn lower in a flat pool (after the cover)
-SPLASH_UP = 4                # ... the splash that much less (8 px lower in all)
+SPLASH_UP = 8                # ... the splash that much less (4 px lower in all)
 WATER_LINE = 40              # px below the sinking hero's first sprite y
 COVER_ROWS = 5               # tile rows of cover under the line (80 px: more than the hero's height)
 LAVA_LINE = 40               # the same for a hero burning in lava (state 33): px below his first y in that state
@@ -152,6 +152,8 @@ post:
 21: move.w RAM+52,%d2                | a pool: he and the splash drawn POOL_DOWN px lower (he starts partly in the
     move.w #POOL_DOWN<<7,%a1         | water), the splash SPLASH_UP px less so its crown stays above the surface
     bsr shift_spr
+    tst.l RAM+84                     | (only if the splash was drawn this frame)
+    beq 12f
     move.w RAM+88,%d2
     move.w RAM+90,%d3
     move.w #-(SPLASH_UP<<7),%a1
