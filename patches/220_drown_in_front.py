@@ -30,7 +30,8 @@ DRAW_BEHIND_CALL = 0x1180A   # jsr 0xA3A0 - the behind group (after the front gr
 DRAW_BEHIND = 0xA3A0
 DROWN_CODE = 0x3DE90         # the sinking hero
 SPLASH_CODE = 0x3DEC4
-SPLASH_DOWN = 8              # px the splash is drawn lower when in front of the water
+DROWN_DOWN = 12               # px the sinking hero and splash are drawn lower (after the cover is placed)
+SPLASH_DOWN = -4             # px the splash is moved (before DROWN_DOWN moves it and the hero): 8 lower in all
 WATER_LINE = 40              # px below the sinking hero's first sprite y
 COVER_ROWS = 5               # tile rows of cover under the line (80 px: more than the hero's height)
 LAVA_LINE = 40               # the same for a hero burning in lava (state 33): px below his first y in that state
@@ -40,7 +41,8 @@ RAM = 0x10EB80               # +0 2 entries (object offset word, first y word), 
                              # +16 / +22 player 1 / 2 in lava: first sprite, end sprite (words), frame (byte),
                              # +24 / +26 words and +28 4 bytes: cover's workspace (the liquid's palettes), +34..+45
                              # more of it: the entry (x2), each entry's sideways shift (+36 / +38), the liquid's
-                             # ends (+40 / +42), the hero's first sprite (+44)
+                             # ends (+40 / +42), the hero's first sprite (+44), +48 / +52 the sinking hero and his
+                             # first sprite, +56 up to 4 x (object long, draw byte, pad) hidden from the behind group
 GROUP_START = 0xA3BC         # lea 0x3C0002,a2 - the drawing loop, starting a group (d1 = its first sprite)
 OBJECT_DONE = 0xA3FE         # move.w 656(a6),d0 ; dbf d0,0xA3D8 - the drawing loop, after each object
 
@@ -48,9 +50,46 @@ OBJECT_DONE = 0xA3FE         # move.w 656(a6),d0 ; dbf d0,0xA3D8 - the drawing l
 def apply(rom):
     src = r"""
 post:
+    movem.l %d0-%d1/%a0-%a2,-(%sp)   | the game's own copies of the sinking hero and splash (the behind group) are
+    lea 0x100000,%a6                 | skipped - only ours, in front, are drawn: their draw byte +0x28 cleared
+    lea RAM+56,%a2                   | for the behind group's drawing and put back after (up to 4 objects)
+    move.w 0x2F0(%a6),%d1
+14: cmp.w 0x2F2(%a6),%d1
+    bhi 16f
+    lea 0x500(%a6),%a0
+    move.w (%a0,%d1.w),%d0
+    lea (%a6,%d0.w),%a0
+    tst.b 0x28(%a0)
+    beq 15f
+    move.l 4(%a0),%d0
+    cmp.l #DROWN_CODE,%d0
+    beq 17f
+    cmp.l #SPLASH_CODE,%d0
+    bne 15f
+17: lea RAM+56+24,%a1
+    cmp.l %a1,%a2
+    bcc 15f
+    move.l %a0,(%a2)+
+    move.b 0x28(%a0),(%a2)+
+    addq.l #1,%a2
+    clr.b 0x28(%a0)
+15: addq.w #2,%d1
+    bra 14b
+16: clr.l (%a2)
+    movem.l (%sp)+,%d0-%d1/%a0-%a2
     jsr DRAW_BEHIND
     movem.l %d0-%d7/%a0-%a6,-(%sp)
     lea 0x100000,%a6
+    lea RAM+56,%a2                   | (their draw bytes back)
+18: move.l (%a2)+,%d0
+    beq 19f
+    move.l %d0,%a0
+    move.b (%a2),0x28(%a0)
+    addq.l #2,%a2
+    lea RAM+56+24,%a1
+    cmp.l %a1,%a2
+    bcs 18b
+19:
     clr.b RAM+8
     clr.l RAM+48
     move.w 0x2E8(%a6),%d1            | the next free sprite after the front group
@@ -107,8 +146,25 @@ post:
     move.w RAM+52,%d6
     move.w %d1,RAM+10
     move.w #WATER_LINE,RAM+12
+    move.w RAM+10,-(%sp)             | (where his and the splash's sprites end)
     bsr cover
-    clr.l RAM+48
+    move.w (%sp)+,%d3
+    move.w RAM+52,%d2                | then both drawn DROWN_DOWN px lower (the line stays where it is: he starts
+11: cmp.w %d3,%d2                    | partly in the water, as in a waterfall)
+    bcc 12f
+    move.w %d2,%d0
+    add.w #0x8200,%d0
+    bsr vread
+    btst #6,%d0
+    bne 13f
+    sub.w #DROWN_DOWN<<7,%d0
+    move.w %d2,%d4
+    add.w #0x8200,%d4
+    move.w %d4,0x3C0000
+    move.w %d0,0x3C0002
+13: addq.w #1,%d2
+    bra 11b
+12: clr.l RAM+48
 10: lea RAM+16,%a1                   | a hero burning in lava (state 33), drawn this frame: the lava's cover
     lea 0x104000,%a0
     moveq #1,%d7
@@ -599,7 +655,7 @@ cover:
     rts
 """
     consts = {"DRAW_BEHIND": "0x%X" % DRAW_BEHIND, "DROWN_CODE": "0x%X" % DROWN_CODE,
-              "SPLASH_CODE": "0x%X" % SPLASH_CODE, "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS), "SPLASH_DOWN": str(SPLASH_DOWN),
+              "SPLASH_CODE": "0x%X" % SPLASH_CODE, "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS), "SPLASH_DOWN": str(SPLASH_DOWN), "DROWN_DOWN": str(DROWN_DOWN),
               "RAM": "0x%X" % RAM, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
               "BLANK_TILE": "0x%X" % rom.add_sprite_tile([[0] * 16 for _ in range(16)], why="drowning: a blank tile")}
     for k in sorted(consts, key=len, reverse=True):
