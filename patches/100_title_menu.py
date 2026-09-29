@@ -130,6 +130,9 @@ PROBED = 0x10E90D            # the card has been looked at since the menu opened
 BEST_SUB = 0x10E90E          # HACK_CARD_SUB if the card holds a valid hack save, 0 = none
 AUTO = 0x10E910              # (word) AUTO_ON = auto-save on, anything else off (RAM is random at power-on); kept
 AUTO_ON = 0xA55A             # through the attract cycle's RAM clear, and stored in the save (0x10317E = 1)
+TO_MENU = 0x10E914           # (word) 0x5A00 + Start bits: open the title menu when the title is next up (kept
+                             # through the attract cycle's RAM clear, like AUTO / DIFF)
+FROM_ATTRACT = 0x10E90F      # Start bits of a Start pressed on an attract screen other than the title
 DIFF = 0x10E912              # (word) DIFF_SET + the chosen difficulty 0-7 (LEVEL 1-8), else none chosen: the BIOS's
 DIFF_SET = 0xD100            # soft-DIP (0x10FD8C, the game's default LEVEL 4); kept like AUTO, in the save 0x10317C
                              # (difficulty + 1; 0 = none)
@@ -211,9 +214,11 @@ game_save_prep:
 | the attract cycle's RAM clear (all of 0x100000-0x10EFFF), keeping the auto-save setting
 ram_keep:
     move.l AUTO_WORD,-(%sp)          | (and DIFF_WORD, the word after it)
+    move.w TO_MENU_WORD,-(%sp)
     move.l %a6,%a0
     add.l #0xF000,%a0
     jsr RAM_CLEAR_REST
+    move.w (%sp)+,TO_MENU_WORD
     move.l (%sp)+,AUTO_WORD
     rts
 
@@ -252,6 +257,22 @@ diff_set:
 | ================= title: once per frame, in place of the PUSH START call
 menu_frame:
     move.b FRAME,ON_TITLE
+    move.w %d0,-(%sp)                | Start was pressed on another attract screen: open the menu now
+    move.w TO_MENU_WORD,%d0
+    and.w #0xFF00,%d0
+    cmp.w #0x5A00,%d0
+    bne 0f
+    tst.b MENU_OPEN
+    bne 0f
+    move.b #1,MENU_OPEN
+    clr.b PROBED
+    clr.b BEST_SUB
+    clr.b MENU_CURSOR
+    clr.b SELECT_REQ
+    move.w #0xFFFF,MENU_PREV
+    move.b TO_MENU_WORD+1,START_BITS
+    clr.w TO_MENU_WORD
+0:  move.w (%sp)+,%d0
     tst.b MENU_OPEN
     bne 1f
     tst.w 31600(%a6)
@@ -366,6 +387,7 @@ menu_entries:
 
 | ================= the title screen's set-up and end: the title phase
 title_enter:
+    clr.b FROM_ATTRACT_BYTE
     move.b #1,TITLE_PHASE
     move.b #32,0x103005              | the instruction this call replaced
     rts
@@ -377,14 +399,14 @@ title_leave:
 start_pressed:
     tst.b SYSTEM_MODE
     bne 9f
-    tst.b 0x106800
-    bne 9f                           | a game is running (player 2 joining): as before
+    cmp.b #2,0x10FDAF                | a game is running (BIOS USER_MODE 2; player 2 joining): as before (the attract
+    beq 9f                           | demo has players in 0x106800 too, but USER_MODE 1)
     tst.b TITLE_PHASE                | the title is being set up (or is up): the menu
     bne 7f
     move.b FRAME,%d0
     sub.b ON_TITLE,%d0
     cmp.b #2,%d0
-    bcc 9f                           | not on the title: as before
+    bcc 10f                          | not on the title (the demo, high scores ...): see new_game
 7:
     tst.b MENU_OPEN
     bne 8f
@@ -403,13 +425,28 @@ start_pressed:
     and.b #0xFC,START_FLAGS
     rts
 9:  jmp PLAYER_START
+10: move.b START_FLAGS,%d0           | the game starts as before, but mode 3 (new_game) sends it back to the
+    and.b #3,%d0                     | title with the menu open
+    move.b %d0,FROM_ATTRACT_BYTE
+    jmp PLAYER_START
 
 | ================= mode 3 (new game), in place of the card load call
 new_game:
     tst.b SYSTEM_MODE
     beq 1f
     jmp LOAD                         | arcade: as before
-1:  clr.b STAGE_PICK
+1:  tst.b FROM_ATTRACT_BYTE          | started from an attract screen: back to the title, the menu open there
+    beq 11f
+    moveq #0,%d0
+    move.b FROM_ATTRACT_BYTE,%d0
+    or.w #0x5A00,%d0
+    move.w %d0,TO_MENU_WORD
+    clr.b FROM_ATTRACT_BYTE
+    bclr #0,ATTRACT_TOGGLE           | (as BACK TO TITLE)
+    move.b #8,0x103004
+    addq.l #4,%sp
+    rts
+11: clr.b STAGE_PICK
     move.b CHOICE,%d0
     clr.b CHOICE
     cmp.b #CHOICE_CONTINUE,%d0
@@ -1190,7 +1227,7 @@ TABLES
     consts = {
         "MENU_SAVE_COUNT": str(len(MENU_SAVE)), "MENU_COUNT": str(len(MENU)), "OPT_COUNT": str(len(OPTIONS)), "STAGE_COUNT": str(len(STAGES)),
         "CHOICE_OPTIONS": str(CHOICE_OPTIONS), "CHOICE_CONTINUE": str(CHOICE_CONTINUE),
-        "PROBED": "0x%X" % PROBED, "DIFF_WORD": "0x%X" % DIFF, "DIFF_SET": "0x%X" % DIFF_SET,
+        "PROBED": "0x%X" % PROBED, "TO_MENU_WORD": "0x%X" % TO_MENU, "FROM_ATTRACT_BYTE": "0x%X" % FROM_ATTRACT, "DIFF_WORD": "0x%X" % DIFF, "DIFF_SET": "0x%X" % DIFF_SET,
         "DIFF_HEARTS": "0x%X" % DIFF_HEARTS, "OPT_BUF": "0x%X" % OPT_BUF, "OPT_T_LEN": str(opt_len),
         "OPT_DIGIT": str(opt_digit), "OPT_ONOFF": str(opt_onoff), "OPT_DIFFICULTY": str(OPT_DIFFICULTY),
         "OPT_AUTO_SAVE": str(OPT_AUTO_SAVE), "OPT_MEMORY_CARD": str(OPTIONS.index("MEMORY CARD")), "AUTO_ON": "0x%X" % AUTO_ON, "AUTO_WORD": "0x%X" % AUTO,
