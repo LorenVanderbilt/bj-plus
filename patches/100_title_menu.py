@@ -1,5 +1,5 @@
 NAME = "title-menu"
-DESCRIPTION = "Title menu (AES): Start opens NEW GAME / OPTIONS on the title; OPTIONS = level select, sound test; hack saves use their own card slot"
+DESCRIPTION = "Title menu (AES): Start opens (CONTINUE /) NEW GAME / OPTIONS on the title; OPTIONS = level select, sound test; auto-save to the memory card at each stage start"
 
 # ---- The title menu (home console only; the arcade keeps its original flow)
 # The title screen's loop (0x1AF6A) runs the sprites and, once per frame, the PUSH START routine (`tst.w
@@ -31,11 +31,19 @@ DESCRIPTION = "Title menu (AES): Start opens NEW GAME / OPTIONS on the title; OP
 #                   up and returns to the attract sequence), with the attract toggle set so the title comes next
 # Both screens take either player's controls (0x10FD96 / 0x10FD9C and both Start bits of 0x10FDAC).
 #
-# ---- Memory card: the hack's saves never touch the original game's
-# The game saves 128 bytes (RAM 0x103100) to the card at game over and offered to load them when a game starts,
-# identified by the game's id (0x0022) and a sub-number, CARD_SUB 0x10FDD0, which 0xEFBA sets to 0 for every
-# load and save. The hack uses sub-number 1 instead, so a card can hold both games' saves and neither sees the
-# other's.
+# ---- Memory card: auto-save and CONTINUE; the hack's saves never touch the original game's
+# The game saves 128 bytes (RAM 0x103100: a label, then the player's stage, flowers, items ... with a checksum at
+# 0x10317F) to the card, identified by the game's id (0x0022) and a sub-number (0x10FDD0; the original uses 0).
+# It only offered to save at game over (taking a quarter of the flowers) and to load when a game started.
+#   * Auto-save: the stage start's title card call (0x13A6A, and 0x11486 on the other path) now also saves - in a
+#     real game on the home console with a card in, past the how-to-play - showing SAVING in the bottom right
+#     corner. The save is the game's own (builder 0xEFDE, the flowers put back), in the hack's slots 1 and 2 in
+#     turn, with a marker (0x10317D) and a counter (0x10317E) under the checksum: a save cut off by a power cut
+#     fails its checksum and the other slot, one stage older, is still there.
+#   * CONTINUE heads the title menu when a slot holds a valid hack save; it loads the newest and applies it the
+#     game's way (0xF0D6, which rechecks the checksum), and mode 3 then skips its fresh-game set-up.
+#   * The game's own save prompts (game over, the continue countdowns) are gone. Card errors (no card, not
+#     formatted, full) just mean no save. The original game ignores the hack's slots and vice versa.
 STAGES = [
     (2, "JUNGLE ZONE 1"), (3, "JUNGLE ZONE 2"),
     (5, "THE LOWER EARTH EMPIRE 1"), (4, "THE LOWER EARTH EMPIRE 2"),
@@ -47,8 +55,9 @@ STAGES = [
 ]
 # Stage ids (the game's English title cards, table 0x13D9E): 0/1 are the how-to-play copies of the jungle,
 # 12-15 and 20-23 are unused placeholders, 32 shop, 33-40 bosses, 41 route select.
-MENU = ["NEW GAME", "OPTIONS"]            # title menu entries, in order (their index is the choice)
-CHOICE_NEW_GAME, CHOICE_OPTIONS = 0, 1
+CHOICE_NEW_GAME, CHOICE_OPTIONS, CHOICE_CONTINUE = 0, 1, 2
+MENU = [("NEW GAME", CHOICE_NEW_GAME), ("OPTIONS", CHOICE_OPTIONS)]       # title menu, no save on the card
+MENU_SAVE = [("CONTINUE", CHOICE_CONTINUE)] + MENU                        # ... with a save to continue
 OPTIONS = ["LEVEL SELECT", "SOUND TEST", "BACK TO TITLE"]
 
 TITLE_PUSH_START = 0x1AF94   # tst.w 31600(a6) ; bne.s +4 ; jsr 0x1B034(pc)
@@ -64,6 +73,20 @@ HOW_TO_PLAY = 0x1111C
 MODE3_END = 0x113B4          # move.b #0,0x3004(a6)  (mode 3 -> mode 0: start the stage)
 CARD_SUB_SET = 0xEFD4        # move.b #0,0x10FDD0
 HACK_CARD_SUB = 1
+SAVE_BUF = 0x103100          # the game's 128-byte save
+MAGIC = 0x5A                 # marks a hack auto-save (0x10317D)
+CARD = 0x988A                # the game's call of the BIOS card routine (command 0x10FDC4, answer 0x10FDC6)
+BUILD_SAVE = 0xEFDE          # fills SAVE_BUF from the player (30878(a6) bit 0: player 1, else 2) + checksum
+APPLY_SAVE = 0xF0D6          # checks SAVE_BUF's checksum and gives it to the player(s) in 30878(a6); d0 0 = ok
+STAGE_TITLE_CALLS = [0x13A6A, 0x11486]   # jsr 0x13C6E - the stage start's title card (a new stage: 0x1393A, and
+                                         # the other path at 0x11486)
+TITLE_CARD = 0x13C6E
+SAVING_AT = (31, 28)         # fix column / row of SAVING (the bottom right corner)
+SAVING_ATTR = 0x5000 + 0x500 # palette 5, the text font
+# the game's own save prompts, replaced by the auto-save:
+OLD_SAVES = [(0x1100C, "4EB90000EE88", "4E714E714E71", "game over: no SAVE YES/NO"),
+             (0x123EE, "4EB90000EBFE", "70004E714E71", "player 1 continue countdown: no SAVE prompt"),
+             (0x12A46, "4EB90000ED28", "70004E714E71", "player 2 continue countdown: no SAVE prompt")]
 TITLE_TIMEOUT = 0x1078F0
 SYSTEM_MODE = 0x10FD82       # BIOS: 0 = home console (AES)
 START_FLAGS = 0x10FDB4       # BIOS: bit 0 / 1 = player 1 / 2 pressed Start
@@ -87,9 +110,14 @@ STAGE_PICK = 0x10E909        # a stage picked in the level select (0 = none)
 SELECT_REQ = 0x10E90A        # Start pressed while the menu was open
 OPT_CURSOR = 0x10E90B
 TITLE_PHASE = 0x10E90C       # 1 from the start of the title screen's set-up until the title ends
+PROBED = 0x10E90D            # the card has been looked at since the menu opened
+BEST_SUB = 0x10E90E          # the card slot (1 / 2) with the newest valid hack save, 0 = none
+BEST_COUNT = 0x10E90F        # its save counter
+NEXT_SUB = 0x10E910          # the slot the next auto-save goes to (0 = not known yet: look at the card first)
+SAVE_COUNT = 0x10E911        # the counter of the last save made / loaded
 PAL = 15                     # fix palette for the options screens' text
 TITLE_PAL = 5                # the title's PUSH START palette
-MENU_COL, MENU_ROW = 16, 20  # title menu: first line (fix column / row), a line every other row
+MENU_COL, MENU_LAST_ROW = 16, 22   # title menu: fix column, and the row of its last line (a line every other row)
 PUSH_START_ADDR = 0x71D5     # where the title's PUSH START is (column 14, row 21: " PUSH START", 11 characters)
 TITLE_ROW, LIST_ROW, COL = 3, 6, 8
 BLINK_ON, BLINK_OFF = 20, 10                 # frames the selected line is shown / hidden
@@ -111,7 +139,7 @@ def string_table(label, names):
 
 
 def apply(rom):
-    width = max(len(m) for m in MENU)
+    width = max(len(m) for m, c in MENU_SAVE)
     src = r"""
     bra.w menu_frame                 | +0
     bra.w start_pressed              | +4
@@ -120,6 +148,7 @@ def apply(rom):
     bra.w mode3_end                  | +16
     bra.w title_enter                | +20
     bra.w title_leave                | +24
+    bra.w autosave                   | +28
 
 | ================= title: once per frame, in place of the PUSH START call
 menu_frame:
@@ -137,6 +166,11 @@ menu_frame:
     moveq #0,%d2
     move.w #TITLE_ATTR,%d7
     bsr print_attr
+    tst.b PROBED                     | the first frame: is there a save to continue?
+    bne 10f
+    move.b #1,PROBED
+    bsr probe
+10: bsr menu_entries                 | a1 = the entries' strings, d5 = how many, d4 = the first line's address
     moveq #0,%d0
     move.b 0x10FD96,%d0
     or.b 0x10FD9C,%d0
@@ -150,11 +184,12 @@ menu_frame:
     beq 2f
     subq.w #1,%d6
     bpl 2f
-    moveq #MENU_COUNT-1,%d6
+    move.w %d5,%d6
+    subq.w #1,%d6
 2:  btst #1,%d1
     beq 3f
     addq.w #1,%d6
-    cmp.w #MENU_COUNT,%d6
+    cmp.w %d5,%d6
     bcs 3f
     moveq #0,%d6
 3:  move.b %d6,MENU_CURSOR
@@ -166,13 +201,14 @@ menu_frame:
     moveq #0,%d3
 4:  move.w %d3,%d0
     add.w %d0,%d0
-    lea menu_t(%pc),%a0
-    move.w (%a0,%d0.w),%d0
-    lea menu_t_s(%pc),%a0
+    move.w (%a1,%d0.w),%d0
+    move.w %d5,%d2                   | the strings follow the offsets
+    add.w %d2,%d2
+    lea (%a1,%d2.w),%a0
     add.w %d0,%a0
     move.w %d3,%d1
     add.w %d1,%d1
-    add.w #MENU_ADDR,%d1
+    add.w %d4,%d1
     moveq #0,%d2
     cmp.b %d6,%d3
     bne 5f
@@ -182,24 +218,28 @@ menu_frame:
 5:  move.w #TITLE_ATTR,%d7
     bsr print_attr
     addq.w #1,%d3
-    cmp.w #MENU_COUNT,%d3
+    cmp.w %d5,%d3
     bne 4b
     movem.l (%sp)+,%d0-%d7/%a0-%a1
     rts
 select:
-    move.b %d6,CHOICE
+    lea menu_ids(%pc),%a0            | the entry -> the choice
+    tst.b BEST_SUB
+    beq 7f
+    lea menu_save_ids(%pc),%a0
+7:  move.b (%a0,%d6.w),CHOICE
     clr.b MENU_OPEN
     clr.b SELECT_REQ
     moveq #0,%d3                     | clear the menu lines
 6:  lea blank(%pc),%a0
     move.w %d3,%d1
     add.w %d1,%d1
-    add.w #MENU_ADDR,%d1
+    add.w %d4,%d1
     moveq #0,%d2
     move.w #TITLE_ATTR,%d7
     bsr print_attr
     addq.w #1,%d3
-    cmp.w #MENU_COUNT,%d3
+    cmp.w %d5,%d3
     bne 6b
     move.b START_BITS,%d0            | put the Start request back and start the game the usual way
     or.b %d0,START_FLAGS
@@ -208,6 +248,21 @@ select:
     lea 0x100000,%a6
     jsr PLAYER_START
     movem.l (%sp)+,%d0-%d7/%a0-%a6
+    rts
+
+| the menu's entries: a1 = the string table, d5 = how many, d4 = the fix address of the first line
+menu_entries:
+    lea menu_t(%pc),%a1
+    moveq #MENU_COUNT,%d5
+    tst.b BEST_SUB
+    beq 1f
+    lea menu_save_t(%pc),%a1
+    moveq #MENU_SAVE_COUNT,%d5
+1:  move.w %d5,%d4
+    subq.w #1,%d4
+    add.w %d4,%d4
+    neg.w %d4
+    add.w #MENU_LAST_ADDR,%d4
     rts
 
 | ================= the title screen's set-up and end: the title phase
@@ -235,6 +290,8 @@ start_pressed:
     tst.b MENU_OPEN
     bne 8f
     move.b #1,MENU_OPEN              | open the menu
+    clr.b PROBED
+    clr.b BEST_SUB
     clr.b MENU_CURSOR
     clr.b SELECT_REQ
     move.w #0xFFFF,MENU_PREV         | buttons already held don't count
@@ -254,9 +311,15 @@ new_game:
     beq 1f
     jmp LOAD                         | arcade: as before
 1:  clr.b STAGE_PICK
+    clr.b NEXT_SUB                   | (the first auto-save looks at the card)
     move.b CHOICE,%d0
     clr.b CHOICE
-    cmp.b #CHOICE_OPTIONS,%d0
+    cmp.b #CHOICE_CONTINUE,%d0
+    bne 3f
+    bsr continue                     | d0 = 0 if a save was loaded (then mode 3 skips its fresh-game set-up)
+    beq 4f
+    bra 2f
+3:  cmp.b #CHOICE_OPTIONS,%d0
     bne 2f
     movem.l %d1-%d7/%a0-%a5,-(%sp)
     bsr options
@@ -268,7 +331,150 @@ new_game:
     addq.l #4,%sp                    | and leave mode 3 now, straight back to that loop
     rts
 2:  moveq #-1,%d0                    | nothing loaded: a fresh game
+4:  rts
+
+| ================= the memory card: the hack's saves are the game's 128-byte save (0x103100: a label, the player's
+| stage, flowers, items ... and a checksum at 0x10317F over 0x103114-0x10317E) in slots (sub-numbers) 1 and 2,
+| written in turn; unused bytes of it hold a marker (0x10317D) and a save counter (0x10317E), so the newer one
+| can be told apart and a half-written one (a power cut while saving) fails its checksum.
+| d0 = command (2 load, 3 save), d1 = slot -> d0 = the BIOS's answer (0 = done), Z set if done
+card_io:
+    movem.l %d1-%d7/%a0-%a6,-(%sp)
+    move.l #SAVE_BUF,0x10FDC8
+    move.w #0x80,0x10FDCC
+    move.w 0x108,0x10FDCE            | the game's id
+    move.b %d1,0x10FDD0
+    move.b %d0,0x10FDC4
+    lea 0x100000,%a6
+    jsr CARD
+    moveq #0,%d0
+    move.b 0x10FDC6,%d0
+    movem.l (%sp)+,%d1-%d7/%a0-%a6
+    tst.b %d0
     rts
+
+| Z set if the buffer holds a hack save: its marker, and a matching checksum
+buf_valid:
+    movem.l %d0-%d1/%a0,-(%sp)
+    cmp.b #MAGIC,0x10317D
+    bne 9f
+    lea 0x103114,%a0
+    move.w #106,%d0
+    moveq #0,%d1
+1:  add.b (%a0)+,%d1
+    dbf %d0,1b
+    cmp.b 0x10317F,%d1
+9:  movem.l (%sp)+,%d0-%d1/%a0
+    rts
+
+| BEST_SUB / BEST_COUNT = the slot with the newest valid hack save and its counter (BEST_SUB 0 = none)
+probe:
+    movem.l %d0-%d3,-(%sp)
+    clr.b BEST_SUB
+    move.b 0x380000,%d0              | no card: nothing
+    and.b #0x30,%d0
+    bne 9f
+    moveq #1,%d3
+1:  moveq #2,%d0
+    move.b %d3,%d1
+    bsr card_io
+    bne 2f
+    bsr buf_valid
+    bne 2f
+    move.b 0x10317E,%d2
+    tst.b BEST_SUB
+    beq 3f
+    move.b %d2,%d0                   | newer: ahead of the other by a positive (wrapping) count
+    sub.b BEST_COUNT,%d0
+    ble 2f
+3:  move.b %d3,BEST_SUB
+    move.b %d2,BEST_COUNT
+2:  addq.b #1,%d3
+    cmp.b #3,%d3
+    bne 1b
+9:  movem.l (%sp)+,%d0-%d3
+    rts
+
+| CONTINUE (in mode 3): load the newest save and apply it the game's way (0xF0D6); d0 = 0 / Z set if loaded
+continue:
+    bsr probe
+    move.b BEST_SUB,%d1
+    beq 8f
+    moveq #2,%d0
+    bsr card_io
+    bne 8f
+    bsr buf_valid
+    bne 8f
+    moveq #3,%d0                     | the next save goes to the other slot
+    sub.b %d1,%d0
+    move.b %d0,NEXT_SUB
+    move.b BEST_COUNT,SAVE_COUNT
+    jsr APPLY_SAVE
+    tst.w %d0
+    rts
+8:  moveq #-1,%d0
+    rts
+
+| ================= the stage start, in place of its jsr to the title card: the title card, then an auto-save
+| (a real game on the home console, past the how-to-play, with a card in) and SAVING in the corner meanwhile
+autosave:
+    jsr TITLE_CARD
+    tst.b SYSTEM_MODE
+    bne 9f
+    tst.b 0x106800                   | the attract demo: no
+    beq 9f
+    cmp.b #2,0x103005                | the how-to-play's stages 0 / 1: no
+    bcs 9f
+    movem.l %d0-%d7/%a0-%a6,-(%sp)
+    move.b 0x380000,%d0
+    and.b #0x30,%d0
+    bne 8f
+    lea saving(%pc),%a0
+    move.w #SAVING_ADDR,%d1
+    moveq #0,%d2
+    move.w #SAVING_ATTR,%d7
+    bsr print_attr
+    tst.b NEXT_SUB
+    bne 1f
+    bsr probe                        | the first save of this game: follow on from what the card holds
+    move.b BEST_SUB,%d0
+    beq 2f
+    moveq #3,%d1
+    sub.b %d0,%d1
+    move.b %d1,NEXT_SUB
+    move.b BEST_COUNT,SAVE_COUNT
+    bra 1f
+2:  move.b #1,NEXT_SUB
+    clr.b SAVE_COUNT
+1:  lea 0x100000,%a6                 | the game's save builder (0xEFDE) - minus the quarter of the flowers it
+    lea 0x107000,%a4                 | takes away (a game-over penalty): put them back
+    btst #0,30878(%a6)
+    bne 3f
+    lea 0x107400,%a4
+3:  move.b 16(%a4),%d6
+    jsr BUILD_SAVE
+    move.b %d6,16(%a4)
+    move.b %d6,0x103115
+    move.b #MAGIC,0x10317D
+    move.b SAVE_COUNT,%d0
+    addq.b #1,%d0
+    move.b %d0,0x10317E
+    lea 0x103114,%a0                 | the checksum again
+    move.w #106,%d0
+    moveq #0,%d1
+4:  add.b (%a0)+,%d1
+    dbf %d0,4b
+    move.b %d1,0x10317F
+    moveq #3,%d0
+    move.b NEXT_SUB,%d1
+    bsr card_io
+    bne 8f
+    addq.b #1,SAVE_COUNT
+    moveq #3,%d0
+    sub.b NEXT_SUB,%d0
+    move.b %d0,NEXT_SUB
+8:  movem.l (%sp)+,%d0-%d7/%a0-%a6
+9:  rts
 
 | in place of `move.b 26624(a6),30878(a6) ; bsr 0x1111C`: the how-to-play, unless a stage was picked
 how_to_play:
@@ -580,6 +786,9 @@ print_attr:
 blank:
     .ascii "BLANK_TEXT"
     .byte 0
+saving:
+    .ascii "SAVING"
+    .byte 0
 push_blank:
     .ascii "           "
     .byte 0
@@ -618,12 +827,20 @@ stage_ids:
     .even
 TABLES
 """
-    tables = (string_table("menu_t", [m.ljust(width) for m in MENU]) + string_table("opt_t", OPTIONS)
-              + string_table("stage_t", [n for i, n in STAGES]))
+    tables = (string_table("menu_t", [m.ljust(width) for m, c in MENU])
+              + string_table("menu_save_t", [m.ljust(width) for m, c in MENU_SAVE])
+              + "menu_ids:\n    .byte %s\nmenu_save_ids:\n    .byte %s\n    .even\n" % (
+                  ",".join(str(c) for m, c in MENU), ",".join(str(c) for m, c in MENU_SAVE))
+              + string_table("opt_t", OPTIONS) + string_table("stage_t", [n for i, n in STAGES]))
     consts = {
-        "MENU_COUNT": str(len(MENU)), "OPT_COUNT": str(len(OPTIONS)), "STAGE_COUNT": str(len(STAGES)),
-        "CHOICE_OPTIONS": str(CHOICE_OPTIONS), "BLANK_TEXT": " " * width,
-        "MENU_ADDR": "0x%X" % fix_addr(MENU_COL, MENU_ROW), "PUSH_START_ADDR": "0x%X" % PUSH_START_ADDR, "TITLE_ATTR": "0x%X" % (TITLE_PAL * 0x1000 + 0x500),
+        "MENU_SAVE_COUNT": str(len(MENU_SAVE)), "MENU_COUNT": str(len(MENU)), "OPT_COUNT": str(len(OPTIONS)), "STAGE_COUNT": str(len(STAGES)),
+        "CHOICE_OPTIONS": str(CHOICE_OPTIONS), "CHOICE_CONTINUE": str(CHOICE_CONTINUE),
+        "PROBED": "0x%X" % PROBED, "BEST_SUB": "0x%X" % BEST_SUB, "BEST_COUNT": "0x%X" % BEST_COUNT,
+        "NEXT_SUB": "0x%X" % NEXT_SUB, "SAVE_COUNT": "0x%X" % SAVE_COUNT, "SAVE_BUF": "0x%X" % SAVE_BUF,
+        "MAGIC": "0x%X" % MAGIC, "CARD": "0x%X" % CARD, "APPLY_SAVE": "0x%X" % APPLY_SAVE,
+        "BUILD_SAVE": "0x%X" % BUILD_SAVE, "TITLE_CARD": "0x%X" % TITLE_CARD,
+        "SAVING_ADDR": "0x%X" % fix_addr(*SAVING_AT), "SAVING_ATTR": "0x%X" % SAVING_ATTR, "BLANK_TEXT": " " * width,
+        "MENU_LAST_ADDR": "0x%X" % fix_addr(MENU_COL, MENU_LAST_ROW), "PUSH_START_ADDR": "0x%X" % PUSH_START_ADDR, "TITLE_ATTR": "0x%X" % (TITLE_PAL * 0x1000 + 0x500),
         "TITLE_ADDR": "0x%X" % fix_addr(COL, TITLE_ROW), "LIST_ADDR": "0x%X" % fix_addr(COL, LIST_ROW),
         "ST_NUMBER_ADDR": "0x%X" % fix_addr(COL, 7), "ST_HEX_ADDR": "0x%X" % fix_addr(COL + 8, 7),
         "ST_TYPE_ADDR": "0x%X" % fix_addr(COL, 9), "ST_HELP_ADDR": "0x%X" % fix_addr(COL, 13),
@@ -647,7 +864,7 @@ TABLES
     base = rom.place_code(src, why="title menu, options screen (level select, sound test)")
     labels = {name: base + 4 * i for i, name in
               enumerate(("menu_frame", "start_pressed", "new_game", "how_to_play", "mode3_end",
-                         "title_enter", "title_leave"))}
+                         "title_enter", "title_leave", "autosave"))}
     rom.write(TITLE_PUSH_START, bytes.fromhex("4EB9") + labels["menu_frame"].to_bytes(4, "big") + bytes.fromhex("4E714E71"),
               expect=bytes.fromhex("4A6E7B7066044EBA0098"), why="title: the menu instead of PUSH START once Start is pressed")
     rom.write(PLAYER_START_CALL, bytes.fromhex("4EB9") + labels["start_pressed"].to_bytes(4, "big"),
@@ -662,5 +879,10 @@ TABLES
               expect=bytes.fromhex("1D7C00203005"), why="title set-up: note the title phase")
     rom.write(TITLE_END, bytes.fromhex("4EB9") + labels["title_leave"].to_bytes(4, "big"),
               expect=bytes.fromhex("4EB900009FBE"), why="title end: the title phase is over")
+    for site in STAGE_TITLE_CALLS:
+        rom.write(site, bytes.fromhex("4EB9") + labels["autosave"].to_bytes(4, "big"),
+                  expect=bytes.fromhex("4EB900013C6E"), why="stage start: the title card, then an auto-save")
+    for addr, orig, new, why in OLD_SAVES:
+        rom.write(addr, bytes.fromhex(new), expect=bytes.fromhex(orig), why=why)
     rom.write(CARD_SUB_SET + 3, bytes([HACK_CARD_SUB]), expect=bytes.fromhex("00"),
               why="memory card: the hack's saves use sub-number 1 (the original game's use 0)")
