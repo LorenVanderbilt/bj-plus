@@ -22,6 +22,10 @@ DESCRIPTION = "Drowning: the hero sinks into the water in front of it (the water
 # drawing loop's hooks note which sprites a hero in state 33 got this frame (GROUP_START: each group's first
 # sprite; OBJECT_DONE: after each object), and the same cover goes over them from LAVA_LINE px below where he
 # was when the state began - the lava surface swallows him.
+# Beside a wall or cliff (in the same layer as the liquid): the cover copies only tiles in the liquid's palettes
+# (those under his middle, from the line down; others become a blank tile), and he is eased sideways (2 px a
+# frame) until his sprites are all over the liquid at the line - the big art is wider than the original's and
+# would otherwise hang over the wall and look as if it fell into it.
 DRAW_BEHIND_CALL = 0x1180A   # jsr 0xA3A0 - the behind group (after the front group, 0x11804)
 DRAW_BEHIND = 0xA3A0
 DROWN_CODE = 0x3DE90         # the sinking hero
@@ -32,7 +36,10 @@ LAVA_LINE = 40               # the same for a hero burning in lava (state 33): p
 FRAME = 0x100207
 RAM = 0x10EB80               # +0 2 entries (object offset word, first y word), +8 a byte: entries seen this frame,
                              # +10 / +12 words: cover's arguments, +14 word: the drawing loop's next sprite,
-                             # +16 / +22 player 1 / 2 in lava: first sprite, end sprite (words), frame (byte)
+                             # +16 / +22 player 1 / 2 in lava: first sprite, end sprite (words), frame (byte),
+                             # +24 / +26 words and +28 4 bytes: cover's workspace (the liquid's palettes), +34..+45
+                             # more of it: the entry (x2), each entry's sideways shift (+36 / +38), the liquid's
+                             # ends (+40 / +42), the hero's first sprite (+44)
 GROUP_START = 0xA3BC         # lea 0x3C0002,a2 - the drawing loop, starting a group (d1 = its first sprite)
 OBJECT_DONE = 0xA3FE         # move.w 656(a6),d0 ; dbf d0,0xA3D8 - the drawing loop, after each object
 
@@ -101,9 +108,11 @@ post:
     btst #0,RAM+8
     bne 3f
     clr.l (%a0)
+    clr.w RAM+36
 3:  btst #1,RAM+8
     bne 4f
     clr.l 4(%a0)
+    clr.w RAM+38
 4:  movem.l (%sp)+,%d0-%d7/%a0-%a6
     rts
 
@@ -163,6 +172,7 @@ vread:
 cover:
     move.w %sr,-(%sp)
     or.w #0x0700,%sr                 | nothing else may move the VRAM address meanwhile
+    move.w %d6,RAM+44                | (his first sprite)
     move.w %d6,%d0                   | its first sprite's y
     add.w #0x8200,%d0
     bsr vread
@@ -193,6 +203,8 @@ cover:
 4:  move.w %d0,(%a1)
     move.w %d5,2(%a1)
 3:  bset %d2,RAM+8
+    add.w %d2,%d2
+    move.w %d2,RAM+34                | (his entry's shift: RAM+36 + this)
     move.w 2(%a1),%d5
     add.w RAM+12,%d5                 | d5 = the water line (y)
     and.w #511,%d5
@@ -224,7 +236,223 @@ cover:
     move.w %d0,%d4
 54: addq.w #1,%d2
     bra 5b
-6:  | the front layer's strips (from sprite word 0x246 up to the front group's first sprite)
+6:  | pass 1: the liquid's palettes - those of the strip under the hero's middle, from the line down (a wall or
+    | cliff beside him is in the same layer, but in other palettes: the cover leaves those out)
+    move.w %d1,RAM+24
+    move.l #-1,RAM+28                | up to 4 palettes (0xFF = none)
+    move.w %d3,%d0
+    add.w %d4,%d0
+    lsr.w #1,%d0
+    move.w %d0,RAM+26                | his middle x
+    move.w 0x246(%a6),%d2
+    moveq #0,%d6
+    moveq #0,%d7
+30: cmp.w 0x2E4(%a6),%d2
+    bcc 39f
+    move.w %d2,%d0
+    add.w #0x8200,%d0
+    bsr vread
+    btst #6,%d0
+    bne 31f
+    move.w %d0,%a4
+    lsr.w #7,%d0
+    neg.w %d0
+    add.w #496,%d0
+    and.w #511,%d0
+    move.w %d0,%d6
+    move.w %d2,%d0
+    add.w #0x8400,%d0
+    bsr vread
+    lsr.w #7,%d0
+    move.w %d0,%d7
+    bra 32f
+31: add.w #16,%d7
+    and.w #511,%d7
+32: move.w %a4,%d0
+    and.w #63,%d0
+    cmp.w #32,%d0
+    bcs 38f
+    move.w RAM+26,%d0                | under his middle?
+    sub.w %d7,%d0
+    cmp.w #16,%d0
+    bcc 38f
+    move.w %d5,%d0                   | r0, as below
+    sub.w %d6,%d0
+    and.w #511,%d0
+    add.w #15,%d0
+    lsr.w #4,%d0
+    cmp.w #32,%d0
+    bcc 39f
+    move.w %d2,%a5                   | its rows' palettes: a5 = the tile word address, a3 = rows left
+    move.w %d2,%d1
+    move.w %d0,-(%sp)
+    lsl.w #6,%d1
+    add.w %d0,%d1
+    add.w %d0,%d1
+    addq.w #1,%d1                    | (the attribute word)
+    moveq #32,%d0
+    sub.w (%sp)+,%d0
+    cmp.w #COVER_ROWS,%d0
+    bls 33f
+    moveq #COVER_ROWS,%d0
+33: move.w %d0,%a3
+34: move.w %d1,%d0
+    bsr vread
+    lsr.w #8,%d0
+    lea RAM+28,%a0
+    moveq #3,%d2
+35: cmp.b (%a0),%d0
+    beq 37f
+    cmp.b #0xFF,(%a0)
+    bne 36f
+    move.b %d0,(%a0)
+    bra 37f
+36: addq.l #1,%a0
+    dbf %d2,35b
+37: addq.w #2,%d1
+    subq.w #1,%a3
+    move.w %a3,%d0
+    bne 34b
+    move.w %a5,%d2
+    bra 39f
+38: addq.w #1,%d2
+    bra 30b
+39: move.w RAM+24,%d1                | (d1 was borrowed)
+    | pass 1b: where the liquid ends either side of his middle at the line: the nearest strips (within 64 px)
+    | whose tile at the line isn't in the liquid's palettes -> RAM+40 = left end, RAM+42 = right end
+    move.w RAM+26,%d0
+    sub.w #64,%d0
+    move.w %d0,RAM+40
+    add.w #128,%d0
+    move.w %d0,RAM+42
+    move.w 0x246(%a6),%d2
+    moveq #0,%d6
+    moveq #0,%d7
+40: cmp.w 0x2E4(%a6),%d2
+    bcc 49f
+    move.w %d2,%d0
+    add.w #0x8200,%d0
+    bsr vread
+    btst #6,%d0
+    bne 41f
+    move.w %d0,%a4
+    lsr.w #7,%d0
+    neg.w %d0
+    add.w #496,%d0
+    and.w #511,%d0
+    move.w %d0,%d6
+    move.w %d2,%d0
+    add.w #0x8400,%d0
+    bsr vread
+    lsr.w #7,%d0
+    move.w %d0,%d7
+    bra 42f
+41: add.w #16,%d7
+    and.w #511,%d7
+42: move.w %a4,%d0
+    and.w #63,%d0
+    cmp.w #32,%d0
+    bcs 48f
+    move.w %d7,%d0                   | near him? (-80 < x - middle < 64)
+    sub.w RAM+26,%d0
+    cmp.w #-80,%d0
+    ble 48f
+    cmp.w #64,%d0
+    bge 48f
+    move.w %d5,%d0                   | its tile at the line
+    sub.w %d6,%d0
+    and.w #511,%d0
+    add.w #15,%d0
+    lsr.w #4,%d0
+    cmp.w #32,%d0
+    bcc 48f
+    add.w %d0,%d0
+    move.w %d2,%a5
+    move.w %d2,-(%sp)
+    lsl.w #6,%d2
+    add.w %d2,%d0
+    addq.w #1,%d0
+    bsr vread
+    move.w (%sp)+,%d2
+    lsr.w #8,%d0
+    lea RAM+28,%a0
+    cmp.b (%a0)+,%d0
+    beq 48f
+    cmp.b (%a0)+,%d0
+    beq 48f
+    cmp.b (%a0)+,%d0
+    beq 48f
+    cmp.b (%a0)+,%d0
+    beq 48f
+    move.w %d7,%d0                   | not liquid: left of his middle -> the left end, right of it -> the right end
+    add.w #16,%d0
+    cmp.w RAM+26,%d0
+    bgt 43f
+    cmp.w RAM+40,%d0
+    ble 48f
+    move.w %d0,RAM+40
+    bra 48f
+43: cmp.w RAM+26,%d7
+    ble 48f
+    cmp.w RAM+42,%d7
+    bge 48f
+    move.w %d7,RAM+42
+48: addq.w #1,%d2
+    bra 40b
+49: | the shift that keeps him over the liquid (not over a wall or cliff beside it), eased 2 px a frame
+    move.w RAM+40,%d0
+    sub.w %d3,%d0
+    bgt 50f
+    move.w %d4,%d0
+    sub.w RAM+42,%d0
+    ble 51f
+    neg.w %d0
+    bra 50f
+51: moveq #0,%d0
+50: lea RAM+36,%a0
+    add.w RAM+34,%a0
+    move.w (%a0),%d2
+    cmp.w %d2,%d0
+    beq 53f
+    blt 52f
+    addq.w #2,%d2
+    cmp.w %d2,%d0
+    bge 53f
+    move.w %d0,%d2
+    bra 53f
+52: subq.w #2,%d2
+    cmp.w %d2,%d0
+    ble 53f
+    move.w %d0,%d2
+53: move.w %d2,(%a0)                 | d2 = the shift now: move his sprites (each chain's x) by it
+    add.w %d2,%d3
+    add.w %d2,%d4
+    tst.w %d2
+    beq 59f
+    move.w %d2,%a2
+    move.w RAM+44,%d2
+54: cmp.w RAM+10,%d2
+    bcc 59f
+    move.w %d2,%d0
+    add.w #0x8200,%d0
+    bsr vread
+    btst #6,%d0
+    bne 55f
+    move.w %d2,%d0
+    add.w #0x8400,%d0
+    bsr vread
+    lsr.w #7,%d0
+    add.w %a2,%d0
+    and.w #511,%d0
+    lsl.w #7,%d0
+    move.w %d2,%d6
+    add.w #0x8400,%d6
+    move.w %d6,0x3C0000
+    move.w %d0,0x3C0002
+55: addq.w #1,%d2
+    bra 54b
+59:
+    | pass 2: the front layer's strips (from sprite word 0x246 up to the front group's first sprite)
     move.w 0x246(%a6),%d2
     moveq #0,%d6                     | (strip y)
     moveq #0,%d7                     | (strip x)
@@ -291,9 +519,22 @@ cover:
     move.w %a5,%d0
     addq.w #1,%d0
     bsr vread
-    move.w %a3,0x3C0000
+    move.w %d0,%a1
+    lsr.w #8,%d0                     | the liquid's palette? else a blank tile (he stays in front of it)
+    lea RAM+28,%a0
+    cmp.b (%a0)+,%d0
+    beq 15f
+    cmp.b (%a0)+,%d0
+    beq 15f
+    cmp.b (%a0)+,%d0
+    beq 15f
+    cmp.b (%a0)+,%d0
+    beq 15f
+    move.w #BLANK_TILE,%a2
+    move.w #0,%a1
+15: move.w %a3,0x3C0000
     move.w %a2,0x3C0002              | (the modulo is 1: tile, then attributes)
-    move.w %d0,0x3C0002
+    move.w %a1,0x3C0002
     addq.w #2,%a5
     addq.w #2,%a3
     dbf %d5,14b
@@ -334,7 +575,8 @@ cover:
 """
     consts = {"DRAW_BEHIND": "0x%X" % DRAW_BEHIND, "DROWN_CODE": "0x%X" % DROWN_CODE,
               "SPLASH_CODE": "0x%X" % SPLASH_CODE, "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS),
-              "RAM": "0x%X" % RAM, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME}
+              "RAM": "0x%X" % RAM, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
+              "BLANK_TILE": "0x%X" % rom.add_sprite_tile([[0] * 16 for _ in range(16)], why="drowning: a blank tile")}
     for k in sorted(consts, key=len, reverse=True):
         src = src.replace(k, consts[k])
     base = rom.place_code("    bra.w post\n    bra.w grp_start\n    bra.w after_obj\n" + src,
