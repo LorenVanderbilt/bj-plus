@@ -30,6 +30,7 @@ DRAW_BEHIND_CALL = 0x1180A   # jsr 0xA3A0 - the behind group (after the front gr
 DRAW_BEHIND = 0xA3A0
 DROWN_CODE = 0x3DE90         # the sinking hero
 SPLASH_CODE = 0x3DEC4
+SPLASH_DOWN = 8              # px the splash is drawn lower when in front of the water
 WATER_LINE = 40              # px below the sinking hero's first sprite y
 COVER_ROWS = 5               # tile rows of cover under the line (80 px: more than the hero's height)
 LAVA_LINE = 40               # the same for a hero burning in lava (state 33): px below his first y in that state
@@ -51,6 +52,7 @@ post:
     movem.l %d0-%d7/%a0-%a6,-(%sp)
     lea 0x100000,%a6
     clr.b RAM+8
+    clr.l RAM+48
     move.w 0x2E8(%a6),%d1            | the next free sprite after the front group
     move.w 0x2E6(%a6),0x296(%a6)     | its sprite limit, for the drawing routine
     move.w 0x2F0(%a6),%d7            | the behind group's list entries
@@ -77,14 +79,37 @@ post:
     move.w (%sp)+,%d6                | d6..d1-1: its sprites
     move.l (%sp)+,%a0
     cmp.l #DROWN_CODE,4(%a0)
-    bne 7f
-    move.w %d1,RAM+10                | (its sprites end here)
-    move.w #WATER_LINE,RAM+12
-    bsr cover
+    bne 3f
+    move.l %a0,RAM+48                | the sinking hero: covered below (after the splash is drawn too)
+    move.w %d6,RAM+52
+    bra 7f
+3:  move.w %d6,%d2                   | the splash: SPLASH_DOWN px lower, so its foot is in the water (the cover
+4:  cmp.w %d1,%d2                    | hides it)
+    bcc 7f
+    move.w %d2,%d0
+    add.w #0x8200,%d0
+    bsr vread
+    btst #6,%d0
+    bne 5f
+    sub.w #SPLASH_DOWN<<7,%d0
+    move.w %d2,%d3
+    add.w #0x8200,%d3
+    move.w %d3,0x3C0000
+    move.w %d0,0x3C0002
+5:  addq.w #1,%d2
+    bra 4b
 7:  move.w (%sp)+,%d7
 8:  addq.w #2,%d7
     bra 1b
-9:  lea RAM+16,%a1                   | a hero burning in lava (state 33), drawn this frame: the lava's cover
+9:  tst.l RAM+48                     | the cover over the sinking hero and the splash (their sprites, from his first)
+    beq 10f
+    move.l RAM+48,%a0
+    move.w RAM+52,%d6
+    move.w %d1,RAM+10
+    move.w #WATER_LINE,RAM+12
+    bsr cover
+    clr.l RAM+48
+10: lea RAM+16,%a1                   | a hero burning in lava (state 33), drawn this frame: the lava's cover
     lea 0x104000,%a0
     moveq #1,%d7
 20: move.b FRAME,%d0
@@ -276,67 +301,6 @@ cover:
     sub.w %d7,%d0
     cmp.w #16,%d0
     bcc 38f
-    | the liquid's surface under his middle: the first non-empty cell (collision type not 0) from where he started,
-    | down 8 rows; if the line (LINE px below where he started, rounded down a row) falls right on it, one row lower
-    move.w %d5,%d1
-    sub.w RAM+12,%d1                 | his first y
-    moveq #7,%d0
-    move.w %d0,%a3
-60: move.w %d1,%d0
-    sub.w %d6,%d0
-    and.w #511,%d0
-    lsr.w #4,%d0                     | the strip's row at that y
-    move.w %d2,%a5
-    lsl.w #6,%d2
-    add.w %d0,%d2
-    add.w %d0,%d2
-    move.w %d0,-(%sp)
-    move.w %d2,%d0
-    addq.w #1,%d0
-    bsr vread
-    move.w %a5,%d2
-    lsr.w #4,%d0
-    and.w #15,%d0                    | (any solid-ish cell: water is type 12 or 15, and nothing else is under a
-    bne 61f                          | drowning hero)
-    addq.l #2,%sp
-    add.w #16,%d1
-    subq.w #1,%a3
-    move.w %a3,%d0
-    bpl 60b
-    bra 62f
-61: move.w (%sp)+,%d0                | found: if the line would fall on that row's top (the surface itself - he'd
-    move.w %d5,%d1                   | seem to sink behind it), it goes one row deeper
-    sub.w %d6,%d1
-    and.w #511,%d1
-    add.w #15,%d1
-    lsr.w #4,%d1                     | the line's row
-    cmp.w %d0,%d1
-    bne 62f
-    move.w %d0,-(%sp)                | ... unless the row above is already the liquid (a waterfall's band): same
-    move.w %d2,%d1                   | palette as the surface row
-    lsl.w #6,%d1
-    add.w %d0,%d1
-    add.w %d0,%d1
-    addq.w #1,%d1                    | the surface row's attribute word
-    move.w %d1,%d0
-    bsr vread
-    move.w %d0,%a5
-    move.w %d1,%d0
-    subq.w #2,%d0                    | the row above (the strip wraps round at 32 rows; the surface is never row 0 here)
-    bsr vread
-    move.w %a5,%d1
-    eor.w %d1,%d0
-    and.w #0xFF00,%d0
-    move.w %d0,%d1                   | (0 = same palette: keep the line)
-    move.w (%sp)+,%d0
-    tst.w %d1
-    beq 62f
-    addq.w #1,%d0
-    lsl.w #4,%d0
-    add.w %d6,%d0
-    and.w #511,%d0
-    move.w %d0,%d5
-62: move.w RAM+24,%d1                | (d1 back)
     move.w %d5,%d0                   | r0, as below
     sub.w %d6,%d0
     and.w #511,%d0
@@ -635,7 +599,7 @@ cover:
     rts
 """
     consts = {"DRAW_BEHIND": "0x%X" % DRAW_BEHIND, "DROWN_CODE": "0x%X" % DROWN_CODE,
-              "SPLASH_CODE": "0x%X" % SPLASH_CODE, "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS),
+              "SPLASH_CODE": "0x%X" % SPLASH_CODE, "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS), "SPLASH_DOWN": str(SPLASH_DOWN),
               "RAM": "0x%X" % RAM, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
               "BLANK_TILE": "0x%X" % rom.add_sprite_tile([[0] * 16 for _ in range(16)], why="drowning: a blank tile")}
     for k in sorted(consts, key=len, reverse=True):
