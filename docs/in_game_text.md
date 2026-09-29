@@ -1,0 +1,463 @@
+# Blue's Journey Plus - in-game text
+
+Every text string found in the program ROM of the current build (English; the Japanese screens
+draw their text from tile tables and aren't listed). `/` marks a line break. Found by scanning for runs
+of capitals made of real words, so a stray non-text entry may slip in and a very short string may be
+missed; text drawn from tiles (the big title font, the item-screen headers) isn't included.
+
+| ROM address | Area | Text |
+|---|---|---|
+| 0x00100 | system | NEO-GEO |
+| 0x09496 | system | RAGUY |
+| 0x094B6 | system | CONTINUE    DEMO SOUND  ON          OFF         HOW TO PLAY ON          OFF         DIFFICULTY  LEVEL 1     LEVEL 2     LEVEL 3     LEVEL 4     LEVEL 5     LEVEL 6     LEVEL 7     LEVEL 8     BONUS RATE  SECOND BONUS EVERY BONUS    NO BONUSBONUS       80000       90000       100000      110000      120000      130000      140000      150000      HERO        2           3           4           5           6           7           8           9           BLUE'S JOURNEY |
+| 0x0969E | system | CONTINUE    DEMO SOUND  ON          OFF         HOW TO PLAY ON          OFF         DIFFICULTY  LEVEL 1     LEVEL 2     LEVEL 3     LEVEL 4     LEVEL 5     LEVEL 6     LEVEL 7     LEVEL 8     BONUS RATE  SECOND BONUS EVERY BONUS    NO BONUSBONUS       50000       60000       70000       80000       90000       100000      110000      120000      HERO        2           3           4           5           6           7           8           9           / |
+| 0x09A53 | system | ISBA |
+| 0x0BC99 | system | ISBA |
+| 0x0E2BE | system | BANK |
+| 0x0E75C | system | PROG3 |
+| 0x0E763 | system | &PROG4 |
+| 0x0E76C | system | PROG1 |
+| 0x0E774 | system | PROG2 |
+| 0x0E77B | system | (WORK1 |
+| 0x0E783 | system | )WORK2 |
+| 0x0E7AB | system | 1PALETTE1 |
+| 0x0E7B6 | system | 2PALETTE2 |
+| 0x0E7C1 | system | 7PLAYER1 |
+| 0x0E7CB | system | 8PLAYER2 |
+| 0x0E7EA | system | HARD CHECK |
+| 0x0E7F6 | system | *SOUND |
+| 0x0EC73 | system | U    SAVE |
+| 0x0ECC9 | system | U    SAVE |
+| 0x0ED9D | system | U    SAVE |
+| 0x0EDF3 | system | U    SAVE |
+| 0x0F1AE | system | RAGUY STAGE |
+| 0x0F1C2 | system | BLUE'S J. |
+| 0x0F2DE | system | BOSS 01 BOSS 02 BOSS 03 BOSS 04 BOSS 05 XXXXXXXXXXXXXXXXBOSS 08 |
+| 0x0F3EA | system | SAVE |
+| 0x0F404 | system | LOAD |
+| 0x0F48C | system | RAGUY |
+| 0x0F492 | system | BLUE'S JOURNEY |
+| 0x0F4A1 | system | PLAYER1 |
+| 0x0F4A9 | system | PLAYER2 |
+| 0x112AE | attract / menus / game flow | HOW TO PLAY |
+| 0x11878 | attract / menus / game flow | TIME UP |
+| 0x11C0F | attract / menus / game flow | U  PUSH START |
+| 0x11C7D | attract / menus / game flow | U INSERT COIN |
+| 0x11D87 | attract / menus / game flow | U  PUSH START |
+| 0x11DF1 | attract / menus / game flow | U INSERT COIN |
+| 0x12005 | attract / menus / game flow | U   CONTINUE |
+| 0x121CD | attract / menus / game flow | U  INPUT NAME |
+| 0x12287 | attract / menus / game flow | U  GAME OVER |
+| 0x1265B | attract / menus / game flow | U   CONTINUE |
+| 0x12825 | attract / menus / game flow | U  INPUT NAME |
+| 0x128DF | attract / menus / game flow | U  GAME OVER |
+| 0x12B14 | attract / menus / game flow | CONTINUE |
+| 0x12B20 | attract / menus / game flow | CONTINUE |
+| 0x12C39 | attract / menus / game flow | U2P C BUTTON |
+| 0x12C48 | attract / menus / game flow | STAGE SELECT |
+| 0x12C67 | attract / menus / game flow | U2P B BUTTON |
+| 0x12C91 | attract / menus / game flow | U2P A BUTTON |
+| 0x12CA0 | attract / menus / game flow | EXIT |
+| 0x12D8C | attract / menus / game flow | START |
+| 0x12E88 | attract / menus / game flow | EXIT |
+| 0x136F7 | attract / menus / game flow | MUSIC |
+| 0x1371B | attract / menus / game flow | U             SOUND NO |
+| 0x147BC | attract / menus / game flow | JUNGLE ZONE 1 |
+| 0x147E2 | attract / menus / game flow | JUNGLE ZONE 2 |
+| 0x14808 | attract / menus / game flow | JUNGLE ZONE 3 |
+| 0x1482E | attract / menus / game flow | JUNGLE ZONE 4 |
+| 0x14854 | attract / menus / game flow | THE LOWER EARTH EMPIRE 1 |
+| 0x1488A | attract / menus / game flow | THE LOWER EARTH EMPIRE 2 |
+| 0x148C0 | attract / menus / game flow | THE LOWER EARTH EMPIRE 3 |
+| 0x148F6 | attract / menus / game flow | THE LOWER EARTH EMPIRE 4 |
+| 0x1492C | attract / menus / game flow | EMPIRE MARSH 1 |
+| 0x14954 | attract / menus / game flow | EMPIRE MARSH 2 |
+| 0x1497C | attract / menus / game flow | EMPIRE MARSH 3 |
+| 0x149A4 | attract / menus / game flow | EMPIRE MARSH 4 |
+| 0x14A74 | attract / menus / game flow | MECHANICAL CITY 1 |
+| 0x14A9E | attract / menus / game flow | MECHANICAL CITY 2 |
+| 0x14AC8 | attract / menus / game flow | MECHANICAL CITY 3 |
+| 0x14AF2 | attract / menus / game flow | MECHANICAL CITY 4 |
+| 0x14BC4 | attract / menus / game flow | STRANGE SPACE 1 |
+| 0x14BEC | attract / menus / game flow | STRANGE SPACE 2 |
+| 0x14C14 | attract / menus / game flow | STRANGE SPACE 3 |
+| 0x14C3C | attract / menus / game flow | STRANGE SPACE 4 |
+| 0x14C64 | attract / menus / game flow | DARUMA EMPIRE 1 |
+| 0x14C8C | attract / menus / game flow | DARUMA EMPIRE 2 |
+| 0x14CB4 | attract / menus / game flow | DARUMA EMPIRE 3 |
+| 0x14CDC | attract / menus / game flow | DARUMA EMPIRE 4 |
+| 0x14CFD | attract / menus / game flow | U"      SHOP        " |
+| 0x14D27 | attract / menus / game flow | U"      BOSS 1      " |
+| 0x14D51 | attract / menus / game flow | U"      BOSS 2      " |
+| 0x14D7B | attract / menus / game flow | U"      BOSS 3      " |
+| 0x14DA5 | attract / menus / game flow | U"      BOSS 4      " |
+| 0x14DCF | attract / menus / game flow | U"      BOSS 5      " |
+| 0x14DF9 | attract / menus / game flow | U"      BOSS 6      " |
+| 0x14E23 | attract / menus / game flow | U"      BOSS 7      " |
+| 0x14E4D | attract / menus / game flow | U"      BOSS 8      " |
+| 0x14E77 | attract / menus / game flow | U"    ROOT SELECT   " |
+| 0x14EA1 | attract / menus / game flow | U"       NONE       " |
+| 0x1B04F | title / shop | U PUSH START |
+| 0x1B0C8 | title / shop | CLOSE WINDOW |
+| 0x1B0E8 | title / shop | HIT TEST |
+| 0x1B0F8 | title / shop | SET FLOWER |
+| 0x1B108 | title / shop | SET FLOWER2 |
+| 0x1B14A | title / shop | CLOSE WINDOW |
+| 0x1B1EA | title / shop | BAD END 1 |
+| 0x1B20A | title / shop | BAD END 2 |
+| 0x1B21A | title / shop | NEXT |
+| 0x1B22C | title / shop | CLOSE WINDOW |
+| 0x1B23C | title / shop | ENDING |
+| 0x1B28C | title / shop | SHOP 2 |
+| 0x1B29C | title / shop | SHOP 3 |
+| 0x1B2AB | title / shop | *SHOP 4 |
+| 0x1B2BB | title / shop | 8NONE |
+| 0x1B2CB | title / shop | 2NONE |
+| 0x1B2DB | title / shop | 2NONE |
+| 0x1B2EB | title / shop | 2NONE |
+| 0x1B2FB | title / shop | 2NEXT |
+| 0x1B30E | title / shop | CLOSE WINDOW |
+| 0x1B31E | title / shop | KEY TEST |
+| 0x1B33E | title / shop | PRINT TEST |
+| 0x1B34E | title / shop | NONE |
+| 0x1B35D | title / shop | 2NEXT |
+| 0x1B370 | title / shop | CLOSE WINDOW |
+| 0x1B380 | title / shop | NONE |
+| 0x1B38F | title / shop | 2NONE |
+| 0x1B39F | title / shop | 2NONE |
+| 0x1B3AF | title / shop | 2NONE |
+| 0x1F934 | title / shop | WELCOME! |
+| 0x1F94C | title / shop | GOOD LUCK! |
+| 0x1F980 | title / shop | IT'TIME. / COME AGAIN. |
+| 0x1F9A4 | title / shop | COME AGAIN |
+| 0x1FEE6 | title / shop | YOU SHOULD / STAY LONGER. |
+| 0x1FF0C | title / shop | ARE YOU / GOING HOME |
+| 0x20198 | title / shop | YOU CAN'T / BUY IT. |
+| 0x201C0 | title / shop | CHECK YOUR / POCKET MONEY |
+| 0x201FC | title / shop | A DISCOUNT |
+| 0x20230 | title / shop | I WON'T TALK / TO POOR. |
+| 0x20314 | title / shop | THANKS. / ANYTHING / ELSE |
+| 0x20372 | title / shop | YOUR STAMINA / IS FULL. |
+| 0x20442 | title / shop | YOU ALREADY / HAVE IT. |
+| 0x20688 | title / shop | YOU'RE NOT / CURSED |
+| 0x20FF4 | title / shop | I'M NOT FOR / SALE. |
+| 0x21006 | title / shop | OCARINA / 5 FLOWERS / IT'S TOY. |
+| 0x21022 | title / shop | OCARINA / 10 FLOWERS / IT'S TOY. |
+| 0x21040 | title / shop | GOLD COCOON / 100 FLOWERS / 1 UP |
+| 0x2105E | title / shop | GOLD COCOON / 200 FLOWERS / 1 UP |
+| 0x2107C | title / shop | FLOWER HONEY / 20 FLOWERS / STAMINA / RECOVERED |
+| 0x210AA | title / shop | FLOWER HONEY / 10 FLOWERS / STAMINA / RECOVERED |
+| 0x210D8 | title / shop | SWIM FIN / 70 FLOWERS / MAKES / SWIMMING / EASIER |
+| 0x21108 | title / shop | SWIM FIN / 25 FLOWERS / MAKES / SWIMMING / EASIER |
+| 0x21138 | title / shop | SWIM FIN / 15 FLOWERS / MAKES / SWIMMING / EASIER |
+| 0x21168 | title / shop | SPIKE / 15 FLOWERS / AVOIDS |
+| 0x21182 | title / shop | SLIPPINGSPIKE / 75 FLOWERS / AVOIDS |
+| 0x211A6 | title / shop | SLIPPINGLIGHT SAFE / 20 FLOWERS / PROTECTS / ITEMS |
+| 0x211DA | title / shop | LIGHT SAFE / 25 FLOWERS / PROTECTS / ITEMS |
+| 0x21204 | title / shop | SUPER SAFE / 75 FLOWERS / PROTECTS / ITEMS / 3 STAGE |
+| 0x2123A | title / shop | ONE SONG / 10 FLOWERS / DISPELLS / CURSE |
+| 0x21268 | title / shop | SPRING / 30 FLOWERS / RUN FASTER |
+| 0x21288 | title / shop | SPRING / 10 FLOWERS / RUN FASTER |
+| 0x212A8 | title / shop | FLOWER HONEY / 40 FLOWERS / STAMINA / RECOVERED |
+| 0x212D6 | title / shop | SWIM FIN / 140FLOWERS / MAKES / SWIMMING / EASIER |
+| 0x21306 | title / shop | SWIM FIN / 50 FLOWERS / MAKES / SWIMMING / EASIER |
+| 0x21336 | title / shop | SWIM FIN / 30 FLOWERS / MAKES / SWIMMING / EASIER |
+| 0x21366 | title / shop | SPIKE / 30 FLOWERS / AVOIDS |
+| 0x21380 | title / shop | SLIPPINGSPIKE / 150FLOWERS / AVOIDS |
+| 0x213A4 | title / shop | SLIPPINGLIGHT SAFE / 40 FLOWERS / PROTECTS / ITEMS |
+| 0x213D8 | title / shop | LIGHT SAFE / 50 FLOWERS / PROTECTS / ITEMS |
+| 0x21402 | title / shop | SUPER SAFE / 150 FLOWERS / PROTECTS / ITEMS / 3 STAGE |
+| 0x21438 | title / shop | ONE SONG / 20 FLOWERS / DISPELLS / CURSE |
+| 0x21466 | title / shop | SPRING / 60 FLOWERS / RUN FASTER |
+| 0x21486 | title / shop | SPRING / 20 FLOWERS / RUN FASTER |
+| 0x21C11 | NPC rooms / cinemas / ending | (SEE THE LARGE RIVER AHEAD |
+| 0x2237C | NPC rooms / cinemas / ending | YES / NO |
+| 0x22462 | NPC rooms / cinemas / ending | ASK FOR LEAF MADE BOAT / ASK FOR BOAT MADE OF MUD / NOT NECESSARY |
+| 0x22594 | NPC rooms / cinemas / ending | "VIT'S GOOD IF YOU KNOW IT. / YOU CAN RENT MY BOAT. |
+| 0x22662 | NPC rooms / cinemas / ending | "FTHE BIG RIVER IS POLLUTED. / YOU WILL DIE IF YOU FALL IN. / YOU CAN CROSS IT BY USING IVY. / MANY PEOPLE HAVE DIED TRYING. |
+| 0x22716 | NPC rooms / cinemas / ending | "VFOGET THAT IDEA. / YOU SHOULD USE MY BOAT. |
+| 0x2276A | NPC rooms / cinemas / ending | USE IVY TO CROSS. |
+| 0x227A6 | NPC rooms / cinemas / ending | IHDECISION WILL GET YOU HOWHERE. |
+| 0x2280C | NPC rooms / cinemas / ending | YOU HAVE RUN OUT OF MONEY. |
+| 0x229D0 | NPC rooms / cinemas / ending | AREN'T YOU BLUE, / THE ONE WHO'S GOING TO / BEAT EMPEROR DARUMA |
+| 0x22A8A | NPC rooms / cinemas / ending | I THOUGHT IT WAS SOMEONE ELSE |
+| 0x22B88 | NPC rooms / cinemas / ending | IN THE SHABARN MARSH EMPIRE / YOU'LL FIND THE OLD MAN WHO / LOVES TO QUIZ. / HE WILL HELP YOU / IF YOU ANSWER HIS QUESTINS. / HIS NAME IS HOHOPPEY. |
+| 0x22C92 | NPC rooms / cinemas / ending | IN THE SHABARN MARSH EMPIRE / YOU'LL FIND THE OLD MAN WHO / LOVES TO QUIZ. / HE WILL HELP YOU / IF YOU ANSWER HIS QUESTINS. / HIS NAME IS PECULU. |
+| 0x22D9A | NPC rooms / cinemas / ending | IN THE SHABARN MARSH EMPIRE / YOU'LL FIND THE OLD MAN WHO / LOVES TO QUIZ. / HE WILL HELP YOU / IF YOU ANSWER HIS QUESTINS. / HIS NAME IS PUCAMONMME. |
+| 0x22F86 | NPC rooms / cinemas / ending | YOU WANT ME TO CUT THAT TREE |
+| 0x22FA4 | NPC rooms / cinemas / ending | I LOST MY HATCHET. |
+| 0x230D0 | NPC rooms / cinemas / ending | PLEASE LOOK FOR MY HATCHET. |
+| 0x2312C | NPC rooms / cinemas / ending | I WON'T LET YOU IN THE HOUSE. / UNLESS YOU TAKE IT BACK. |
+| 0x231A8 | NPC rooms / cinemas / ending | OH, THAT'S MINE. / NOW I CAN CUT THE TREE. |
+| 0x2323C | NPC rooms / cinemas / ending | MY HATCHET, / NOW I'VE GOT POWER. |
+| 0x234E2 | NPC rooms / cinemas / ending | 5JBLUE'S IRRESPONSIBILITY CAUSED / THE POLLUTION THAT RUINED RAGUY. / THE END |
+| 0x235B0 | NPC rooms / cinemas / ending | DO YOU BELIEVE IT |
+| 0x237BC | NPC rooms / cinemas / ending | 84BLUE IS EXHAUSTED AND RAGUY IS / RUINED BY POLLUTION. / GAME OVER |
+| 0x239D0 | NPC rooms / cinemas / ending | RAGUY IS RUINED BY POLLUTION. / BLUE LIVES THE REST OF HIS LIFE / IN THE DARUMA TRIBE. / THE END |
+| 0x23CAC | NPC rooms / cinemas / ending | THE DARUMA TRIBE LEFT AND LIFE / CAME BACK TO RAGUY. |
+| 0x23D78 | NPC rooms / cinemas / ending | THE SUFFERING PEOPLE HAVE / RECOVERED FROM THE POLLUTION. / THE PRINCESS FA WAS ONE OF THEM. |
+| 0x23FD8 | NPC rooms / cinemas / ending | THEN BLUE WAS FROZEN BY NROS'S / CURSE. |
+| 0x24058 | NPC rooms / cinemas / ending | JUST A MINUTE! |
+| 0x240F6 | NPC rooms / cinemas / ending | FA ACCEPTED. / THEY LED A HAPPY LIFE. |
+| 0x2469A | NPC rooms / cinemas / ending | BLUE, I'VE BEEN IN LOVE WITH FA. |
+| 0x2476C | NPC rooms / cinemas / ending | FIGHT ME! / IF I WIN, YOU WALK AWAY. |
+| 0x24810 | NPC rooms / cinemas / ending | YOU HAVE MY WORD. / NO KIDDING! |
+| 0x248C4 | NPC rooms / cinemas / ending | H:SHUT UP AND FIGHT! |
+| 0x24B7E | NPC rooms / cinemas / ending | I'M SORRY. I CAN'T CHOOSE. |
+| 0x24C62 | NPC rooms / cinemas / ending | THEY BOTH COULD NOT RECOVER / FROM THE SHOCK. |
+| 0x24CB6 | NPC rooms / cinemas / ending | BLUE, HAVE A HAPPY LIFE WITH FA. |
+| 0x24E28 | NPC rooms / cinemas / ending | FA ACCEPTED PROPOSE. / THEY LED A HAPPY LIFE. |
+| 0x24E96 | NPC rooms / cinemas / ending | AHH, FA IS MINE. GOODBYE BLUE. |
+| 0x24FA0 | NPC rooms / cinemas / ending | BLUE COULDN'T RECOVER FROM / THE SHOCK. |
+| 0x250E4 | NPC rooms / cinemas / ending | BLUE RECEIVED THE COLD SHOULDER / BECAUSE HE WAS NOT WELL PAID. |
+| 0x25D1C | NPC rooms / cinemas / ending | DON'T SAY ANYTHING. I KNOW ALL. |
+| 0x25DBF | NPC rooms / cinemas / ending | "I'M THE QUIZ MAN. / YOU GET TWO QUESTIONS. / YOU'LL LOSE ALL YOU FLOWERS / IF YOU CAN'T ANSWER ONE. |
+| 0x25E66 | NPC rooms / cinemas / ending | I GOT IT. / NO,I DON'T. |
+| 0x25F28 | NPC rooms / cinemas / ending | FIRST QUESTION IS, HOW MANY / QUESTIONS HAVE YOU ANSWERED |
+| 0x25FAE | NPC rooms / cinemas / ending | ONE QUESTION / TWO QUESTIONS / SEVENTY QUESTIONS |
+| 0x260E0 | NPC rooms / cinemas / ending | SORRY, I'LL TAKE THE FLOWERS. |
+| 0x2613C | NPC rooms / cinemas / ending | YOU DID A GOOD JOB. / LAST QUESTION, WHAT IS MY NAME |
+| 0x262AF | NPC rooms / cinemas / ending | JGREAT! YOU'RE A GENIUS. / I'LL MAKE YOUR DREAM COME TRUE. |
+| 0x2630C | NPC rooms / cinemas / ending | WHAT DO YOU PREFER |
+| 0x263A2 | NPC rooms / cinemas / ending | YOU'LL GET UP TO 255 FLOWERS. / FLOWERS WILL REMAIN EVEN AFTER DIE. / I WANT NOTHING. |
+| 0x26472 | NPC rooms / cinemas / ending | ARE YOU SURE / YOU'LL LET ME QUIZ YOU |
+| 0x264D8 | NPC rooms / cinemas / ending | NO, I WON'T. / YES, I WILL. |
+| 0x26556 | NPC rooms / cinemas / ending | WHAT DO YOU WANT TO KNOW |
+| 0x26631 | NPC rooms / cinemas / ending | RI'M PERSISTENT, LET'S PLAY. |
+| 0x26926 | NPC rooms / cinemas / ending | ARE YOU INTERESTED |
+| 0x269A6 | NPC rooms / cinemas / ending | ARE YOU SURPRISED |
+| 0x26A88 | NPC rooms / cinemas / ending | LOOK MY MAGIC. / IT'S ONLY 5 FLOWERS. |
+| 0x26AEC | NPC rooms / cinemas / ending | I'LL LOOK. / I WON'T LOOK. |
+| 0x26BC8 | NPC rooms / cinemas / ending | GO BUCK IF YOU'RE NOT BUYING. |
+| 0x26C0A | NPC rooms / cinemas / ending | HERE WE GO. |
+| 0x26C64 | NPC rooms / cinemas / ending | IS SO THAT. |
+| 0x26DB2 | NPC rooms / cinemas / ending | DID YOU ENJOY IT |
+| 0x26E10 | NPC rooms / cinemas / ending | YES / NO |
+| 0x26ED4 | NPC rooms / cinemas / ending | YOU MAKE ME HAPPY. / TAKE THIS HONEY WITH YOU. |
+| 0x2724A | NPC rooms / cinemas / ending | WILL YOU USE THE TRAVEL AGENT |
+| 0x272AA | NPC rooms / cinemas / ending | YES / NO |
+| 0x27362 | NPC rooms / cinemas / ending | COME AGAIN. |
+| 0x27392 | NPC rooms / cinemas / ending | WHERE ARE YOU GOING |
+| 0x2744C | NPC rooms / cinemas / ending | USE 10 FLOWERS TO GET TO / THIS STAGE BOSS. / USE 20 FLOWERS TO GET TO / THE EMPIRE MARSH. / USE 60 FLOWERS TO GET TO / THE MECHANICAL CITY. / I WON'T GO. |
+| 0x27620 | NPC rooms / cinemas / ending | ARE YOU GOING TO GRAB A RIDE |
+| 0x276EE | NPC rooms / cinemas / ending | IT'S TIME. COME AGAIN. |
+| 0x27C26 | NPC rooms / cinemas / ending | I'M ANGRY! / COME BACK ANOTHER TIME! |
+| 0x27C92 | NPC rooms / cinemas / ending | BLUE, I'VE BEEN WAITING / A LONG TIME TO SEE YOU. / DON'T TELL ME YOU FORGOT ME! |
+| 0x27D44 | NPC rooms / cinemas / ending | I REMEMBER YOU. / I FORGOT. / I DON'T KNOW. |
+| 0x27E24 | NPC rooms / cinemas / ending | FIGHT ME. |
+| 0x27E9A | NPC rooms / cinemas / ending | WHAT |
+| 0x27E9F | NPC rooms / cinemas / ending | ! / YOU BEAT ME IN THE CONTEST, / NOW FIGHT ME! |
+| 0x27F38 | NPC rooms / cinemas / ending | YOU BEAT ME IN THE CONTEST, / I'VE BEEN TRAINIG SINCE THEN, / NOW FIGHT ME! |
+| 0x28010 | NPC rooms / cinemas / ending | YOU HAVE MY WORD. / THERE'S NO TIME TO FIGHT. |
+| 0x280C2 | NPC rooms / cinemas / ending | WHOEVER RECEIVES ANY DAMAGE IS / IS THE LOSTER. HERE WE GO! |
+| 0x28168 | NPC rooms / cinemas / ending | ARE YOU WALKING AWAY FROM ME |
+| 0x281E0 | NPC rooms / cinemas / ending | I HAVE NO CHOICE.I'LL FIGHT. / I'M HURRYING. |
+| 0x28266 | NPC rooms / cinemas / ending | YOU COWARD! |
+| 0x282D2 | NPC rooms / cinemas / ending | WHAT |
+| 0x282D9 | NPC rooms / cinemas / ending | I'LL DO IT. / I'M A COWARD AFTER ALL. |
+| 0x28760 | NPC rooms / cinemas / ending | GOT THEN! I'LL START ALL OVER. / BULE, YOU TAKE THIS. / BULE TOOK THE TORCH. |
+| 0x2888E | NPC rooms / cinemas / ending | IT'S A TIE. / I'LL BEAT YOU NEXT TIME. |
+| 0x29588 | NPC rooms / cinemas / ending | THEY CAPTURED / US DURING A / TRIP. |
+| 0x295E6 | NPC rooms / cinemas / ending | THIS IS A / REWARD FOR / SETTING US FREE / A LOTTERY / DREWING. |
+| 0x2971D | NPC rooms / cinemas / ending | OKEY,I BET. / I'LL PASS. |
+| 0x29900 | NPC rooms / cinemas / ending | I SEE. / SEE YOU LATER. |
+| 0x29958 | NPC rooms / cinemas / ending | NO. / YOU DON'T HAVE / 10 FLOWERS. |
+| 0x299A0 | NPC rooms / cinemas / ending | TIME IS MONEY. |
+| 0x29B02 | NPC rooms / cinemas / ending | FIRST PRIZE! |
+| 0x29DF0 | NPC rooms / cinemas / ending | 4TH PRIZE. / 5 FLOWERS! / NOT BAD! |
+| 0x29F25 | NPC rooms / cinemas / ending | :OH. / SORRY MISS. |
+| 0x2A036 | NPC rooms / cinemas / ending | LIFE BALL. / STAMINA GOES / UP 1. |
+| 0x2A08A | NPC rooms / cinemas / ending | SILVER COCOON. / FIVE COCOONS / FOR UP 1. |
+| 0x2A132 | NPC rooms / cinemas / ending | LUCKY RING. / IT WILL BRING / YOU LUCK. |
+| 0x2A1B0 | NPC rooms / cinemas / ending | 30 FLOWERS. / YOU'RE A RICH / MAN! |
+| 0x2A1F6 | NPC rooms / cinemas / ending | GOLDEN COCOON. / 1 UP. |
+| 0x2A246 | NPC rooms / cinemas / ending | SUPER SAFE. / THIS PROTECTS / ITEMS FOR 3 / STAGES FROM / THE NEXT STAGE. |
+| 0x2A7A4 | NPC rooms / cinemas / ending | GO HOME IF YOU / DON'T WANT TO / DIE. |
+| 0x2A845 | NPC rooms / cinemas / ending | I'LL BEAT YOU! / I'LL GO HOME! |
+| 0x2BDFF | NPC rooms / cinemas / ending | W THE LOWER EARTH EMPIRE |
+| 0x2BE1D | NPC rooms / cinemas / ending | EMPIRE MARSH |
+| 0x2BE57 | NPC rooms / cinemas / ending | MECHANICAL CITY |
+| 0x2C0D0 | NPC rooms / cinemas / ending | DARUMA EMPIRE |
+| 0x2C65E | NPC rooms / cinemas / ending | THAT'S IT FOR TODAY. / SEE YOU LATER. |
+| 0x2C6C6 | NPC rooms / cinemas / ending | DO YOU HAVE TIME FOR CARDS |
+| 0x2C732 | NPC rooms / cinemas / ending | YES / NO |
+| 0x2C7AA | NPC rooms / cinemas / ending | YOU'RE A SQUARE. / COME BACK IF YOU CHANGE YOUR MIND. |
+| 0x2C825 | NPC rooms / cinemas / ending | BDO YOU KNOW THE RULES |
+| 0x2C89C | NPC rooms / cinemas / ending | YES / NO |
+| 0x2C960 | NPC rooms / cinemas / ending | YOU WIN IF YOU OPEN THE SAME / CARD AS ME. / ODD ARE DOUBLE. / YOU ONLY GET TO PLAY ONCE. / O.K. LET'S GO. |
+| 0x2CA7A | NPC rooms / cinemas / ending | 5 FLOWERS / 10 FLOWERS / ALL FLOWERS / PASS |
+| 0x2CB3A | NPC rooms / cinemas / ending | YOU'LL HAVE TO WATCH IF YOU / DON'T HAVE ENOUGH FLOWERS. |
+| 0x2CCD6 | NPC rooms / cinemas / ending | YOU DON'T HAVE ENOUGH FLOWER. / PLEASE COME BACK. |
+| 0x2D0FB | NPC rooms / cinemas / ending | 6CONGRATULATIONS. / THAT'S IT FOR TODAY. / SEE YOU LATER. |
+| 0x2D1D4 | NPC rooms / cinemas / ending | YOU LOSE. / THAT'S IT FOR TODAY. / SEE YOU LATER. |
+| 0x2D3FE | NPC rooms / cinemas / ending | YOU DON'T UNTERSTAND HOW I FEEL. |
+| 0x2D53C | NPC rooms / cinemas / ending | YOU SEE THE DERELICT. / WHAT ARE YOU GOING TO DO |
+| 0x2D5C8 | NPC rooms / cinemas / ending | TALK TO HIM. / LEAVE. |
+| 0x2D68A | NPC rooms / cinemas / ending | HEY YOU, / DO YOU WANT TO LISTEN TO ME |
+| 0x2D6FC | NPC rooms / cinemas / ending | YES / NO |
+| 0x2D786 | NPC rooms / cinemas / ending | THE EMPIRE DARUMA PEOPLE CAUGHT / US TO USE AS SLAVES. |
+| 0x2D824 | NPC rooms / cinemas / ending | YOU'RE STILL LISTENING. / YOU BETTER LEAVE SOON. |
+| 0x2D960 | NPC rooms / cinemas / ending | WE TRIED BUT IT WAS NO USE. |
+| 0x2DA3C | NPC rooms / cinemas / ending | THE PRICES ARE RISING ALONG / WITH THE TAXES. |
+| 0x2DB3C | NPC rooms / cinemas / ending | WE CAN'T WASTE TIME BY PLAING / GAMES. |
+| 0x2DC2C | NPC rooms / cinemas / ending | SORRY, I'M REPEATING MYSELF. / I'LL GIVE YOU SOMETHING FOR / LISTENING TO ME. |
+| 0x2DCD4 | NPC rooms / cinemas / ending | 30 FLOWERS. / A SILVER COCOON. / I WANT NOTHING. |
+| 0x2DF16 | NPC rooms / cinemas / ending | BLUE WAS STUCK WITH AN ANSWER / SO HE RUN AWAY. |
+| 0x2DF7E | NPC rooms / cinemas / ending | I TATE UNSURE MEN. |
+| 0x2DFCE | NPC rooms / cinemas / ending | A WOMAN FROZE BEFORE. / WHAT ARE YOU GOING TO DO |
+| 0x2E064 | NPC rooms / cinemas / ending | APPROACH. / JUST IGNORE IT. |
+| 0x2E12E | NPC rooms / cinemas / ending | ISN'T SHE PRINCESS "LIM" OF / THE RAGUY FAMILY |
+| 0x2E178 | NPC rooms / cinemas / ending | WHAT ARE YOU GOING TO DO |
+| 0x2E21E | NPC rooms / cinemas / ending | JUST IGNORE IT. / CALL THE NAME. / USE A TORCH. / JUST KEEP WAITING. |
+| 0x2E340 | NPC rooms / cinemas / ending | "PRICESS LIM", BLUE SHOUTED. |
+| 0x2E42E | NPC rooms / cinemas / ending | BLUE DID NOT HAVE THE TORCH / WUTH HIM. |
+| 0x2E4EA | NPC rooms / cinemas / ending | IT'S JUST A WASTE OF TIME. |
+| 0x2E55E | NPC rooms / cinemas / ending | THE ICE IS MELTING. |
+| 0x2E790 | NPC rooms / cinemas / ending | YES, I WAS FROZEN BY NEROS / THE WIZARD. / WILL YOU SET ME FREE |
+| 0x2E828 | NPC rooms / cinemas / ending | YES / NO |
+| 0x2E8BA | NPC rooms / cinemas / ending | THANKS, I'LL GIVE YOU A CHARM / IN RETURN. / EZORF! |
+| 0x2E964 | NPC rooms / cinemas / ending | IS THAT SO |
+| 0x2E970 | NPC rooms / cinemas / ending | THEN WHAT'S BURNING ON YOUR HAND. |
+| 0x2EA02 | NPC rooms / cinemas / ending | IN FACT,I SET HIM FREE. / NO I DIDN'T |
+| 0x2EAB2 | NPC rooms / cinemas / ending | I CAN TELL YOU ARE SHY. / I WILL GIVE YOU A CHARM. / EZORF! |
+| 0x2EDA8 | NPC rooms / cinemas / ending | THIS SPELL PROTECTS YOU FROM / NEROS'S FREEZING SPELL. |
+| 0x2EE44 | NPC rooms / cinemas / ending | THANK YOU PRINCESS LIM. / YOU WON'T BE FROZEN NEXT / TIME WITH THIS SPELL. |
+| 0x2EEFE | NPC rooms / cinemas / ending | YOU CAN'T MAKE AN ANTIDOTE / UNLESS YOU KNOW THE POISON. |
+| 0x2F228 | NPC rooms / cinemas / ending | I LOST BUT EMPEROR DARUMA IS / STRONGER. / HIS WEAPON IS CONTROLLED BY / HIS EVIL MIND. |
+| 0x2F2B8 | NPC rooms / cinemas / ending | YOU CAN'T HURT HIM WITH ANY OF / YOUR WEAPONS. |
+| 0x2F3A6 | NPC rooms / cinemas / ending | WHAT CAN WE DO |
+| 0x2F45A | NPC rooms / cinemas / ending | I'M NOT HURT. |
+| 0x2F4D0 | NPC rooms / cinemas / ending | IT SEEMS LIKE THE END. / SO LONG MY RIVAL. |
+| 0x32D70 | gameplay | CAN YOU BEAT ME |
+| 0x32DE4 | gameplay | IF YOU BECOME / ONE OF US / I WON'T TAKE / YOUR LIFE. |
+| 0x32E9B | gameplay | YES I WILL. / NO KIDDING. |
+| 0x33B20 | gameplay | ;FMY MISSIN IS TO / KILL YOU BLUE. |
+| 0x3495A | gameplay | GIVE A HAND / TO RAGUY'S / PEOPLE. |
+| 0x34986 | gameplay | BAD GUY. |
+| 0x349AC | gameplay | THANK YOU, / GOOD LUCK. |
+| 0x34BA8 | gameplay | THE PLANET RAGUY USED TO BE / BEAUTIFUL. |
+| 0x34DCA | gameplay | SINCE THE DARUMA TRIBE'S / INVASION, |
+| 0x34E6E | gameplay | THE POLLUTION STARTED AND / IT'S GETTING WORSE. |
+| 0x3570E | gameplay | WLHIS NAME IS BLUE. / HE IS A SPECIALIST OF THE / LEAF DUMP. |
+| 0x357E2 | gameplay | BLUE LOVES THE PRINCESS FA OF / THE RAGUY FAMILY. |
+| 0x358A2 | gameplay | FA WAS OVERCOME BY THE POLLUTION. |
+| 0x3595E | gameplay | BLUE, / GET RID OF THE DARUMA TRIBE! / BRING LIFE BACK TO RAGUY! |
+| 0x35B1B | gameplay | U PUSH START |
+| 0x35E26 | gameplay | CLOVER  SHOP TICKET |
+| 0x35E3A | gameplay | KEY     BONUS ROOM KEY |
+| 0x35E51 | gameplay | LEAF    POWER UP |
+| 0x35F7A | gameplay | COCOON |
+| 0x35F81 | gameplay | HONEY   STAMINA RECOVER |
+| 0x35F99 | gameplay | SPRING  SPEED UP |
+| 0x35FAA | gameplay | GOLD 1UP |
+| 0x35FB3 | gameplay | SILVER 5 1UP |
+| 0x362FC | gameplay | YOU WORM!! |
+| 0x3636A | gameplay | ARE YOU / RESISTINS ME |
+| 0x3640F | gameplay | I CAN'T FORGIVE / NO WAY! |
+| 0x36C02 | gameplay | PLEASE FORGIVE ME. |
+| 0x36C91 | gameplay | YES / NO |
+| 0x370F3 | gameplay | 8THIS IS / YOUR TOMB. |
+| 0x43B3F | gameplay | USOUND LOOP TEST |
+| 0x43DF8 | gameplay | REACTION |
+| 0x43E1C | gameplay | STEP 10 |
+| 0x48458 | gameplay | UNDER CHECK |
+| 0x48466 | gameplay | 90HIT STATUS |
+| 0x48478 | gameplay | HERO TO BIG |
+| 0x48E48 | gameplay | FLIP |
+| 0x48F2E | gameplay | FLIP |
+| 0x4E5E2 | gameplay | TIME |
+| 0x54551 | gameplay | U    JUMP ! |
+| 0x545E3 | gameplay | U  CHANGE SIZE |
+| 0x54651 | gameplay | UWHEN BLUE IS |
+| 0x54675 | gameplay | ULITTLE HE CAN |
+| 0x54699 | gameplay | URUN FASTER AND |
+| 0x5472B | gameplay | U HE CANNOT |
+| 0x5474F | gameplay | U ATTACK. |
+| 0x54775 | gameplay | U THROW DOWN |
+| 0x54799 | gameplay | U THE DUMP WILL |
+| 0x547BD | gameplay | U OVER RUN THE |
+| 0x547E1 | gameplay | U ENEMYS. |
+| 0x5482B | gameplay | U YOU CAN THROW |
+| 0x5484F | gameplay | U THE ENEMY. |
+| 0x54899 | gameplay | U THE FLOWER IS |
+| 0x548BD | gameplay | U YOUR MONEY. |
+| 0x548E1 | gameplay | U HUNG ON TO IT. |
+| 0x54D70 | gameplay | 1P  TIME BONUS        PTS. |
+| 0x54DA2 | gameplay | 2P  TIME BONUS        PTS. |
+| 0x54E88 | gameplay | ENEMY BONUS       PTS. |
+| 0x54F24 | gameplay | LUCKY BONUS   30 |
+| 0x55078 | gameplay | 1P  TIME BONUS        PTS. |
+| 0x550AA | gameplay | 2P  TIME BONUS        PTS. |
+| 0x712E1 | data | DINS |
+| 0xB8927 | hack additions | SAVING |
+| 0xB892E | hack additions | BLUE'S J.+  N |
+| 0xB8954 | hack additions | NO MEMORY CARD |
+| 0xB8963 | hack additions | CARD NOT FORMATTED |
+| 0xB8976 | hack additions | FREE BLOCKS |
+| 0xB8982 | hack additions | DELETE THE SAVE |
+| 0xB8992 | hack additions | FORMAT - ERASES ALL SAVES |
+| 0xB89B8 | hack additions | OPTIONS |
+| 0xB89C0 | hack additions | LEVEL SELECT |
+| 0xB89CD | hack additions | SOUND TEST |
+| 0xB89D8 | hack additions | NUMBER |
+| 0xB89DF | hack additions | MUSIC |
+| 0xB89EC | hack additions | SOUND EFFECT |
+| 0xB89F9 | hack additions | LEFT RIGHT   STEP 1 |
+| 0xB8A0D | hack additions | UP DOWN      STEP 16 |
+| 0xB8A22 | hack additions | A            PLAY |
+| 0xB8A34 | hack additions | B            STOP ALL |
+| 0xB8A4A | hack additions | START        BACK |
+| 0xB8A78 | hack additions | NEW GAME |
+| 0xB8A81 | hack additions | OPTIONS |
+| 0xB8A90 | hack additions | CONTINUE |
+| 0xB8A99 | hack additions | NEW GAME |
+| 0xB8AA2 | hack additions | OPTIONS |
+| 0xB8ACB | hack additions | SOUND TEST |
+| 0xB8AD6 | hack additions | DIFFICULTY  LEVEL 4 |
+| 0xB8AEA | hack additions | AUTO SAVE  OFF |
+| 0xB8AF9 | hack additions | MEMORY CARD |
+| 0xB8B05 | hack additions | BACK TO TITLE |
+| 0xB8B40 | hack additions | JUNGLE ZONE 1 |
+| 0xB8B4E | hack additions | JUNGLE ZONE 2 |
+| 0xB8B5C | hack additions | THE LOWER EARTH EMPIRE 1 |
+| 0xB8B75 | hack additions | THE LOWER EARTH EMPIRE 2 |
+| 0xB8B8E | hack additions | THE LOWER EARTH EMPIRE 3 |
+| 0xB8BA7 | hack additions | THE LOWER EARTH EMPIRE 4 |
+| 0xB8BC0 | hack additions | EMPIRE MARSH 1 |
+| 0xB8BCF | hack additions | EMPIRE MARSH 2 |
+| 0xB8BDE | hack additions | EMPIRE MARSH 3 |
+| 0xB8BED | hack additions | EMPIRE MARSH 4 |
+| 0xB8BFC | hack additions | MECHANICAL CITY 1 |
+| 0xB8C0E | hack additions | MECHANICAL CITY 2 |
+| 0xB8C20 | hack additions | MECHANICAL CITY 3 |
+| 0xB8C32 | hack additions | MECHANICAL CITY 4 |
+| 0xB8C44 | hack additions | STRANGE SPACE 1 |
+| 0xB8C54 | hack additions | STRANGE SPACE 2 |
+| 0xB8C64 | hack additions | STRANGE SPACE 3 |
+| 0xB8C74 | hack additions | STRANGE SPACE 4 |
+| 0xB8C84 | hack additions | DARUMA EMPIRE 1 |
+| 0xB8C94 | hack additions | DARUMA EMPIRE 2 |
+| 0xB8CA4 | hack additions | DARUMA EMPIRE 3 |
+| 0xB8CB4 | hack additions | DARUMA EMPIRE 4 |
+| 0xB8CCA | hack additions | DELETE SAVE |
+| 0xB8CD6 | hack additions | FORMAT CARD |
+| 0xB8CE2 | hack additions | BACK |
+| 0xBE7CA | hack additions | FERN |
+| 0xBE7CF | hack additions | SPEED UP |
+| 0xBE7DC | hack additions | UNLOCK BONUS ROOM |
+| 0xBE7EE | hack additions | LEAF |
+| 0xBE7F3 | hack additions | ATTACK UP |
+| 0xBE864 | hack additions | COCOON |
+| 0xBE86B | hack additions | GOLD 1UP |
+| 0xBE874 | hack additions | SILVER 5 1UP |
+| 0xBE881 | hack additions | NECTAR |
+| 0xBE888 | hack additions | RESTORE 1 HEALTH |
+| 0xBE899 | hack additions | CLOVER |
+| 0xBE8A0 | hack additions | REVEAL SHOP |
+| 0xBEA44 | hack additions | BAMBOO |
+| 0xBEA4B | hack additions | INVINCIBLE |
+| 0xBEA56 | hack additions | CATFISH |
+| 0xBEA5E | hack additions | EARTHQUAKE |
+| 0xBEA69 | hack additions | FLOWER |
+| 0xBEA70 | hack additions | CURRENCY |
+| 0xBEE4C | hack additions | TASK0 |
