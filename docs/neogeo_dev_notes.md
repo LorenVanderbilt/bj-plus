@@ -50,3 +50,12 @@ disassembly), with replies from other Neo Geo developers. Screenshots were share
 
 ## Source to study
 - h0ffman's team's demo **"TTE - Vaporous"**: github.com/grahambates/tte-vaporous-public (timer-interrupt effects).
+
+## NeoGeoSDK (Reddit, r/neogeo, September 2026)
+- **NeoGeoSDK** by Eagle Software is an open-source homebrew SDK: a 2D engine (horizontal / vertical scrolling,
+  camera, collision and physics, particles, palette effects), its own Z80 / YM2610 sound stack (ADPCM-A/B, FM, SSG),
+  build tools, and **EagleBIOS**, an open replacement system ROM. github.com/eaglesoftware777/neogeosdk - a reference
+  for how a modern engine drives the hardware (physics, parallax, sound TODOs).
+- Their demos ship as **NeoSD `.neo` images** for real AES / MVS hardware (the NeoSD flash cart). *For us:* the
+  practical way to test the hack on a real console (auto-save TODO) - hackbuild could write a `.neo` alongside the
+  MAME set.
