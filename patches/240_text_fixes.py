@@ -58,6 +58,7 @@ FIXES = [
     (0x5484F, "THE ENEMY.", "A STUNNED ENEMY"),
     (0x54899, "THE FLOWER IS", "THE FLOWERS ARE"),
     (0x548E1, "HUNG ON TO IT.", "HANG ON TO THEM"),
+    (0x34986, "BAD GUY.", "YOU JERK"),                  # (YOU JERK! doesn't fit)
 ]
 
 
