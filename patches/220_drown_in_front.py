@@ -30,8 +30,8 @@ DRAW_BEHIND_CALL = 0x1180A   # jsr 0xA3A0 - the behind group (after the front gr
 DRAW_BEHIND = 0xA3A0
 DROWN_CODE = 0x3DE90         # the sinking hero
 SPLASH_CODE = 0x3DEC4
-DROWN_DOWN = 12               # px the sinking hero and splash are drawn lower (after the cover is placed)
-SPLASH_DOWN = -4             # px the splash is moved (before DROWN_DOWN moves it and the hero): 8 lower in all
+POOL_DOWN = 12               # px the sinking hero and splash are drawn lower in a flat pool (after the cover)
+SPLASH_UP = 4                # ... the splash that much less (8 px lower in all)
 WATER_LINE = 40              # px below the sinking hero's first sprite y
 COVER_ROWS = 5               # tile rows of cover under the line (80 px: more than the hero's height)
 LAVA_LINE = 40               # the same for a hero burning in lava (state 33): px below his first y in that state
@@ -92,6 +92,7 @@ post:
 19:
     clr.b RAM+8
     clr.l RAM+48
+    clr.l RAM+84
     move.w 0x2E8(%a6),%d1            | the next free sprite after the front group
     move.w 0x2E6(%a6),0x296(%a6)     | its sprite limit, for the drawing routine
     move.w 0x2F0(%a6),%d7            | the behind group's list entries
@@ -122,21 +123,9 @@ post:
     move.l %a0,RAM+48                | the sinking hero: covered below (after the splash is drawn too)
     move.w %d6,RAM+52
     bra 7f
-3:  move.w %d6,%d2                   | the splash: SPLASH_DOWN px lower, so its foot is in the water (the cover
-4:  cmp.w %d1,%d2                    | hides it)
-    bcc 7f
-    move.w %d2,%d0
-    add.w #0x8200,%d0
-    bsr vread
-    btst #6,%d0
-    bne 5f
-    sub.w #SPLASH_DOWN<<7,%d0
-    move.w %d2,%d3
-    add.w #0x8200,%d3
-    move.w %d3,0x3C0000
-    move.w %d0,0x3C0002
-5:  addq.w #1,%d2
-    bra 4b
+3:  move.l %a0,RAM+84                | the splash: its sprites noted
+    move.w %d6,RAM+88
+    move.w %d1,RAM+90
 7:  move.w (%sp)+,%d7
 8:  addq.w #2,%d7
     bra 1b
@@ -149,22 +138,26 @@ post:
     move.w RAM+10,-(%sp)             | (where his and the splash's sprites end)
     bsr cover
     move.w (%sp)+,%d3
-    move.w RAM+52,%d2                | then both drawn DROWN_DOWN px lower (the line stays where it is: he starts
-11: cmp.w %d3,%d2                    | partly in the water, as in a waterfall)
+    tst.b RAM+46
+    bne 21f
+    move.l RAM+84,%d0                | a waterfall (or lava pool ...): the splash drawn again, on top of the cover
+    beq 12f
+    move.l %d0,%a0
+    move.w %d1,%d0
+    add.w #8,%d0
+    cmp.w 0x2E6(%a6),%d0
     bcc 12f
-    move.w %d2,%d0
-    add.w #0x8200,%d0
-    bsr vread
-    btst #6,%d0
-    bne 13f
-    sub.w #DROWN_DOWN<<7,%d0
-    move.w %d2,%d4
-    add.w #0x8200,%d4
-    move.w %d4,0x3C0000
-    move.w %d0,0x3C0002
-13: addq.w #1,%d2
-    bra 11b
+    bsr draw_obj
+    bra 12f
+21: move.w RAM+52,%d2                | a pool: he and the splash drawn POOL_DOWN px lower (he starts partly in the
+    move.w #POOL_DOWN<<7,%a1         | water), the splash SPLASH_UP px less so its crown stays above the surface
+    bsr shift_spr
+    move.w RAM+88,%d2
+    move.w RAM+90,%d3
+    move.w #-(SPLASH_UP<<7),%a1
+    bsr shift_spr
 12: clr.l RAM+48
+    clr.l RAM+84
 10: lea RAM+16,%a1                   | a hero burning in lava (state 33), drawn this frame: the lava's cover
     lea 0x104000,%a0
     moveq #1,%d7
@@ -242,6 +235,24 @@ draw_obj:
 2:  jmp 0xB0A0
 9:  rts
 
+| sprites d2..d3-1 moved down by a1 (a y-field amount: px << 7); chained sprites follow their first
+shift_spr:
+    cmp.w %d3,%d2
+    bcc 2f
+    move.w %d2,%d0
+    add.w #0x8200,%d0
+    bsr vread
+    btst #6,%d0
+    bne 1f
+    sub.w %a1,%d0
+    move.w %d2,%d4
+    add.w #0x8200,%d4
+    move.w %d4,0x3C0000
+    move.w %d0,0x3C0002
+1:  addq.w #1,%d2
+    bra shift_spr
+2:  rts
+
 | VRAM word at d0 -> d0 (reading doesn't move the address)
 vread:
     move.w %d0,0x3C0000
@@ -254,6 +265,7 @@ cover:
     move.w %sr,-(%sp)
     or.w #0x0700,%sr                 | nothing else may move the VRAM address meanwhile
     move.w %d6,RAM+44                | (his first sprite)
+    clr.b RAM+46
     move.w %d6,%d0                   | its first sprite's y
     add.w #0x8200,%d0
     bsr vread
@@ -412,11 +424,7 @@ cover:
     move.w (%sp)+,%d0
     tst.w %d1
     beq 62f
-    addq.w #1,%d0
-    lsl.w #4,%d0
-    add.w %d6,%d0
-    and.w #511,%d0
-    move.w %d0,%d5
+    move.b #1,RAM+46                 | (a pool: the line stays at its surface; see post for how it's drawn)
 62: move.w RAM+24,%d1                | (d1 back)
     move.w %d5,%d0                   | r0, as below
     sub.w %d6,%d0
@@ -716,7 +724,7 @@ cover:
     rts
 """
     consts = {"DRAW_BEHIND": "0x%X" % DRAW_BEHIND, "DROWN_CODE": "0x%X" % DROWN_CODE,
-              "SPLASH_CODE": "0x%X" % SPLASH_CODE, "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS), "SPLASH_DOWN": str(SPLASH_DOWN), "DROWN_DOWN": str(DROWN_DOWN),
+              "SPLASH_CODE": "0x%X" % SPLASH_CODE, "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS), "SPLASH_UP": str(SPLASH_UP), "POOL_DOWN": str(POOL_DOWN),
               "RAM": "0x%X" % RAM, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
               "BLANK_TILE": "0x%X" % rom.add_sprite_tile([[0] * 16 for _ in range(16)], why="drowning: a blank tile")}
     for k in sorted(consts, key=len, reverse=True):
