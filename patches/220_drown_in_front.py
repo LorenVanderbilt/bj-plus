@@ -1,5 +1,5 @@
 NAME = "drown-in-front"
-DESCRIPTION = "Drowning: the hero sinks into the water in front of it (the water line swallows him) instead of behind the waterfall"
+DESCRIPTION = "Drowning: the hero sinks into the water in front of it (the water line swallows him) instead of behind the waterfall; lava swallows him too"
 
 # Falling into a water pit (e.g. the first gap in Jungle 1, a waterfall) the game hides the hero object and
 # spawns a sinking hero (object code 0x3DE90: his sprite y goes down 1 px every 2 frames) and a splash (0x3DEC4).
@@ -17,13 +17,24 @@ DESCRIPTION = "Drowning: the hero sinks into the water in front of it (the water
 # over the same water - except that it hides the hero below the line. The line is WATER_LINE px below where
 # the sinking hero's sprites started (kept per sinking object while it lasts), rounded down to the strip's
 # tile row. The front group's "sprites used" count is raised past ours, so its next frame hides them.
+# Lava: touching it is instant death - a burn hop (state 3), then state 33, in which the hero (the ordinary hero
+# object, in the front group, so in front of the lava) hops up and falls off the bottom of the screen. The
+# drawing loop's hooks note which sprites a hero in state 33 got this frame (GROUP_START: each group's first
+# sprite; OBJECT_DONE: after each object), and the same cover goes over them from LAVA_LINE px below where he
+# was when the state began - the lava surface swallows him.
 DRAW_BEHIND_CALL = 0x1180A   # jsr 0xA3A0 - the behind group (after the front group, 0x11804)
 DRAW_BEHIND = 0xA3A0
 DROWN_CODE = 0x3DE90         # the sinking hero
 SPLASH_CODE = 0x3DEC4
 WATER_LINE = 40              # px below the sinking hero's first sprite y
 COVER_ROWS = 5               # tile rows of cover under the line (80 px: more than the hero's height)
-RAM = 0x10EB80               # 2 entries (object offset word, first y word), then a byte: entries seen this frame
+LAVA_LINE = 40               # the same for a hero burning in lava (state 33): px below his first y in that state
+FRAME = 0x100207
+RAM = 0x10EB80               # +0 2 entries (object offset word, first y word), +8 a byte: entries seen this frame,
+                             # +10 / +12 words: cover's arguments, +14 word: the drawing loop's next sprite,
+                             # +16 / +22 player 1 / 2 in lava: first sprite, end sprite (words), frame (byte)
+GROUP_START = 0xA3BC         # lea 0x3C0002,a2 - the drawing loop, starting a group (d1 = its first sprite)
+OBJECT_DONE = 0xA3FE         # move.w 656(a6),d0 ; dbf d0,0xA3D8 - the drawing loop, after each object
 
 
 def apply(rom):
@@ -60,11 +71,32 @@ post:
     move.l (%sp)+,%a0
     cmp.l #DROWN_CODE,4(%a0)
     bne 7f
+    move.w %d1,RAM+10                | (its sprites end here)
+    move.w #WATER_LINE,RAM+12
     bsr cover
 7:  move.w (%sp)+,%d7
 8:  addq.w #2,%d7
     bra 1b
-9:  move.w %d1,0x2E8(%a6)            | (the front group hides them next frame unless drawn again)
+9:  lea RAM+16,%a1                   | a hero burning in lava (state 33), drawn this frame: the lava's cover
+    lea 0x104000,%a0
+    moveq #1,%d7
+20: move.b FRAME,%d0
+    cmp.b 4(%a1),%d0
+    bne 21f
+    move.w %d1,%d0
+    add.w #8,%d0
+    cmp.w 0x2E6(%a6),%d0
+    bcc 21f
+    movem.l %d7/%a0-%a1,-(%sp)
+    move.w (%a1),%d6
+    move.w 2(%a1),RAM+10
+    move.w #LAVA_LINE,RAM+12
+    bsr cover
+    movem.l (%sp)+,%d7/%a0-%a1
+21: lea 6(%a1),%a1
+    lea 0x80(%a0),%a0
+    dbf %d7,20b
+    move.w %d1,0x2E8(%a6)            | (the front group hides them next frame unless drawn again)
     lea RAM,%a0                      | forget sinking objects that are gone
     btst #0,RAM+8
     bne 3f
@@ -74,6 +106,36 @@ post:
     clr.l 4(%a0)
 4:  movem.l (%sp)+,%d0-%d7/%a0-%a6
     rts
+
+| the drawing loop, at the start of each group (in place of `lea 0x3C0002,a2` at 0xA3BC): d1 = its first sprite
+grp_start:
+    move.w %d1,RAM+14
+    lea 0x3C0002,%a2
+    rts
+
+| the drawing loop, after each object (0xA3FE, in place of `move.w 656(a6),d0 ; dbf d0,0xA3D8`): d1 = the next
+| free sprite. A hero in state 33 (burning in lava) has its sprites noted: RAM+14 (where it started) to d1.
+after_obj:
+    movem.l %d0/%a0-%a1,-(%sp)
+    move.w -2(%a4),%d0
+    lea RAM+16,%a1
+    cmp.w #0x4000,%d0
+    beq 1f
+    lea RAM+22,%a1
+    cmp.w #0x4080,%d0
+    bne 2f
+1:  lea (%a6,%d0.w),%a0
+    cmp.b #33,0x68(%a0)
+    bne 2f
+    move.w RAM+14,(%a1)
+    move.w %d1,2(%a1)
+    move.b FRAME,4(%a1)
+2:  move.w %d1,RAM+14
+    movem.l (%sp)+,%d0/%a0-%a1
+    move.w 656(%a6),%d0
+    dbf %d0,3f
+    jmp 0xA406
+3:  jmp 0xA3D8
 
 | a0 = object, d1 = first sprite: the game's drawing routine (as its loop at 0xA3D8 calls it) -> d1 = next free
 draw_obj:
@@ -96,7 +158,8 @@ vread:
     move.w 0x3C0002,%d0
     rts
 
-| a0 = the sinking hero, d6..d1-1 its sprites: cover sprites from d1 on (d1 moves past them)
+| a0 = the sinking hero, d6..RAM+10 - 1 its sprites, RAM+12 the line's distance below their first y: cover
+| sprites from d1 on (d1 moves past them)
 cover:
     move.w %sr,-(%sp)
     or.w #0x0700,%sr                 | nothing else may move the VRAM address meanwhile
@@ -131,13 +194,13 @@ cover:
     move.w %d5,2(%a1)
 3:  bset %d2,RAM+8
     move.w 2(%a1),%d5
-    add.w #WATER_LINE,%d5            | d5 = the water line (y)
+    add.w RAM+12,%d5                 | d5 = the water line (y)
     and.w #511,%d5
     | its x range: d3..d4
     move.w #0x7FFF,%d3
     moveq #0,%d4
     move.w %d6,%d2
-5:  cmp.w %d1,%d2
+5:  cmp.w RAM+10,%d2
     bcc 6f
     move.w %d2,%d0
     add.w #0x8200,%d0
@@ -271,9 +334,15 @@ cover:
 """
     consts = {"DRAW_BEHIND": "0x%X" % DRAW_BEHIND, "DROWN_CODE": "0x%X" % DROWN_CODE,
               "SPLASH_CODE": "0x%X" % SPLASH_CODE, "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS),
-              "RAM": "0x%X" % RAM}
+              "RAM": "0x%X" % RAM, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME}
     for k in sorted(consts, key=len, reverse=True):
         src = src.replace(k, consts[k])
-    post = rom.place_code(src, why="drowning: the sinking hero and splash in front of the water, a water line")
+    base = rom.place_code("    bra.w post\n    bra.w grp_start\n    bra.w after_obj\n" + src,
+                          why="drowning: the sinking hero and splash in front of the water, a water line; lava too")
+    post, grp_start, after_obj = base, base + 4, base + 8
+    rom.write(GROUP_START, bytes.fromhex("4EB9") + grp_start.to_bytes(4, "big"),
+              expect=bytes.fromhex("45F9003C0002"), why="drawing loop: note each group's first sprite")
+    rom.write(OBJECT_DONE, bytes.fromhex("4EF9") + after_obj.to_bytes(4, "big") + bytes.fromhex("4E71"),
+              expect=bytes.fromhex("302E029051C8FFD4"), why="drawing loop: note a burning hero's sprites")
     rom.write(DRAW_BEHIND_CALL, bytes.fromhex("4EB9") + post.to_bytes(4, "big"),
               expect=bytes.fromhex("4EB90000A3A0"), why="after the objects: draw a drowning hero in front of the water")
