@@ -6,7 +6,9 @@
 #                                     arcade machine (--mvs): euro (default), us, japan, unibios40 ...
 #   ./run.sh --only anim-speed        just that patch
 #   ./run.sh --skip anim-speed        everything except that patch (--skip every patch = the original game)
+#   ./run.sh --difficulty 1           start at that difficulty (LEVEL 1-8; AES only - as if picked in OPTIONS)
 #   ./run.sh [options] -- [MAME options]     anything after -- goes to MAME
+# Personal defaults go in local.cfg (not committed), a shell file, e.g.:  DIFFICULTY=1
 # To record a play session so it can be replayed exactly later (saved to recordings/NAME.inp):
 #   ./run.sh --mvs --skip anim-speed hero-big-art -- -record NAME.inp     (recordings are mode-specific)
 # Controls (MAME defaults): 1 = Start, 5 = Select (AES) / insert coin (MVS), arrows = move,
@@ -15,11 +17,14 @@ cd "$(dirname "$0")" || exit 1
 mode=aes
 bios=""
 build_args=""
+DIFFICULTY=""
+[ -f local.cfg ] && . ./local.cfg
 while [ $# -gt 0 ] && [ "$1" != "--" ]; do
     case "$1" in
         --mvs) mode=mvs ;;
         --aes) mode=aes ;;
         --bios) shift; bios="-bios $1" ;;
+        --difficulty) shift; DIFFICULTY="$1" ;;
         *) build_args="$build_args $1" ;;
     esac
     shift
@@ -29,6 +34,8 @@ python3 tools/hackbuild.py $build_args || exit 1
 mkdir -p recordings
 if [ "$mode" = aes ]; then
     [ -f build/aes/neogeo.xml ] || { echo "No AES build (need roms/aes.zip) - use --mvs, or see tools/hackbuild.py"; exit 1; }
-    exec mame aes -hash build/aes -rompath build/aes -cart bjourney $bios -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
+    script=""
+    [ -n "$DIFFICULTY" ] && { export HACK_DIFFICULTY="$DIFFICULTY"; script="-autoboot_script tools/difficulty.lua"; }
+    exec mame aes -hash build/aes -rompath build/aes -cart bjourney $bios $script -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
 fi
 exec mame bjourney -rompath build/roms $bios -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
