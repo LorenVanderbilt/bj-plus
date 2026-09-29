@@ -27,6 +27,7 @@ DESCRIPTION = "Title menu (AES): Start opens (CONTINUE /) NEW GAME / OPTIONS on 
 #   SOUND TEST   - Left / Right step the sound command by 1, Up / Down by 16, A plays, B stops all, Start back.
 #                  Commands go straight into the game's sound queue (0xA27A); Z80 driver ranges: 0x04-0x23
 #                  music, 0x24-0xEF sound effects, 0xFF stop all.
+#   DIFFICULTY   - LEVEL 1-8 (the game's soft-DIP 0x10FD8C: time limit, starting hearts), A steps it; kept like AUTO SAVE
 #   AUTO SAVE    - OFF / ON, A switches it (see the memory card notes below)
 #   MEMORY CARD  - the card's state and every save on it; DELETE SAVE (the hack's), FORMAT CARD
 #   BACK TO TITLE - ends the "game" the way a finished one ends (mode 8: START_GAME's mode loop at 0x10D20 cleans
@@ -65,7 +66,8 @@ STAGES = [
 CHOICE_NEW_GAME, CHOICE_OPTIONS, CHOICE_CONTINUE = 0, 1, 2
 MENU = [("NEW GAME", CHOICE_NEW_GAME), ("OPTIONS", CHOICE_OPTIONS)]       # title menu, no save on the card
 MENU_SAVE = [("CONTINUE", CHOICE_CONTINUE)] + MENU                        # ... with a save to continue
-OPTIONS = ["LEVEL SELECT", "SOUND TEST", "AUTO SAVE  %s", "MEMORY CARD", "BACK TO TITLE"]   # %s: OFF / ON
+OPTIONS = ["LEVEL SELECT", "SOUND TEST", "DIFFICULTY  LEVEL 4", "AUTO SAVE  OFF", "MEMORY CARD", "BACK TO TITLE"]
+OPT_DIFFICULTY, OPT_AUTO_SAVE = 2, 3         # (their values are filled in when the screen is drawn)
 CARD_ACTIONS = ["DELETE SAVE", "FORMAT CARD", "BACK"]
 CONFIRM = ["NO", "YES"]
 
@@ -128,6 +130,12 @@ PROBED = 0x10E90D            # the card has been looked at since the menu opened
 BEST_SUB = 0x10E90E          # HACK_CARD_SUB if the card holds a valid hack save, 0 = none
 AUTO = 0x10E910              # (word) AUTO_ON = auto-save on, anything else off (RAM is random at power-on); kept
 AUTO_ON = 0xA55A             # through the attract cycle's RAM clear, and stored in the save (0x10317E = 1)
+DIFF = 0x10E912              # (word) DIFF_SET + the chosen difficulty 0-7 (LEVEL 1-8), else none chosen: the BIOS's
+DIFF_SET = 0xD100            # soft-DIP (0x10FD8C, the game's default LEVEL 4); kept like AUTO, in the save 0x10317C
+                             # (difficulty + 1; 0 = none)
+DIFF_DIP_READ = 0x133A4      # move.b 0x10FD8C,d0 - the attract cycle's set-up copies the soft-DIPs into the game
+DIFF_HEARTS = 0x134E0        # the difficulty (0x103063) -> starting hearts (0x103C02 / 0x103C03)
+OPT_BUF = 0x10EB00           # the options screen's string table, with the settings filled in (128 bytes)
 LINE_BUF = 0x10E980          # a line of text being put together (32 bytes)
 SAVE_LABEL_NAME = "BLUE'S J.+  "   # the first 12 characters of the hack's save label (the original's: BLUE'S J.)
 PAL = 15                     # fix palette for the options screens' text
@@ -154,6 +162,12 @@ def string_table(label, names):
 
 
 def apply(rom):
+    n = len(OPTIONS)
+    strings = "".join(o + "\0" for o in OPTIONS)
+    opt_len = 2 * n + len(strings) + (len(strings) & 1)
+    assert opt_len <= 128
+    opt_digit = 2 * n + strings.index("LEVEL 4") + 6
+    opt_onoff = 2 * n + strings.index("OFF")
     width = max(len(m) for m, c in MENU_SAVE)
     src = r"""
     bra.w menu_frame                 | +0
@@ -169,6 +183,7 @@ def apply(rom):
     bra.w save_p2                    | +40
     bra.w game_save_prep             | +44
     bra.w ram_keep                   | +48
+    bra.w diff_dip                   | +52
 
 | ================= auto-save off (the default): the game's own save prompts, as in the original
 save_over:
@@ -195,11 +210,43 @@ game_save_prep:
 
 | the attract cycle's RAM clear (all of 0x100000-0x10EFFF), keeping the auto-save setting
 ram_keep:
-    move.w AUTO_WORD,-(%sp)
+    move.l AUTO_WORD,-(%sp)          | (and DIFF_WORD, the word after it)
     move.l %a6,%a0
     add.l #0xF000,%a0
     jsr RAM_CLEAR_REST
-    move.w (%sp)+,AUTO_WORD
+    move.l (%sp)+,AUTO_WORD
+    rts
+
+| the attract cycle's set-up, in place of its read of the difficulty soft-DIP: the chosen difficulty if any
+diff_dip:
+    bra diff_level
+
+| d0.l = the difficulty, 0-7: the one chosen in the options, else the BIOS's soft-DIP
+diff_level:
+    moveq #0,%d0
+    tst.b SYSTEM_MODE                | (the arcade: always the soft-DIP)
+    bne 1f
+    move.w DIFF_WORD,%d0
+    and.w #0xFFF8,%d0
+    cmp.w #DIFF_SET,%d0
+    bne 1f
+    move.w DIFF_WORD,%d0
+    and.l #7,%d0
+    rts
+1:  move.b 0x10FD8C,%d0
+    and.l #7,%d0
+    rts
+
+| d0 = a difficulty 0-7: chosen, and the game given it now (0x103063, and the starting hearts that follow from it)
+diff_set:
+    movem.l %d0-%d2/%a0-%a1/%a6,-(%sp)
+    and.w #7,%d0
+    move.b %d0,0x103063
+    or.w #DIFF_SET,%d0
+    move.w %d0,DIFF_WORD
+    lea 0x100000,%a6
+    jsr DIFF_HEARTS
+    movem.l (%sp)+,%d0-%d2/%a0-%a1/%a6
     rts
 
 | ================= title: once per frame, in place of the PUSH START call
@@ -444,7 +491,12 @@ stamp_setting:
     cmp.w #AUTO_ON,AUTO_WORD
     bne 1f
     move.b #1,0x10317E
-1:  bsr checksum
+1:  move.l %d0,-(%sp)                | the difficulty + 1
+    bsr diff_level
+    addq.b #1,%d0
+    move.b %d0,0x10317C
+    move.l (%sp)+,%d0
+    bsr checksum
     move.b %d1,0x10317F
     rts
 
@@ -481,10 +533,16 @@ probe:
     bsr buf_valid
     bne 9f
     move.b #HACK_SLOT,BEST_SUB
-    clr.w AUTO_WORD                  | the save's auto-save setting
+    clr.w AUTO_WORD                  | the save's settings: auto-save
     tst.b 0x10317E
-    beq 9f
+    beq 8f
     move.w #AUTO_ON,AUTO_WORD
+8:  moveq #0,%d0                     | and the difficulty, if it has one
+    move.b 0x10317C,%d0
+    subq.b #1,%d0
+    cmp.b #8,%d0
+    bcc 9f
+    bsr diff_set
 9:  movem.l (%sp)+,%d0-%d1
     rts
 
@@ -565,11 +623,8 @@ mode3_end:
 options:
     bsr screen_setup
     lea opt_title(%pc),%a0
-    lea opt_t(%pc),%a1
-    cmp.w #AUTO_ON,AUTO_WORD
-    bne 0f
-    lea opt_on_t(%pc),%a1
-0:  moveq #0,%d6
+    bsr opt_build
+    moveq #0,%d6
     move.b OPT_CURSOR,%d6
     moveq #OPT_COUNT,%d7
     bsr list
@@ -588,7 +643,14 @@ options:
     bne 2f
     bsr sound_test                   | SOUND TEST
     bra options
-2:  cmp.w #2,%d6
+2:  cmp.w #OPT_DIFFICULTY,%d6
+    bne 6f
+    bsr diff_level                   | DIFFICULTY: the next level (8 -> 1)
+    addq.w #1,%d0
+    bsr diff_set
+    bsr store_setting
+    bra options
+6:  cmp.w #OPT_AUTO_SAVE,%d6
     bne 5f
     cmp.w #AUTO_ON,AUTO_WORD         | AUTO SAVE: switch it
     seq %d0
@@ -598,11 +660,31 @@ options:
     clr.w AUTO_WORD
 4:  bsr store_setting
     bra options
-5:  cmp.w #3,%d6
+5:  cmp.w #OPT_MEMORY_CARD,%d6
     bne 3f
     bsr card_screen                  | MEMORY CARD
     bra options
 3:  moveq #1,%d0                     | BACK TO TITLE
+    rts
+
+| a1 = the options' string table, copied to RAM with the settings filled in (the difficulty's digit, ON / OFF)
+opt_build:
+    move.l %a0,-(%sp)
+    lea opt_t(%pc),%a0
+    lea OPT_BUF,%a1
+    move.w #OPT_T_LEN-1,%d0
+1:  move.b (%a0)+,(%a1)+
+    dbf %d0,1b
+    lea OPT_BUF,%a1
+    bsr diff_level
+    add.b #0x31,%d0
+    move.b %d0,OPT_DIGIT(%a1)
+    cmp.w #AUTO_ON,AUTO_WORD
+    bne 2f
+    move.b #0x4F,OPT_ONOFF(%a1)      | ON
+    move.b #0x4E,OPT_ONOFF+1(%a1)
+    move.b #0x20,OPT_ONOFF+2(%a1)
+2:  move.l (%sp)+,%a0
     rts
 
 | ================= the memory card screen: the actions (DELETE SAVE - the hack's -, FORMAT CARD, BACK), the card's
@@ -1103,13 +1185,15 @@ TABLES
               + string_table("menu_save_t", [m.ljust(width) for m, c in MENU_SAVE])
               + "menu_ids:\n    .byte %s\nmenu_save_ids:\n    .byte %s\n    .even\n" % (
                   ",".join(str(c) for m, c in MENU), ",".join(str(c) for m, c in MENU_SAVE))
-              + string_table("opt_t", [o.replace("%s", "OFF") for o in OPTIONS])
-              + string_table("opt_on_t", [o.replace("%s", "ON ") for o in OPTIONS]) + string_table("stage_t", [n for i, n in STAGES])
+              + string_table("opt_t", OPTIONS) + string_table("stage_t", [n for i, n in STAGES])
               + string_table("card_t", CARD_ACTIONS) + string_table("confirm_t", CONFIRM))
     consts = {
         "MENU_SAVE_COUNT": str(len(MENU_SAVE)), "MENU_COUNT": str(len(MENU)), "OPT_COUNT": str(len(OPTIONS)), "STAGE_COUNT": str(len(STAGES)),
         "CHOICE_OPTIONS": str(CHOICE_OPTIONS), "CHOICE_CONTINUE": str(CHOICE_CONTINUE),
-        "PROBED": "0x%X" % PROBED, "AUTO_ON": "0x%X" % AUTO_ON, "AUTO_WORD": "0x%X" % AUTO,
+        "PROBED": "0x%X" % PROBED, "DIFF_WORD": "0x%X" % DIFF, "DIFF_SET": "0x%X" % DIFF_SET,
+        "DIFF_HEARTS": "0x%X" % DIFF_HEARTS, "OPT_BUF": "0x%X" % OPT_BUF, "OPT_T_LEN": str(opt_len),
+        "OPT_DIGIT": str(opt_digit), "OPT_ONOFF": str(opt_onoff), "OPT_DIFFICULTY": str(OPT_DIFFICULTY),
+        "OPT_AUTO_SAVE": str(OPT_AUTO_SAVE), "OPT_MEMORY_CARD": str(OPTIONS.index("MEMORY CARD")), "AUTO_ON": "0x%X" % AUTO_ON, "AUTO_WORD": "0x%X" % AUTO,
         "GAME_SAVE_PREP": "0x%X" % GAME_SAVE_PREP, "RAM_CLEAR_REST": "0x%X" % RAM_CLEAR_REST, "BEST_SUB": "0x%X" % BEST_SUB,
         "SAVE_BUF": "0x%X" % SAVE_BUF, "HACK_SLOT": str(HACK_CARD_SUB), "LINE_BUF": "0x%X" % LINE_BUF,
         "SAVE_LABEL_NAME": SAVE_LABEL_NAME, "LABEL_NAME": str(len(SAVE_LABEL_NAME)), "LABEL_LEN": "20",
@@ -1144,7 +1228,7 @@ TABLES
     labels = {name: base + 4 * i for i, name in
               enumerate(("menu_frame", "start_pressed", "new_game", "how_to_play", "mode3_end",
                          "title_enter", "title_leave", "autosave", "save_over", "save_p1", "save_p2",
-                         "game_save_prep", "ram_keep"))}
+                         "game_save_prep", "ram_keep", "diff_dip"))}
     rom.write(TITLE_PUSH_START, bytes.fromhex("4EB9") + labels["menu_frame"].to_bytes(4, "big") + bytes.fromhex("4E714E71"),
               expect=bytes.fromhex("4A6E7B7066044EBA0098"), why="title: the menu instead of PUSH START once Start is pressed")
     rom.write(PLAYER_START_CALL, bytes.fromhex("4EB9") + labels["start_pressed"].to_bytes(4, "big"),
@@ -1167,6 +1251,8 @@ TABLES
                   expect=bytes.fromhex("4EB9") + target.to_bytes(4, "big"), why=why)
     rom.write(GAME_SAVE_CARD, bytes.fromhex("4EB9") + labels["game_save_prep"].to_bytes(4, "big"),
               expect=bytes.fromhex("4EB90000F6B0"), why="the game's own save: the hack's label, marker and setting")
+    rom.write(DIFF_DIP_READ, bytes.fromhex("4EB9") + labels["diff_dip"].to_bytes(4, "big"),
+              expect=bytes.fromhex("10390010FD8C"), why="attract set-up: the difficulty chosen in the options")
     rom.write(RAM_CLEAR, bytes.fromhex("4EF9") + labels["ram_keep"].to_bytes(4, "big") + bytes.fromhex("4E71"),
               expect=bytes.fromhex("204ED1FC0000F000"), why="attract RAM clear: keep the auto-save setting")
     rom.write(CARD_SUB_SET + 3, bytes([HACK_CARD_SUB]), expect=bytes.fromhex("00"),
