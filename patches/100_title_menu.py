@@ -1,5 +1,5 @@
 NAME = "title-menu"
-DESCRIPTION = "Title menu (AES): Start opens (CONTINUE /) NEW GAME / OPTIONS on the title; OPTIONS = level select, sound test; auto-save to the memory card at each stage start"
+DESCRIPTION = "Title menu (AES): Start opens (CONTINUE /) NEW GAME / OPTIONS on the title; OPTIONS = level select, sound test, auto-save switch, memory card manager"
 
 # ---- The title menu (home console only; the arcade keeps its original flow)
 # The title screen's loop (0x1AF6A) runs the sprites and, once per frame, the PUSH START routine (`tst.w
@@ -27,23 +27,30 @@ DESCRIPTION = "Title menu (AES): Start opens (CONTINUE /) NEW GAME / OPTIONS on 
 #   SOUND TEST   - Left / Right step the sound command by 1, Up / Down by 16, A plays, B stops all, Start back.
 #                  Commands go straight into the game's sound queue (0xA27A); Z80 driver ranges: 0x04-0x23
 #                  music, 0x24-0xEF sound effects, 0xFF stop all.
+#   AUTO SAVE    - OFF / ON, A switches it (see the memory card notes below)
+#   MEMORY CARD  - the card's state and every save on it; DELETE SAVE (the hack's), FORMAT CARD
 #   BACK TO TITLE - ends the "game" the way a finished one ends (mode 8: START_GAME's mode loop at 0x10D20 cleans
 #                   up and returns to the attract sequence), with the attract toggle set so the title comes next
 # Both screens take either player's controls (0x10FD96 / 0x10FD9C and both Start bits of 0x10FDAC).
 #
-# ---- Memory card: auto-save and CONTINUE; the hack's saves never touch the original game's
+# ---- Memory card: CONTINUE, and an optional auto-save; the hack's save never touches the original game's
 # The game saves 128 bytes (RAM 0x103100: a label, then the player's stage, flowers, items ... with a checksum at
-# 0x10317F) to the card, identified by the game's id (0x0022) and a sub-number (0x10FDD0; the original uses 0).
-# It only offered to save at game over (taking a quarter of the flowers) and to load when a game started.
-#   * Auto-save: the stage start's title card call (0x13A6A, and 0x11486 on the other path) now also saves - in a
+# 0x10317F) to the card, identified by the game's id (0x0022) and a sub-number (0x10FDD0; the original uses 0,
+# the hack 1 - one card entry). It offers to save at game over and in the continue countdowns (taking a quarter
+# of the flowers); its LOAD prompt at the start of a game is replaced by CONTINUE.
+#   * Every hack save is stamped (`stamp`): label BLUE'S J.+, a marker (0x10317D), the AUTO SAVE setting
+#     (0x10317E), the checksum redone. The original game's own saves go through 0xEE88, hooked just before it
+#     writes the card.
+#   * AUTO SAVE (options; off by default): off, the game's own SAVE YES/NO prompts, as in the original; on, no
+#     prompts, and the stage start's title card call (0x13A6A, and 0x11486 on the other path) also saves - in a
 #     real game on the home console with a card in, past the how-to-play - showing SAVING in the bottom right
-#     corner. The save is the game's own (builder 0xEFDE, the flowers put back), in the hack's slots 1 and 2 in
-#     turn, with a marker (0x10317D) and a counter (0x10317E) under the checksum: a save cut off by a power cut
-#     fails its checksum and the other slot, one stage older, is still there.
-#   * CONTINUE heads the title menu when a slot holds a valid hack save; it loads the newest and applies it the
-#     game's way (0xF0D6, which rechecks the checksum), and mode 3 then skips its fresh-game set-up.
-#   * The game's own save prompts (game over, the continue countdowns) are gone. Card errors (no card, not
-#     formatted, full) just mean no save. The original game ignores the hack's slots and vice versa.
+#     corner (the flowers penalty left out). A save cut off by a power cut fails its checksum: no CONTINUE, and
+#     the next stage start saves again.
+#   * The setting is a RAM word (AUTO) kept through the attract cycle's clear of all game RAM (0x13430), and
+#     comes from the card's save when the title menu opens; switching it rewrites that save's setting.
+#   * CONTINUE heads the title menu when the card holds a valid hack save; it loads it and applies it the game's
+#     way (0xF0D6, which rechecks the checksum), and mode 3 then skips its fresh-game set-up.
+#   * Card errors (no card, not formatted, full) just mean no save.
 STAGES = [
     (2, "JUNGLE ZONE 1"), (3, "JUNGLE ZONE 2"),
     (5, "THE LOWER EARTH EMPIRE 1"), (4, "THE LOWER EARTH EMPIRE 2"),
@@ -58,7 +65,7 @@ STAGES = [
 CHOICE_NEW_GAME, CHOICE_OPTIONS, CHOICE_CONTINUE = 0, 1, 2
 MENU = [("NEW GAME", CHOICE_NEW_GAME), ("OPTIONS", CHOICE_OPTIONS)]       # title menu, no save on the card
 MENU_SAVE = [("CONTINUE", CHOICE_CONTINUE)] + MENU                        # ... with a save to continue
-OPTIONS = ["LEVEL SELECT", "SOUND TEST", "MEMORY CARD", "BACK TO TITLE"]
+OPTIONS = ["LEVEL SELECT", "SOUND TEST", "AUTO SAVE  %s", "MEMORY CARD", "BACK TO TITLE"]   # %s: OFF / ON
 CARD_ACTIONS = ["DELETE SAVE", "FORMAT CARD", "BACK"]
 CONFIRM = ["NO", "YES"]
 
@@ -85,10 +92,15 @@ STAGE_TITLE_CALLS = [0x13A6A, 0x11486]   # jsr 0x13C6E - the stage start's title
 TITLE_CARD = 0x13C6E
 SAVING_AT = (31, 28)         # fix column / row of SAVING (the bottom right corner)
 SAVING_ATTR = 0x5000 + 0x500 # palette 5, the text font
-# the game's own save prompts, replaced by the auto-save:
-OLD_SAVES = [(0x1100C, "4EB90000EE88", "4E714E714E71", "game over: no SAVE YES/NO"),
-             (0x123EE, "4EB90000EBFE", "70004E714E71", "player 1 continue countdown: no SAVE prompt"),
-             (0x12A46, "4EB90000ED28", "70004E714E71", "player 2 continue countdown: no SAVE prompt")]
+# the game's own save prompts: skipped while auto-save is on (the countdown ones then answer d0 = 0, no save)
+OLD_SAVES = [(0x1100C, 0xEE88, "save_over", "game over: SAVE YES/NO unless auto-save is on"),
+             (0x123EE, 0xEBFE, "save_p1", "player 1 continue countdown: SAVE prompt unless auto-save is on"),
+             (0x12A46, 0xED28, "save_p2", "player 2 continue countdown: SAVE prompt unless auto-save is on")]
+GAME_SAVE_CARD = 0xEEB6      # jsr 0xF6B0, just before the game's own save (0xEE88) writes the card
+GAME_SAVE_PREP = 0xF6B0
+RAM_CLEAR = 0x13430          # the attract cycle's RAM clear: movea.l a6,a0 ; adda.l #0xF000,a0 ; then zeroes
+                             # 0x100000-0x10EFFF downwards (movem loop from 0x13438)
+RAM_CLEAR_REST = 0x13438
 TITLE_TIMEOUT = 0x1078F0
 SYSTEM_MODE = 0x10FD82       # BIOS: 0 = home console (AES)
 START_FLAGS = 0x10FDB4       # BIOS: bit 0 / 1 = player 1 / 2 pressed Start
@@ -114,6 +126,8 @@ OPT_CURSOR = 0x10E90B
 TITLE_PHASE = 0x10E90C       # 1 from the start of the title screen's set-up until the title ends
 PROBED = 0x10E90D            # the card has been looked at since the menu opened
 BEST_SUB = 0x10E90E          # HACK_CARD_SUB if the card holds a valid hack save, 0 = none
+AUTO = 0x10E910              # (word) AUTO_ON = auto-save on, anything else off (RAM is random at power-on); kept
+AUTO_ON = 0xA55A             # through the attract cycle's RAM clear, and stored in the save (0x10317E = 1)
 LINE_BUF = 0x10E980          # a line of text being put together (32 bytes)
 SAVE_LABEL_NAME = "BLUE'S J.+  "   # the first 12 characters of the hack's save label (the original's: BLUE'S J.)
 PAL = 15                     # fix palette for the options screens' text
@@ -150,6 +164,43 @@ def apply(rom):
     bra.w title_enter                | +20
     bra.w title_leave                | +24
     bra.w autosave                   | +28
+    bra.w save_over                  | +32
+    bra.w save_p1                    | +36
+    bra.w save_p2                    | +40
+    bra.w game_save_prep             | +44
+    bra.w ram_keep                   | +48
+
+| ================= auto-save off (the default): the game's own save prompts, as in the original
+save_over:
+    cmp.w #AUTO_ON,AUTO_WORD
+    beq 1f
+    jmp 0xEE88
+1:  rts
+save_p1:
+    cmp.w #AUTO_ON,AUTO_WORD
+    beq 1f
+    jmp 0xEBFE
+1:  moveq #0,%d0
+    rts
+save_p2:
+    cmp.w #AUTO_ON,AUTO_WORD
+    beq 1f
+    jmp 0xED28
+1:  moveq #0,%d0
+    rts
+| the game's own save (0xEE88), just before it writes the card: the hack's label, marker and setting
+game_save_prep:
+    jsr GAME_SAVE_PREP
+    bra stamp
+
+| the attract cycle's RAM clear (all of 0x100000-0x10EFFF), keeping the auto-save setting
+ram_keep:
+    move.w AUTO_WORD,-(%sp)
+    move.l %a6,%a0
+    add.l #0xF000,%a0
+    jsr RAM_CLEAR_REST
+    move.w (%sp)+,AUTO_WORD
+    rts
 
 | ================= title: once per frame, in place of the PUSH START call
 menu_frame:
@@ -333,10 +384,9 @@ new_game:
 2:  moveq #-1,%d0                    | nothing loaded: a fresh game
 4:  rts
 
-| ================= the memory card: the hack's saves are the game's 128-byte save (0x103100: a label, the player's
-| stage, flowers, items ... and a checksum at 0x10317F over 0x103114-0x10317E) in slots (sub-numbers) 1 and 2,
-| written in turn; unused bytes of it hold a marker (0x10317D) and a save counter (0x10317E), so the newer one
-| can be told apart and a half-written one (a power cut while saving) fails its checksum.
+| ================= the memory card: the hack's save is the game's 128-byte save (0x103100: a label, the player's
+| stage, flowers, items ... and a checksum at 0x10317F over 0x103114-0x10317E) in slot (sub-number) 1; unused
+| bytes of it hold a marker (0x10317D) and the AUTO SAVE setting (0x10317E).
 | d0 = command (2 load, 3 save), d1 = slot -> d0 = the BIOS's answer (0 = done), Z set if done
 card_io:
     movem.l %d1-%d7/%a0-%a6,-(%sp)
@@ -358,13 +408,63 @@ buf_valid:
     movem.l %d0-%d1/%a0,-(%sp)
     cmp.b #MAGIC,0x10317D
     bne 9f
+    bsr checksum
+    cmp.b 0x10317F,%d1
+9:  movem.l (%sp)+,%d0-%d1/%a0
+    rts
+
+| d1 = the save's checksum (the byte sum of 0x103114-0x10317E)
+checksum:
+    move.l %a0,-(%sp)
+    move.w %d0,-(%sp)
     lea 0x103114,%a0
     move.w #106,%d0
     moveq #0,%d1
 1:  add.b (%a0)+,%d1
     dbf %d0,1b
-    cmp.b 0x10317F,%d1
-9:  movem.l (%sp)+,%d0-%d1/%a0
+    move.w (%sp)+,%d0
+    move.l (%sp)+,%a0
+    rts
+
+| a built save becomes the hack's: the label (what card screens show) BLUE'S J.+ and the stage, the marker, the
+| auto-save setting (0x10317E), and the checksum again
+stamp:
+    movem.l %d0-%d1/%a0-%a1,-(%sp)
+    lea save_label(%pc),%a0
+    lea SAVE_BUF,%a1
+    moveq #LABEL_NAME-1,%d0
+5:  move.b (%a0)+,(%a1)+
+    dbf %d0,5b
+    move.b #MAGIC,0x10317D
+    bsr stamp_setting
+    movem.l (%sp)+,%d0-%d1/%a0-%a1
+    rts
+stamp_setting:
+    clr.b 0x10317E
+    cmp.w #AUTO_ON,AUTO_WORD
+    bne 1f
+    move.b #1,0x10317E
+1:  bsr checksum
+    move.b %d1,0x10317F
+    rts
+
+| the AUTO SAVE option changed: the save on the card (if any) takes the new setting
+store_setting:
+    movem.l %d0-%d1,-(%sp)
+    move.b 0x380000,%d0
+    and.b #0x30,%d0
+    bne 9f
+    moveq #2,%d0
+    moveq #HACK_SLOT,%d1
+    bsr card_io
+    bne 9f
+    bsr buf_valid
+    bne 9f
+    bsr stamp_setting
+    moveq #3,%d0
+    moveq #HACK_SLOT,%d1
+    bsr card_io
+9:  movem.l (%sp)+,%d0-%d1
     rts
 
 | BEST_SUB = HACK_SLOT if the card holds a valid hack save, else 0
@@ -381,6 +481,10 @@ probe:
     bsr buf_valid
     bne 9f
     move.b #HACK_SLOT,BEST_SUB
+    clr.w AUTO_WORD                  | the save's auto-save setting
+    tst.b 0x10317E
+    beq 9f
+    move.w #AUTO_ON,AUTO_WORD
 9:  movem.l (%sp)+,%d0-%d1
     rts
 
@@ -405,6 +509,8 @@ continue:
 | (a real game on the home console, past the how-to-play, with a card in) and SAVING in the corner meanwhile
 autosave:
     jsr TITLE_CARD
+    cmp.w #AUTO_ON,AUTO_WORD
+    bne 9f
     tst.b SYSTEM_MODE
     bne 9f
     tst.b 0x106800                   | the attract demo: no
@@ -429,19 +535,7 @@ autosave:
     jsr BUILD_SAVE
     move.b %d6,16(%a4)
     move.b %d6,0x103115
-    lea save_label(%pc),%a0          | the label (what card screens show): BLUE'S J.+ and the stage
-    lea SAVE_BUF,%a1
-    moveq #LABEL_NAME-1,%d0
-5:  move.b (%a0)+,(%a1)+
-    dbf %d0,5b
-    move.b #MAGIC,0x10317D
-    clr.b 0x10317E
-    lea 0x103114,%a0                 | the checksum again
-    move.w #106,%d0
-    moveq #0,%d1
-4:  add.b (%a0)+,%d1
-    dbf %d0,4b
-    move.b %d1,0x10317F
+    bsr stamp
     moveq #3,%d0
     moveq #HACK_SLOT,%d1
     bsr card_io
@@ -472,7 +566,10 @@ options:
     bsr screen_setup
     lea opt_title(%pc),%a0
     lea opt_t(%pc),%a1
-    moveq #0,%d6
+    cmp.w #AUTO_ON,AUTO_WORD
+    bne 0f
+    lea opt_on_t(%pc),%a1
+0:  moveq #0,%d6
     move.b OPT_CURSOR,%d6
     moveq #OPT_COUNT,%d7
     bsr list
@@ -492,6 +589,16 @@ options:
     bsr sound_test                   | SOUND TEST
     bra options
 2:  cmp.w #2,%d6
+    bne 5f
+    cmp.w #AUTO_ON,AUTO_WORD         | AUTO SAVE: switch it
+    seq %d0
+    move.w #AUTO_ON,AUTO_WORD
+    tst.b %d0
+    beq 4f
+    clr.w AUTO_WORD
+4:  bsr store_setting
+    bra options
+5:  cmp.w #3,%d6
     bne 3f
     bsr card_screen                  | MEMORY CARD
     bra options
@@ -996,12 +1103,14 @@ TABLES
               + string_table("menu_save_t", [m.ljust(width) for m, c in MENU_SAVE])
               + "menu_ids:\n    .byte %s\nmenu_save_ids:\n    .byte %s\n    .even\n" % (
                   ",".join(str(c) for m, c in MENU), ",".join(str(c) for m, c in MENU_SAVE))
-              + string_table("opt_t", OPTIONS) + string_table("stage_t", [n for i, n in STAGES])
+              + string_table("opt_t", [o.replace("%s", "OFF") for o in OPTIONS])
+              + string_table("opt_on_t", [o.replace("%s", "ON ") for o in OPTIONS]) + string_table("stage_t", [n for i, n in STAGES])
               + string_table("card_t", CARD_ACTIONS) + string_table("confirm_t", CONFIRM))
     consts = {
         "MENU_SAVE_COUNT": str(len(MENU_SAVE)), "MENU_COUNT": str(len(MENU)), "OPT_COUNT": str(len(OPTIONS)), "STAGE_COUNT": str(len(STAGES)),
         "CHOICE_OPTIONS": str(CHOICE_OPTIONS), "CHOICE_CONTINUE": str(CHOICE_CONTINUE),
-        "PROBED": "0x%X" % PROBED, "BEST_SUB": "0x%X" % BEST_SUB,
+        "PROBED": "0x%X" % PROBED, "AUTO_ON": "0x%X" % AUTO_ON, "AUTO_WORD": "0x%X" % AUTO,
+        "GAME_SAVE_PREP": "0x%X" % GAME_SAVE_PREP, "RAM_CLEAR_REST": "0x%X" % RAM_CLEAR_REST, "BEST_SUB": "0x%X" % BEST_SUB,
         "SAVE_BUF": "0x%X" % SAVE_BUF, "HACK_SLOT": str(HACK_CARD_SUB), "LINE_BUF": "0x%X" % LINE_BUF,
         "SAVE_LABEL_NAME": SAVE_LABEL_NAME, "LABEL_NAME": str(len(SAVE_LABEL_NAME)), "LABEL_LEN": "20",
         "CARD_SIG_LEN": "14", "CARD_ACTION_COUNT": str(len(CARD_ACTIONS)),
@@ -1034,7 +1143,8 @@ TABLES
     base = rom.place_code(src, why="title menu, options screen (level select, sound test)")
     labels = {name: base + 4 * i for i, name in
               enumerate(("menu_frame", "start_pressed", "new_game", "how_to_play", "mode3_end",
-                         "title_enter", "title_leave", "autosave"))}
+                         "title_enter", "title_leave", "autosave", "save_over", "save_p1", "save_p2",
+                         "game_save_prep", "ram_keep"))}
     rom.write(TITLE_PUSH_START, bytes.fromhex("4EB9") + labels["menu_frame"].to_bytes(4, "big") + bytes.fromhex("4E714E71"),
               expect=bytes.fromhex("4A6E7B7066044EBA0098"), why="title: the menu instead of PUSH START once Start is pressed")
     rom.write(PLAYER_START_CALL, bytes.fromhex("4EB9") + labels["start_pressed"].to_bytes(4, "big"),
@@ -1052,7 +1162,12 @@ TABLES
     for site in STAGE_TITLE_CALLS:
         rom.write(site, bytes.fromhex("4EB9") + labels["autosave"].to_bytes(4, "big"),
                   expect=bytes.fromhex("4EB900013C6E"), why="stage start: the title card, then an auto-save")
-    for addr, orig, new, why in OLD_SAVES:
-        rom.write(addr, bytes.fromhex(new), expect=bytes.fromhex(orig), why=why)
+    for addr, target, stub, why in OLD_SAVES:
+        rom.write(addr, bytes.fromhex("4EB9") + labels[stub].to_bytes(4, "big"),
+                  expect=bytes.fromhex("4EB9") + target.to_bytes(4, "big"), why=why)
+    rom.write(GAME_SAVE_CARD, bytes.fromhex("4EB9") + labels["game_save_prep"].to_bytes(4, "big"),
+              expect=bytes.fromhex("4EB90000F6B0"), why="the game's own save: the hack's label, marker and setting")
+    rom.write(RAM_CLEAR, bytes.fromhex("4EF9") + labels["ram_keep"].to_bytes(4, "big") + bytes.fromhex("4E71"),
+              expect=bytes.fromhex("204ED1FC0000F000"), why="attract RAM clear: keep the auto-save setting")
     rom.write(CARD_SUB_SET + 3, bytes([HACK_CARD_SUB]), expect=bytes.fromhex("00"),
               why="memory card: the hack's saves use sub-number 1 (the original game's use 0)")
