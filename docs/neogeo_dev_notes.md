@@ -59,3 +59,16 @@ disassembly), with replies from other Neo Geo developers. Screenshots were share
 - Their demos ship as **NeoSD `.neo` images** for real AES / MVS hardware (the NeoSD flash cart). *For us:* the
   practical way to test the hack on a real console (auto-save TODO) - hackbuild could write a `.neo` alongside the
   MAME set.
+
+## MAME vs hardware (neo-geo.com forum thread "MAME vs hardware"; DoomGeo)
+- MAME is put at roughly 85-90% hardware-accurate for the Neo Geo; the known gaps are **wait states** (some
+  graphical glitches), **palette** quirks, sound (PCM2 decryption) and some protection chips' start-up.
+- *For us:* `drown-in-front` (the cover strips) and the collision lookup read VRAM from the 68000 (set 0x3C0000,
+  read 0x3C0002 straight away) and write sprite blocks during the frame. The original game does exactly this (its
+  collision lookup 0xD9B6 reads the front layer back from VRAM the same way), so it should hold on hardware - but it
+  belongs on the real-console test list, as do the palette-cycling effects (the shop cursor's light).
+- DoomGeo (github.com/sabino/DoomGeo), a Doom-like renderer on the Neo Geo: draws with sprite strips and pre-baked
+  graphics, updating the sprite control blocks each frame rather than drawing pixels, HUD on the fix layer.
+- General references: Rodrigo Copetti's architecture write-up (copetti.org/writings/consoles/neogeo/), the NeoGeo
+  Dev Wiki (wiki.neogeodev.org, e.g. "System ROM", "Sprites"), and the arcade-projects.com "Mark of the Wolves"
+  reverse-engineering thread.
