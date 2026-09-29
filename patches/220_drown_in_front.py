@@ -276,6 +276,67 @@ cover:
     sub.w %d7,%d0
     cmp.w #16,%d0
     bcc 38f
+    | the liquid's surface under his middle: the first non-empty cell (collision type not 0) from where he started,
+    | down 8 rows; if the line (LINE px below where he started, rounded down a row) falls right on it, one row lower
+    move.w %d5,%d1
+    sub.w RAM+12,%d1                 | his first y
+    moveq #7,%d0
+    move.w %d0,%a3
+60: move.w %d1,%d0
+    sub.w %d6,%d0
+    and.w #511,%d0
+    lsr.w #4,%d0                     | the strip's row at that y
+    move.w %d2,%a5
+    lsl.w #6,%d2
+    add.w %d0,%d2
+    add.w %d0,%d2
+    move.w %d0,-(%sp)
+    move.w %d2,%d0
+    addq.w #1,%d0
+    bsr vread
+    move.w %a5,%d2
+    lsr.w #4,%d0
+    and.w #15,%d0                    | (any solid-ish cell: water is type 12 or 15, and nothing else is under a
+    bne 61f                          | drowning hero)
+    addq.l #2,%sp
+    add.w #16,%d1
+    subq.w #1,%a3
+    move.w %a3,%d0
+    bpl 60b
+    bra 62f
+61: move.w (%sp)+,%d0                | found: if the line would fall on that row's top (the surface itself - he'd
+    move.w %d5,%d1                   | seem to sink behind it), it goes one row deeper
+    sub.w %d6,%d1
+    and.w #511,%d1
+    add.w #15,%d1
+    lsr.w #4,%d1                     | the line's row
+    cmp.w %d0,%d1
+    bne 62f
+    move.w %d0,-(%sp)                | ... unless the row above is already the liquid (a waterfall's band): same
+    move.w %d2,%d1                   | palette as the surface row
+    lsl.w #6,%d1
+    add.w %d0,%d1
+    add.w %d0,%d1
+    addq.w #1,%d1                    | the surface row's attribute word
+    move.w %d1,%d0
+    bsr vread
+    move.w %d0,%a5
+    move.w %d1,%d0
+    subq.w #2,%d0                    | the row above (the strip wraps round at 32 rows; the surface is never row 0 here)
+    bsr vread
+    move.w %a5,%d1
+    eor.w %d1,%d0
+    and.w #0xFF00,%d0
+    move.w %d0,%d1                   | (0 = same palette: keep the line)
+    move.w (%sp)+,%d0
+    tst.w %d1
+    beq 62f
+    addq.w #1,%d0
+    lsl.w #4,%d0
+    add.w %d6,%d0
+    and.w #511,%d0
+    move.w %d0,%d5
+62: move.w RAM+24,%d1                | (d1 back)
     move.w %d5,%d0                   | r0, as below
     sub.w %d6,%d0
     and.w #511,%d0
