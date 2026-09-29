@@ -58,7 +58,9 @@ STAGES = [
 CHOICE_NEW_GAME, CHOICE_OPTIONS, CHOICE_CONTINUE = 0, 1, 2
 MENU = [("NEW GAME", CHOICE_NEW_GAME), ("OPTIONS", CHOICE_OPTIONS)]       # title menu, no save on the card
 MENU_SAVE = [("CONTINUE", CHOICE_CONTINUE)] + MENU                        # ... with a save to continue
-OPTIONS = ["LEVEL SELECT", "SOUND TEST", "BACK TO TITLE"]
+OPTIONS = ["LEVEL SELECT", "SOUND TEST", "MEMORY CARD", "BACK TO TITLE"]
+CARD_ACTIONS = ["DELETE SAVE", "FORMAT CARD", "BACK"]
+CONFIRM = ["NO", "YES"]
 
 TITLE_PUSH_START = 0x1AF94   # tst.w 31600(a6) ; bne.s +4 ; jsr 0x1B034(pc)
 PUSH_START = 0x1B034
@@ -111,10 +113,9 @@ SELECT_REQ = 0x10E90A        # Start pressed while the menu was open
 OPT_CURSOR = 0x10E90B
 TITLE_PHASE = 0x10E90C       # 1 from the start of the title screen's set-up until the title ends
 PROBED = 0x10E90D            # the card has been looked at since the menu opened
-BEST_SUB = 0x10E90E          # the card slot (1 / 2) with the newest valid hack save, 0 = none
-BEST_COUNT = 0x10E90F        # its save counter
-NEXT_SUB = 0x10E910          # the slot the next auto-save goes to (0 = not known yet: look at the card first)
-SAVE_COUNT = 0x10E911        # the counter of the last save made / loaded
+BEST_SUB = 0x10E90E          # HACK_CARD_SUB if the card holds a valid hack save, 0 = none
+LINE_BUF = 0x10E980          # a line of text being put together (32 bytes)
+SAVE_LABEL_NAME = "BLUE'S J.+  "   # the first 12 characters of the hack's save label (the original's: BLUE'S J.)
 PAL = 15                     # fix palette for the options screens' text
 TITLE_PAL = 5                # the title's PUSH START palette
 MENU_COL, MENU_LAST_ROW = 16, 22   # title menu: fix column, and the row of its last line (a line every other row)
@@ -311,7 +312,6 @@ new_game:
     beq 1f
     jmp LOAD                         | arcade: as before
 1:  clr.b STAGE_PICK
-    clr.b NEXT_SUB                   | (the first auto-save looks at the card)
     move.b CHOICE,%d0
     clr.b CHOICE
     cmp.b #CHOICE_CONTINUE,%d0
@@ -346,7 +346,7 @@ card_io:
     move.b %d1,0x10FDD0
     move.b %d0,0x10FDC4
     lea 0x100000,%a6
-    jsr CARD
+    jsr BIOS_CARD_CALL
     moveq #0,%d0
     move.b 0x10FDC6,%d0
     movem.l (%sp)+,%d1-%d7/%a0-%a6
@@ -367,48 +367,34 @@ buf_valid:
 9:  movem.l (%sp)+,%d0-%d1/%a0
     rts
 
-| BEST_SUB / BEST_COUNT = the slot with the newest valid hack save and its counter (BEST_SUB 0 = none)
+| BEST_SUB = HACK_SLOT if the card holds a valid hack save, else 0
 probe:
-    movem.l %d0-%d3,-(%sp)
+    movem.l %d0-%d1,-(%sp)
     clr.b BEST_SUB
     move.b 0x380000,%d0              | no card: nothing
     and.b #0x30,%d0
     bne 9f
-    moveq #1,%d3
-1:  moveq #2,%d0
-    move.b %d3,%d1
+    moveq #2,%d0
+    moveq #HACK_SLOT,%d1
     bsr card_io
-    bne 2f
+    bne 9f
     bsr buf_valid
-    bne 2f
-    move.b 0x10317E,%d2
-    tst.b BEST_SUB
-    beq 3f
-    move.b %d2,%d0                   | newer: ahead of the other by a positive (wrapping) count
-    sub.b BEST_COUNT,%d0
-    ble 2f
-3:  move.b %d3,BEST_SUB
-    move.b %d2,BEST_COUNT
-2:  addq.b #1,%d3
-    cmp.b #3,%d3
-    bne 1b
-9:  movem.l (%sp)+,%d0-%d3
+    bne 9f
+    move.b #HACK_SLOT,BEST_SUB
+9:  movem.l (%sp)+,%d0-%d1
     rts
 
-| CONTINUE (in mode 3): load the newest save and apply it the game's way (0xF0D6); d0 = 0 / Z set if loaded
+| CONTINUE (in mode 3): load the save and apply it the game's way (0xF0D6); d0 = 0 / Z set if loaded
 continue:
-    bsr probe
-    move.b BEST_SUB,%d1
-    beq 8f
     moveq #2,%d0
+    moveq #HACK_SLOT,%d1
+    move.b 0x380000,%d2
+    and.b #0x30,%d2
+    bne 8f
     bsr card_io
     bne 8f
     bsr buf_valid
     bne 8f
-    moveq #3,%d0                     | the next save goes to the other slot
-    sub.b %d1,%d0
-    move.b %d0,NEXT_SUB
-    move.b BEST_COUNT,SAVE_COUNT
     jsr APPLY_SAVE
     tst.w %d0
     rts
@@ -434,19 +420,7 @@ autosave:
     moveq #0,%d2
     move.w #SAVING_ATTR,%d7
     bsr print_attr
-    tst.b NEXT_SUB
-    bne 1f
-    bsr probe                        | the first save of this game: follow on from what the card holds
-    move.b BEST_SUB,%d0
-    beq 2f
-    moveq #3,%d1
-    sub.b %d0,%d1
-    move.b %d1,NEXT_SUB
-    move.b BEST_COUNT,SAVE_COUNT
-    bra 1f
-2:  move.b #1,NEXT_SUB
-    clr.b SAVE_COUNT
-1:  lea 0x100000,%a6                 | the game's save builder (0xEFDE) - minus the quarter of the flowers it
+    lea 0x100000,%a6                 | the game's save builder (0xEFDE) - minus the quarter of the flowers it
     lea 0x107000,%a4                 | takes away (a game-over penalty): put them back
     btst #0,30878(%a6)
     bne 3f
@@ -455,10 +429,13 @@ autosave:
     jsr BUILD_SAVE
     move.b %d6,16(%a4)
     move.b %d6,0x103115
+    lea save_label(%pc),%a0          | the label (what card screens show): BLUE'S J.+ and the stage
+    lea SAVE_BUF,%a1
+    moveq #LABEL_NAME-1,%d0
+5:  move.b (%a0)+,(%a1)+
+    dbf %d0,5b
     move.b #MAGIC,0x10317D
-    move.b SAVE_COUNT,%d0
-    addq.b #1,%d0
-    move.b %d0,0x10317E
+    clr.b 0x10317E
     lea 0x103114,%a0                 | the checksum again
     move.w #106,%d0
     moveq #0,%d1
@@ -466,13 +443,8 @@ autosave:
     dbf %d0,4b
     move.b %d1,0x10317F
     moveq #3,%d0
-    move.b NEXT_SUB,%d1
+    moveq #HACK_SLOT,%d1
     bsr card_io
-    bne 8f
-    addq.b #1,SAVE_COUNT
-    moveq #3,%d0
-    sub.b NEXT_SUB,%d0
-    move.b %d0,NEXT_SUB
 8:  movem.l (%sp)+,%d0-%d7/%a0-%a6
 9:  rts
 
@@ -519,8 +491,179 @@ options:
     bne 2f
     bsr sound_test                   | SOUND TEST
     bra options
-2:  moveq #1,%d0                     | BACK TO TITLE
+2:  cmp.w #2,%d6
+    bne 3f
+    bsr card_screen                  | MEMORY CARD
+    bra options
+3:  moveq #1,%d0                     | BACK TO TITLE
     rts
+
+| ================= the memory card screen: the actions (DELETE SAVE - the hack's -, FORMAT CARD, BACK), the card's
+| state and every save on it. The card is read directly (as the BIOS does: 0x3A0019 / 0x380011 cleared, then card
+| byte n = the low byte of the word at 0x800000 + 2n; word reads only - MAME answers byte reads with 0xFF): the "formatted" signature at 0x20, the directory at 0x40 (32 entries: slot or 0xFF =
+| free, the game's id, first 64-byte block), the block chain at 0xC0 (0 = free block); a save's first bytes are its
+| label. Deleting and formatting are the BIOS's card commands 4 and 0.
+card_screen:
+    bsr screen_setup
+    moveq #0,%d4                     | d4 = 0 no card, 1 not formatted, 2 formatted
+    move.b 0x380000,%d0
+    and.b #0x30,%d0
+    bne 1f
+    move.b #0,0x3A0019
+    move.b #0,0x380011
+    lea 0x800000,%a3                 | card byte n = low byte of the word at 0x800000 + 2n
+    lea card_sig(%pc),%a0            | (word reads only: MAME answers byte reads with 0xFF)
+    lea 0x40(%a3),%a2
+    moveq #CARD_SIG_LEN-1,%d1
+    moveq #1,%d4
+2:  move.w (%a2)+,%d0
+    cmp.b (%a0)+,%d0
+    bne 1f
+    dbf %d1,2b
+    moveq #2,%d4
+1:  lea st_nocard(%pc),%a0
+    cmp.w #1,%d4
+    bcs 3f
+    lea st_unformatted(%pc),%a0
+    beq 3f
+    lea st_free(%pc),%a0
+3:  move.w #CARD_STATUS_ADDR,%d1
+    bsr print
+    cmp.w #2,%d4
+    bne 20f
+    moveq #0,%d5                     | free blocks: the block chain's zeros (blocks 5-31)
+    lea 0x180+5*2(%a3),%a2
+    moveq #26,%d1
+4:  move.w (%a2)+,%d0
+    tst.b %d0
+    bne 5f
+    addq.w #1,%d5
+5:
+    dbf %d1,4b
+    move.w %d5,%d0
+    move.w #CARD_FREE_ADDR,%d1
+    bsr print_dec2
+    move.w #CARD_LIST_ADDR,%d3       | the saves, one line each
+    moveq #0,%d2                     | d2 = directory entry
+6:  cmp.w #CARD_LIST_END,%d3       | (room for 14 lines)
+    beq 20f
+    move.w %d2,%d0
+    lsl.w #3,%d0
+    lea 0x80(%a3),%a2                | entry at card 0x40 + 4 * n
+    add.w %d0,%a2
+    move.w (%a2),%d0
+    cmp.b #0xFF,%d0
+    beq 9f
+    lea LINE_BUF,%a1                 | the label (20 characters, anything unprintable as a space)
+    moveq #0,%d0
+    move.w 6(%a2),%d0                | first block
+    and.w #0xFF,%d0
+    mulu #128,%d0
+    lea (%a3,%d0.l),%a0
+    moveq #LABEL_LEN-1,%d1
+7:  move.w (%a0)+,%d0
+    cmp.b #0x20,%d0
+    bcs 8f
+    cmp.b #0x5F,%d0
+    bls 10f
+8:  moveq #0x20,%d0
+10: move.b %d0,(%a1)+
+    dbf %d1,7b
+    move.b #0x20,(%a1)+              | then the game's id and slot, e.g. 0022-1
+    move.w 2(%a2),%d0
+    bsr hex_to_buf
+    move.w 4(%a2),%d0
+    bsr hex_to_buf
+    move.b #0x2D,(%a1)+
+    move.w (%a2),%d0
+    and.b #15,%d0
+    add.b #0x30,%d0
+    move.b %d0,(%a1)+
+    clr.b (%a1)
+    lea LINE_BUF,%a0
+    move.w %d3,%d1
+    movem.l %d2-%d4/%a3,-(%sp)
+    bsr print
+    movem.l (%sp)+,%d2-%d4/%a3
+    addq.w #1,%d3
+9:  addq.w #1,%d2
+    cmp.w #32,%d2
+    bne 6b
+20: move.w %d4,-(%sp)                | (kept over the list)
+    lea card_title(%pc),%a0
+    lea card_t(%pc),%a1
+    moveq #0,%d6
+    moveq #CARD_ACTION_COUNT,%d7
+    bsr list
+    move.w (%sp)+,%d4
+    tst.w %d0
+    bne 29f                          | B: back
+    cmp.w #2,%d6
+    beq 29f                          | BACK
+    cmp.w #1,%d6
+    beq 25f
+    cmp.w #2,%d4                     | DELETE SAVE
+    bne card_screen
+    lea confirm_delete(%pc),%a0
+    bsr confirm
+    beq card_screen
+    moveq #4,%d0
+    moveq #HACK_SLOT,%d1
+    bsr card_io
+    bra card_screen
+25: tst.w %d4                        | FORMAT CARD
+    beq card_screen
+    lea confirm_format(%pc),%a0
+    bsr confirm
+    beq card_screen
+    moveq #0,%d0
+    moveq #0,%d1
+    bsr card_io
+    bra card_screen
+29: rts
+
+| a0 = the question: NO / YES (NO first); Z clear if YES
+confirm:
+    move.l %a0,-(%sp)
+    bsr screen_setup
+    move.l (%sp)+,%a0
+    lea confirm_t(%pc),%a1
+    moveq #0,%d6
+    moveq #2,%d7
+    bsr list
+    tst.w %d0
+    bne 1f
+    tst.w %d6
+    rts
+1:  moveq #0,%d0
+    rts
+
+| d0 = byte -> two hex digits at (a1)+
+hex_to_buf:
+    move.w %d0,-(%sp)
+    lsr.b #4,%d0
+    bsr 1f
+    move.w (%sp)+,%d0
+1:  and.b #15,%d0
+    add.b #0x30,%d0
+    cmp.b #0x3A,%d0
+    bcs 2f
+    addq.b #7,%d0
+2:  move.b %d0,(%a1)+
+    rts
+
+| d0 = 0-99, d1 = fix address: two decimal digits
+print_dec2:
+    and.l #0xFF,%d0
+    divu #10,%d0
+    lea LINE_BUF,%a0
+    add.b #0x30,%d0
+    move.b %d0,(%a0)
+    swap %d0
+    add.b #0x30,%d0
+    move.b %d0,1(%a0)
+    clr.b 2(%a0)
+    bra print
 
 level_select:
     bsr screen_setup
@@ -789,6 +932,28 @@ blank:
 saving:
     .ascii "SAVING"
     .byte 0
+save_label:
+    .ascii "SAVE_LABEL_NAME"
+card_sig:
+    .ascii "N@EDOH-LGPETOX"
+card_title:
+    .ascii "MEMORY CARD"
+    .byte 0
+st_nocard:
+    .ascii "NO MEMORY CARD"
+    .byte 0
+st_unformatted:
+    .ascii "CARD NOT FORMATTED"
+    .byte 0
+st_free:
+    .ascii "FREE BLOCKS"
+    .byte 0
+confirm_delete:
+    .ascii "DELETE THE SAVE"
+    .byte 0
+confirm_format:
+    .ascii "FORMAT - ERASES ALL SAVES"
+    .byte 0
 push_blank:
     .ascii "           "
     .byte 0
@@ -831,13 +996,18 @@ TABLES
               + string_table("menu_save_t", [m.ljust(width) for m, c in MENU_SAVE])
               + "menu_ids:\n    .byte %s\nmenu_save_ids:\n    .byte %s\n    .even\n" % (
                   ",".join(str(c) for m, c in MENU), ",".join(str(c) for m, c in MENU_SAVE))
-              + string_table("opt_t", OPTIONS) + string_table("stage_t", [n for i, n in STAGES]))
+              + string_table("opt_t", OPTIONS) + string_table("stage_t", [n for i, n in STAGES])
+              + string_table("card_t", CARD_ACTIONS) + string_table("confirm_t", CONFIRM))
     consts = {
         "MENU_SAVE_COUNT": str(len(MENU_SAVE)), "MENU_COUNT": str(len(MENU)), "OPT_COUNT": str(len(OPTIONS)), "STAGE_COUNT": str(len(STAGES)),
         "CHOICE_OPTIONS": str(CHOICE_OPTIONS), "CHOICE_CONTINUE": str(CHOICE_CONTINUE),
-        "PROBED": "0x%X" % PROBED, "BEST_SUB": "0x%X" % BEST_SUB, "BEST_COUNT": "0x%X" % BEST_COUNT,
-        "NEXT_SUB": "0x%X" % NEXT_SUB, "SAVE_COUNT": "0x%X" % SAVE_COUNT, "SAVE_BUF": "0x%X" % SAVE_BUF,
-        "MAGIC": "0x%X" % MAGIC, "CARD": "0x%X" % CARD, "APPLY_SAVE": "0x%X" % APPLY_SAVE,
+        "PROBED": "0x%X" % PROBED, "BEST_SUB": "0x%X" % BEST_SUB,
+        "SAVE_BUF": "0x%X" % SAVE_BUF, "HACK_SLOT": str(HACK_CARD_SUB), "LINE_BUF": "0x%X" % LINE_BUF,
+        "SAVE_LABEL_NAME": SAVE_LABEL_NAME, "LABEL_NAME": str(len(SAVE_LABEL_NAME)), "LABEL_LEN": "20",
+        "CARD_SIG_LEN": "14", "CARD_ACTION_COUNT": str(len(CARD_ACTIONS)),
+        "CARD_STATUS_ADDR": "0x%X" % fix_addr(COL, 11), "CARD_FREE_ADDR": "0x%X" % fix_addr(COL + 12, 11),
+        "CARD_LIST_ADDR": "0x%X" % fix_addr(COL, 13), "CARD_LIST_END": "0x%X" % fix_addr(COL, 27),
+        "MAGIC": "0x%X" % MAGIC, "BIOS_CARD_CALL": "0x%X" % CARD, "APPLY_SAVE": "0x%X" % APPLY_SAVE,
         "BUILD_SAVE": "0x%X" % BUILD_SAVE, "TITLE_CARD": "0x%X" % TITLE_CARD,
         "SAVING_ADDR": "0x%X" % fix_addr(*SAVING_AT), "SAVING_ATTR": "0x%X" % SAVING_ATTR, "BLANK_TEXT": " " * width,
         "MENU_LAST_ADDR": "0x%X" % fix_addr(MENU_COL, MENU_LAST_ROW), "PUSH_START_ADDR": "0x%X" % PUSH_START_ADDR, "TITLE_ATTR": "0x%X" % (TITLE_PAL * 0x1000 + 0x500),
