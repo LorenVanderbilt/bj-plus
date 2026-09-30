@@ -59,6 +59,26 @@ FIXES = [
     (0x54899, "THE FLOWER IS", "THE FLOWERS ARE"),
     (0x548E1, "HUNG ON TO IT.", "HANG ON TO THEM"),
     (0x34986, "BAD GUY.", "YOU JERK"),                  # (YOU JERK! doesn't fit)
+    # the lottery after each boss
+    (0x295E6, "DREWING.", "DRAWING."),
+    (0x2971D, "OKEY,I BET.", "LET'S PLAY!"), (0x2971D, "I'LL PASS.", "NO THANKS."),
+    (0x29B02, "FIRST PRIZE!", "1ST PRIZE!"), (0x29BF0, "2ND PRIZE.", "2ND PRIZE!"),
+    (0x29CDC, "3RD PRIZE.", "3RD PRIZE!"), (0x29DF0, "4TH PRIZE.", "4TH PRIZE!"),
+]
+
+# Whole strings rewritten in their own space: the new lines, then the original's ending (an end byte, or a
+# callback: 0xFC + the code's address, which doesn't move), the rest padded after it (never read).
+STRINGS = [
+    # the lottery after each boss
+    (0x29900, ["OK! MAYBE", "NEXT TIME."]),                        # I SEE. / SEE YOU LATER.
+    (0x29958, ["SORRY! YOU NEED", "10 FLOWERS."]),                 # NO. / YOU DON'T HAVE / 10 FLOWERS.
+    (0x29F26, ["SORRY!", "NO PRIZE"]),                             # OH. / SORRY MISS.
+    (0x2A036, ["LIFE BALL", "1 MORE HEART."]),                     # (+1 maximum heart)
+    (0x2A08A, ["SILVER COCOON", "FIVE OF THEM", "FOR A 1UP."]),
+    (0x2A0E0, ["NECTAR", "RESTORES", "1 HEART."]),                 # HONEY. / STAMIRA RECOV- / ERS.
+    (0x2A132, ["LUCKY RING", "IT WILL BRING", "YOU LOVE."]),       # (the princess always says yes)
+    (0x2A1B0, ["30 FLOWERS", "YOU'RE RICH!"]),
+    (0x2A1F6, ["GOLD COCOON", "1UP!"]),                            # GOLDEN COCOON. / 1 UP.
 ]
 
 
@@ -92,6 +112,20 @@ def shop_text(rom, addr, name, desc, orphan):
     return text.ljust(room, b" "), room
 
 
+def whole_string(rom, addr, lines):
+    end = addr
+    while rom.data[end] not in (0xFF, 0xFC, 0xFB):
+        if rom.data[end] < 0x20 and rom.data[end] != 0x0A:
+            raise SystemExit("text-fixes: 0x%X isn't a plain string" % addr)
+        end += 1
+    tail = bytes(rom.data[end:end + (1 if rom.data[end] == 0xFF else 5)])
+    room = end + len(tail) - addr
+    text = b"\xfe".join(l.encode() for l in lines).replace(b"?", b"\x0a") + tail
+    if len(text) > room:
+        raise SystemExit("text-fixes: %r is %d bytes, room %d" % (lines, len(text), room))
+    return text.ljust(room, b" "), room
+
+
 def apply(rom):
     skipped, already = [], []
     for addr, old, new in FIXES:
@@ -115,6 +149,9 @@ def apply(rom):
         for addr in addrs:
             text, room = shop_text(rom, addr, name, desc, orphan)
             rom.write(addr, text, expect=bytes(rom.data[addr:addr + room]), why="shop text: %s" % name)
+    for addr, lines in STRINGS:
+        text, room = whole_string(rom, addr, lines)
+        rom.write(addr, text, expect=bytes(rom.data[addr:addr + room]), why="text: %s" % " / ".join(lines))
     print("  (text-fixes: already end with ? in the game) %d lines" % len(already))
     for s in skipped:
         print("  (text-fixes: doesn't fit yet) " + s)
