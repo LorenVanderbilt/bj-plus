@@ -13,7 +13,6 @@ FIXES = [
     (0x22F86, "CUT THAT TREE", "CUT THAT TREE?"),
     (0x2323C, "MY HATCHET,", "MY HATCHET!"),
     (0x235B0, "BELIEVE IT", "BELIEVE IT?"),
-    (0x24E28, "ACCEPTED PROPOSE.", "ACCEPTED THE PROPOSAL."),
     (0x25E66, "NO,I DON'T.", "NO, I DON'T"),
     (0x25F28, "HAVE YOU ANSWERED", "HAVE YOU ANSWERED?"),
     (0x260E0, "TAKE THE FLOWERS.", "TAKE YOUR FLOWERS"),
@@ -69,6 +68,12 @@ FIXES = [
 # Whole strings rewritten in their own space: the new lines, then the original's ending (an end byte, or a
 # callback: 0xFC + the code's address, which doesn't move), the rest padded after it (never read).
 STRINGS = [
+    # the hint about the quiz man (one per name): QUESTINS, and "HE WILL" shortened to make room
+] + [(addr, ["IN THE SHABARN MARSH EMPIRE", "YOU'LL FIND THE OLD MAN WHO", "LOVES TO QUIZ.", "HE'LL HELP YOU",
+             "IF YOU ANSWER HIS QUESTIONS.", "HIS NAME IS %s." % name])
+     for addr, name in [(0x22B88, "HOHOPPEY"), (0x22C92, "PECULU"), (0x22D9A, "PUCAMONMME")]] + [
+    # the happy ending: FA ACCEPTED PROPOSE. / THEY LED A HAPPY LIFE. (ACCEPTED THE PROPOSAL doesn't fit)
+    (0x24E28, ["FA ACCEPTED.", "THEY LIVED HAPPILY EVER AFTER."]),
     # the lottery after each boss
     (0x29900, ["OK! MAYBE", "NEXT TIME."]),                        # I SEE. / SEE YOU LATER.
     (0x29958, ["SORRY! YOU NEED", "10 FLOWERS."]),                 # NO. / YOU DON'T HAVE / 10 FLOWERS.
