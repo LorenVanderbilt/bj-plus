@@ -78,7 +78,14 @@ post:
 16: clr.l (%a2)
     movem.l (%sp)+,%d0-%d1/%a0-%a2
     jsr DRAW_BEHIND
-    movem.l %d0-%d7/%a0-%a6,-(%sp)
+    tst.l RAM+56                     | (nothing sinking and no hero burning in lava this frame: nothing to do)
+    bne 22f
+    tst.b RAM+16+4
+    bne 22f
+    tst.b RAM+22+4
+    bne 22f
+    rts
+22: movem.l %d0-%d7/%a0-%a6,-(%sp)
     lea 0x100000,%a6
     lea RAM+56,%a2                   | (their draw bytes back)
 18: move.l (%a2)+,%d0
@@ -163,9 +170,9 @@ post:
 10: lea RAM+16,%a1                   | a hero burning in lava (state 33), drawn this frame: the lava's cover
     lea 0x104000,%a0
     moveq #1,%d7
-20: move.b FRAME,%d0
-    cmp.b 4(%a1),%d0
-    bne 21f
+20: tst.b 4(%a1)                   | (this player's hero drawn burning this frame?)
+    beq 21f
+    clr.b 4(%a1)
     move.w %d1,%d0
     add.w #8,%d0
     cmp.w 0x2E6(%a6),%d0
@@ -201,7 +208,15 @@ grp_start:
 | the drawing loop, after each object (0xA3FE, in place of `move.w 656(a6),d0 ; dbf d0,0xA3D8`): d1 = the next
 | free sprite. A hero in state 33 (burning in lava) has its sprites noted: RAM+14 (where it started) to d1.
 after_obj:
-    movem.l %d0/%a0-%a1,-(%sp)
+    cmp.w #0x4000,-2(%a4)            | (fast path: not a hero - just note where the next object's sprites start)
+    beq 4f
+    cmp.w #0x4080,-2(%a4)
+    beq 4f
+    move.w %d1,RAM+14
+    move.w 656(%a6),%d0
+    dbf %d0,3f
+    jmp 0xA406
+4:  movem.l %d0/%a0-%a1,-(%sp)
     move.w -2(%a4),%d0
     lea RAM+16,%a1
     cmp.w #0x4000,%d0
@@ -214,7 +229,7 @@ after_obj:
     bne 2f
     move.w RAM+14,(%a1)
     move.w %d1,2(%a1)
-    move.b FRAME,4(%a1)
+    move.b #1,4(%a1)                 | (drawn this frame: post uses it and clears it)
 2:  move.w %d1,RAM+14
     movem.l (%sp)+,%d0/%a0-%a1
     move.w 656(%a6),%d0
