@@ -62,6 +62,36 @@ FIXES = [
 ]
 
 
+# Shop descriptions (English, 0x21000-0x214FF), each written once per price variant: name / price / description
+# lines. Rewritten whole in the original's space: the price line kept, new name and description, then the end byte
+# (the rest of the space padded after it). The spike shoes' text ended after "AVOIDS" (an end byte where a new line
+# was meant), orphaning "  SLIPPING", which runs straight into the next string; those variants take its space too.
+SHOP = [
+    # (addresses of the price variants, new name, new description lines or None = keep, also take the orphan)
+    ([0x2107C, 0x210AA, 0x212A8], "NECTAR", ["  RESTORES", "  1 HEART"], False),
+    ([0x210D8, 0x21108, 0x21138, 0x212D6, 0x21306, 0x21336], "FLIPPERS", None, False),
+    ([0x21168, 0x2118C, 0x21366, 0x2138A], "ICE SHOES", ["  NO SLIPPING"], True),
+    ([0x2123A, 0x21438], "MAGIC WAND", ["  DISPELS", "  CURSE"], False),
+    ([0x21268, 0x21288, 0x21466, 0x21486], "FERN", [" SPEED UP"], False),
+]
+
+
+def shop_text(rom, addr, name, desc, orphan):
+    end = addr
+    while rom.data[end] != 0xFF:
+        end += 1
+    lines = bytes(rom.data[addr:end]).split(b"\xfe")
+    end += 1                                     # through the end byte
+    if orphan:
+        end += len(b"  SLIPPING")
+    new = [name.encode(), lines[1]] + ([l.encode() for l in desc] if desc is not None else lines[2:])
+    text = b"\xfe".join(new) + b"\xff"
+    room = end - addr
+    if len(text) > room:
+        raise SystemExit("text-fixes: shop text at 0x%X is %d bytes, room %d" % (addr, len(text), room))
+    return text.ljust(room, b" "), room
+
+
 def apply(rom):
     skipped, already = [], []
     for addr, old, new in FIXES:
@@ -81,6 +111,10 @@ def apply(rom):
             continue
         text = new.ljust(room).encode().replace(b"?", b"\x0a")
         rom.write(at, text, expect=bytes(rom.data[at:at + room]), why="text: %s -> %s" % (old, new))
+    for addrs, name, desc, orphan in SHOP:
+        for addr in addrs:
+            text, room = shop_text(rom, addr, name, desc, orphan)
+            rom.write(addr, text, expect=bytes(rom.data[addr:addr + room]), why="shop text: %s" % name)
     print("  (text-fixes: already end with ? in the game) %d lines" % len(already))
     for s in skipped:
         print("  (text-fixes: doesn't fit yet) " + s)
