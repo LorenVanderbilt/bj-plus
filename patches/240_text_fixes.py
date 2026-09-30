@@ -68,10 +68,13 @@ FIXES = [
 # Whole strings rewritten in their own space: the new lines, then the original's ending (an end byte, or a
 # callback: 0xFC + the code's address, which doesn't move), the rest padded after it (never read).
 STRINGS = [
-    # the hint about the quiz man (one per name): QUESTINS, and "HE WILL" shortened to make room
-] + [(addr, ["IN THE SHABARN MARSH EMPIRE", "YOU'LL FIND THE OLD MAN WHO", "LOVES TO QUIZ.", "HE'LL HELP YOU",
+    # the hint about the quiz man (one per name): QUESTINS, his name, and a few words shortened to make room
+] + [(addr, ["IN THE SHABARN MARSH EMPIRE", "YOU'LL FIND AN OLD MAN WHO", "LOVES TO QUIZ.", "HE'LL HELP YOU",
              "IF YOU ANSWER HIS QUESTIONS.", "HIS NAME IS %s." % name])
-     for addr, name in [(0x22B88, "HOHOPPEY"), (0x22C92, "PECULU"), (0x22D9A, "PUCAMONMME")]] + [
+     for addr, name in [(0x22B88, "POPOPPE"), (0x22C92, "PIKKYURU"), (0x22D9A, "PUKAMONME")]] + [
+    # his name, as the quiz's answers: HOHOPPEY / PECULU / PUCAMONMME, romanized again from the Japanese
+    # (ポポッペー, ピッキュル, プカモンメ)
+    (0x261CA, ["  POPOPPE", "  PIKKYURU", "  PUKAMONME"]),
     # the happy ending: FA ACCEPTED PROPOSE. / THEY LED A HAPPY LIFE. (ACCEPTED THE PROPOSAL doesn't fit)
     (0x24E28, ["FA ACCEPTED.", "THEY LIVED HAPPILY EVER AFTER."]),
     # the lottery after each boss
