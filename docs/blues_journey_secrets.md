@@ -44,3 +44,51 @@ drowning cover) - tick them off as they're checked in play.
 - Shoot around a lot - hidden items pop up.
 - **Spike shoes:** only useful in Strange Space 1 and 3. **Fins:** faster left / right swimming, no better control.
 - (No details on the LIGHT / SUPER SAFE - see the TODO "Keep the item inventory after dying?".)
+
+---
+
+# From a second GameFAQs guide (neo/582029-blues-journey, FAQ 59677)
+
+## Items (power-ups)
+Found in unopened flowers (attack them), hidden underground (attack the ground at random), or bought in a shop
+(a clover makes one appear; the same items in every shop). Eight inventory slots; one weapon at a time.
+- **Leaf** (up to 3): longer range each time; stuns enemies (pick them up and throw them), hurts bosses.
+- **Bomb** (up to 3): stronger each time, thrown in an arc, slow. **Boomerang** (up to 3): short, hurts instead of
+  stunning, fast.
+- **Clover:** a shop appears in the area. **Key:** opens a secret place nearby.
+- **Catfish:** earthquake that stuns all enemies on screen.
+- **Ocarina** (shop, 5): always win 1st prize (a heart) in the game of chance after each boss.
+- **Light safe** (shop, 25): **some power-ups are kept after dying.** **Super safe** (shop, 75): **more are kept.**
+- **Spike** (shop, 20-75): Strange Space's spikes don't hurt. **Swim fin** (shop, 15-70): swim faster.
+- **One song** (shop, 10): lifts the curse. **Pine cone:** briefly invincible. **Stem / spring** (shop, 10): speed up.
+- **Honey pot** (shop, 10): some life back. **Pink unbudded flower** (underground): full life.
+- **Silver cocoon:** five = 1-up. **Gold cocoon:** 1-up (shop, 200, in Daruma Empire).
+- Losing a life: **all power-ups are lost except keys and silver cocoons**, and the guide says all flowers too (the
+  ROM takes a quarter - see TODO "Silent flower penalties"; the quiz man's prize stops that).
+
+## Scoring and endings
+- End of each area: jump onto the big flower - higher = more points (100-7770), plus time, luck (30+ flowers) and
+  enemy (carry one) bonuses. Two flowers in the game are worth 10,000.
+- **Five endings:** a high score - Blue proposes and the princess accepts; otherwise she refuses; still cursed by
+  Nero - he freezes after proposing; if you met Ret, he appears and duels you: win = Blue marries her, lose = Ret
+  does, draw = neither.
+
+## Tips
+- Jumping on an enemy (normal size) stuns it under Blue; jumping again kicks it spinning (it can ricochet back).
+- Player 2 joining during a boss (even uncontrolled) lets the fight continue through deaths.
+
+## Secret places, more exactly
+- Most secret places are a room of flowers to grab quickly before a nasty enemy appears; leaving returns Blue near
+  the entrance.
+- **Lower Earth Empire 1:** a small passage under the end of the very first bridge.
+- **Empire Marsh 2:** past the waterfall, a small passage the **shrunk** Blue can enter.
+- **Empire Marsh 3:** near the start, from the right edge of the platform two storeys up, jump right into the lower
+  open space - just far enough to land on a tiny platform - then into the small passage in the right wall.
+- **Strange Space 1:** past the witch, stand on the narrow platform so it sinks, **shrink**; it leads to a small
+  opening in the left wall.
+- **Mechanical City 2:** before the first gears, a passage blending into the ground (looks like a step) - enter from
+  the left. A mini-boss fight.
+- **Mechanical City 3:** straight below the circular moving platforms between the two conveyor belts - free fall.
+- **Mr. NEO-GEO (Daruma Empire 1):** at the bottom of the steps, a platform with a stem; shrink, jump left and hold
+  left against the wall - Blue passes through it before falling in the lava; Mr. Neo-Geo is further along saying
+  "Neo-Geo". Come back the same way.
