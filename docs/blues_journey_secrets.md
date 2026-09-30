@@ -63,6 +63,9 @@ Found in unopened flowers (attack them), hidden underground (attack the ground a
 - **One song** (shop, 10): lifts the curse. **Pine cone:** briefly invincible. **Stem / spring** (shop, 10): speed up.
 - **Honey pot** (shop, 10): some life back. **Pink unbudded flower** (underground): full life.
   **Peach:** full life (confirmed in play, 2026-09-30).
+- **Flowers (money), from the ROM's pickup table 0x4BA8A:** pink pair (type 0) +1, white lily (type 1) +10. The
+  **purple flower (type 42) is a trap: it takes 10 flowers away** (not below 0), with its own sound and an effect.
+  The cabbage is type 10 (the 10,000-point pickup).
 - **Silver cocoon:** five = 1-up. **Gold cocoon:** 1-up (shop, 200, in Daruma Empire).
 - Losing a life: **all power-ups are lost except keys and silver cocoons**, and the guide says all flowers too (the
   ROM takes a quarter - see TODO "Silent flower penalties"; the quiz man's prize stops that).
