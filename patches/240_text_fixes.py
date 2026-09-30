@@ -69,7 +69,7 @@ FIXES = [
 SHOP = [
     # (addresses of the price variants, new name, new description lines or None = keep, also take the orphan)
     ([0x2107C, 0x210AA, 0x212A8], "NECTAR", ["  RESTORES", "  1 HEART"], False),
-    ([0x210D8, 0x21108, 0x21138, 0x212D6, 0x21306, 0x21336], "FLIPPERS", None, False),
+    ([0x210D8, 0x21108, 0x21138, 0x212D6, 0x21306, 0x21336], "FLIPPERS", ["  SWIM", "  FASTER"], False),
     ([0x21168, 0x2118C, 0x21366, 0x2138A], "ICE SHOES", ["  NO SLIPPING"], True),
     ([0x2123A, 0x21438], "MAGIC WAND", ["  DISPELS", "  CURSE"], False),
     ([0x21268, 0x21288, 0x21466, 0x21486], "FERN", [" SPEED UP"], False),
