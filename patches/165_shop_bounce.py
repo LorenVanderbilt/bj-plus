@@ -14,8 +14,9 @@ RAM = 0x10EC00                     # a byte: steps since she was selected
 BLOCK = (1, 4, 4, 2)               # first column, row, and columns x rows of tiles changed
 ELLIPSES = [(37, 85, 12, 9), (57, 85, 9.5, 9)]   # what moves: frame pixels (centre x, y, radius x, y), one per side
 SHIFTS = [2, 1, -1]                # the frames: the band moved down (+) / up (-) this many pixels
-SEQUENCE = [1, 2, 0, 3, 0, 2, 0]   # per step (3 frames each): 0 = the original frame, n = SHIFTS[n-1]; then 0
-STEP = 3
+SEQUENCE = [1, 2, 0, 3, 0, 2, 0]   # per step (STEP frames each): 0 = the original frame, n = SHIFTS[n-1]; then 0
+STEP = 4
+PERIOD = 120                       # frames from one bounce to the next while she stays selected
 
 
 def frame_body(rom, frame):
@@ -100,9 +101,10 @@ anim:
     rts
 3:  moveq #0,%d0
     move.b RAM,%d0
-    cmp.b #255,%d0
-    beq 4f
     addq.b #1,RAM
+    cmp.b #PERIOD-1,%d0              | (again every PERIOD frames while she stays selected)
+    bcs 4f
+    clr.b RAM
 4:  divu #STEP,%d0
     move.w #BASE_FRAME,%d1
     cmp.w #SEQ_LEN,%d0               | (past the end: the usual picture)
@@ -115,7 +117,7 @@ anim:
 seq:
 TABLE"""
     for k, v in (("FRAME_COUNTER", "0x%X" % FRAME_COUNTER), ("GRID_RAM", "0x%X" % GRID_RAM), ("BASE_FRAME", "0x%X" % BASE_FRAME),
-                 ("SEQ_LEN", str(len(SEQUENCE))), ("STEP", str(STEP)), ("RAM", "0x%X" % RAM), ("TABLE", table)):
+                 ("SEQ_LEN", str(len(SEQUENCE))), ("PERIOD", str(PERIOD)), ("STEP", str(STEP)), ("RAM", "0x%X" % RAM), ("TABLE", table)):
         src = src.replace(k, v)
     code = rom.place_code(src, why="shop: shopkeeper animation")
     rom.write(CODE_FIELD, code.to_bytes(4, "big"), expect=(0x1FA34).to_bytes(4, "big"),
