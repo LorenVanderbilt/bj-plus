@@ -62,6 +62,7 @@ Found in unopened flowers (attack them), hidden underground (attack the ground a
 - **Spike** (shop, 20-75): Strange Space's spikes don't hurt. **Swim fin** (shop, 15-70): swim faster.
 - **One song** (shop, 10): lifts the curse. **Pine cone:** briefly invincible. **Stem / spring** (shop, 10): speed up.
 - **Honey pot** (shop, 10): some life back. **Pink unbudded flower** (underground): full life.
+  **Peach:** full life (confirmed in play, 2026-09-30).
 - **Silver cocoon:** five = 1-up. **Gold cocoon:** 1-up (shop, 200, in Daruma Empire).
 - Losing a life: **all power-ups are lost except keys and silver cocoons**, and the guide says all flowers too (the
   ROM takes a quarter - see TODO "Silent flower penalties"; the quiz man's prize stops that).
