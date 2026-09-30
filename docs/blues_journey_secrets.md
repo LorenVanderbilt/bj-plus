@@ -66,6 +66,12 @@ Found in unopened flowers (attack them), hidden underground (attack the ground a
 - **Flowers (money), from the ROM's pickup table 0x4BA8A:** pink pair (type 0) +1, white lily (type 1) +10. The
   **purple flower (type 42) is a trap: it takes 10 flowers away** (not below 0), with its own sound and an effect.
   The cabbage is type 10 (the 10,000-point pickup).
+- **Lottery after each boss (from the ROM):** 1st prize alternates by boss - bosses 1, 3, 5: **life ball** (frame
+  0x326C, an oval gem): **+1 maximum heart** (up to 5); bosses 2, 4: **lucky ring** (frame 0x3268, a gem ring): a
+  flag (player +26, shown on the item bar) used only in the ending: when Blue proposes, the princess accepts if a
+  random 0-127 is below 64, or 128 with any flowers; the ring adds 64, so with the ring she always says yes even
+  if he's broke. Other prizes: silver cocoon, honey (+1 heart), 30 flowers, gold cocoon (1UP), super safe; 4th
+  prize 5 flowers.
 - **Silver cocoon:** five = 1-up. **Gold cocoon:** 1-up (shop, 200, in Daruma Empire).
 - Losing a life: **all power-ups are lost except keys and silver cocoons**, and the guide says all flowers too (the
   ROM takes a quarter - see TODO "Silent flower penalties"; the quiz man's prize stops that).
