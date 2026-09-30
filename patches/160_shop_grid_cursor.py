@@ -137,7 +137,7 @@ def apply(rom):
             table("erase_tab", erases, lambda a: "    .word 0x%04X\n" % a) +
             "anim_tab:\n" + "".join("    .word %s\n" % ",".join("0x%04X" % c for c in row) for row in animation()))
 
-    # RAM (bytes from RAM): +0/+1 each player's box, +2/+3 last frame's joystick, +4..+11 the frame number each
+    # RAM (bytes from RAM): +0/+1 each player's box (8 = the shopkeeper; +18/+19 the box she was reached from), +2/+3 last frame's joystick, +4..+11 the frame number each
     # player's pointer last ran (long each), +12/+13 the boxes the frames are drawn on (0xFF none), +14 word
     # 0x5AA5 while the palettes are saved, +16 word animation step, +0x20.. the saved palettes (32 bytes each)
     src = r"""
@@ -171,8 +171,14 @@ pick:
     not.b %d1
     and.b %d1,%d0                   | d0 = newly pressed directions
     moveq #0,%d2
-    move.b (%a1,%d3.w),%d2          | d2 = box = row * 2 + column
-    btst #0,%d0                     | up
+    move.b (%a1,%d3.w),%d2          | d2 = box = row * 2 + column; 8 = the shopkeeper (Right from the right-hand
+    cmp.b #8,%d2                    | column of an item row, Left goes back)
+    bne 11f
+    btst #2,%d0                     | box 8: only Left, back to the box it was reached from
+    beq 7f
+    move.b 18(%a1,%d3.w),%d2
+    bra 7f
+11: btst #0,%d0                     | up
     beq 4f
     cmp.b #2,%d2
     bcs 4f
@@ -190,11 +196,21 @@ pick:
 6:  btst #3,%d0                     | right
     beq 7f
     btst #0,%d2
-    bne 7f
+    bne 12f
     addq.b #1,%d2
+    bra 7f
+12: cmp.b #6,%d2                    | from the right-hand column (not the EXIT row): the shopkeeper
+    bcc 7f
+    move.b %d2,18(%a1,%d3.w)
+    moveq #8,%d2
 7:  move.b %d2,(%a1,%d3.w)
     clr.w 8(%a5)                    | hide the pointer
-    move.w %d2,%d0                  | the item object sitting in this box, if any
+    cmp.b #8,%d2                    | box 8: the shopkeeper's own object (item 0, as the original pointer
+    bne 13f                         | found over her)
+    lea 0x104480,%a0
+    and.b #0xFB,%ccr
+    bra 10f
+13: move.w %d2,%d0                  | the item object sitting in this box, if any
     and.w #1,%d0
     add.w %d0,%d0
     move.w grid_x(%pc,%d0.w),%d1
@@ -254,11 +270,17 @@ CYCLE_PALETTES
     cmp.l #4,%d1
     bhi 11f
     move.b (%a1),%d4
+    cmp.b #8,%d4                    | (box 8: no frame)
+    bne 11f
+    moveq #-1,%d4
 11: move.l %d0,%d1
     sub.l 8(%a1),%d1
     cmp.l #4,%d1
     bhi 12f
     move.b 1(%a1),%d5
+    cmp.b #8,%d5
+    bne 12f
+    moveq #-1,%d5
 12: cmp.b 12(%a1),%d4
     bne 13f
     cmp.b 13(%a1),%d5
