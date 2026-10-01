@@ -69,7 +69,7 @@ FIXES = [
 STRINGS = [
     # the hint about the quiz man (one per name): QUESTINS, his name, and a few words shortened to make room
 ] + [(addr, ["IN THE SHABARN MARSH EMPIRE", "YOU'LL FIND AN OLD MAN WHO", "LOVES QUIZZES.", "HE'LL HELP YOU",
-             "IF YOU ANSWER HIS QUESTIONS.", "HIS NAME IS %s." % name])
+             "IF YOU ANSWER HIS QUESTIONS", "HIS NAME IS %s." % name])
      for addr, name in [(0x22B88, "POPOPPE"), (0x22C92, "PIKKYURU"), (0x22D9A, "PUKAMONME")]] + [
     # his name, as the quiz's answers: HOHOPPEY / PECULU / PUCAMONMME, romanized again from the Japanese
     # (ポポッペー, ピッキュル, プカモンメ)
@@ -78,12 +78,13 @@ STRINGS = [
     (0x25DC0, ["I'M THE QUIZ GRANDPA!", "YOU GET TWO QUESTIONS.", "MISS ONE AND I'LL TAKE", "ALL YOUR FLOWERS!"]),
     (0x25E66, ["  GOT IT!", "  NO WAY!"]),
     # the happy ending: FA ACCEPTED PROPOSE. / THEY LED A HAPPY LIFE. (ACCEPTED THE PROPOSAL doesn't fit)
-    (0x24E28, ["FA ACCEPTED.", "THEY LIVED HAPPILY EVER AFTER."]),
-    # the lottery after each boss
+    # (the ending's box takes 32: BLUE, HAVE A HAPPY LIFE WITH FA. at 0x24CB6)
+    (0x24E28, ["FA ACCEPTED.", "THEY LIVED HAPPILY EVER AFTER."], 32),
+    # the lottery after each boss (its box takes 15: SETTING US FREE at 0x295E6)
     (0x29900, ["OK! MAYBE", "NEXT TIME."]),                        # I SEE. / SEE YOU LATER.
-    (0x29958, ["SORRY! YOU NEED", "10 FLOWERS."]),                 # NO. / YOU DON'T HAVE / 10 FLOWERS.
+    (0x29958, ["SORRY! YOU NEED", "10 FLOWERS."], 15),                 # NO. / YOU DON'T HAVE / 10 FLOWERS.
     (0x29F26, ["SORRY!", "NO PRIZE"]),                             # OH. / SORRY MISS.
-    (0x2A036, ["LIFE BALL", "1 MORE HEART."]),                     # (+1 maximum heart)
+    (0x2A036, ["LIFE BALL", "1 MORE HEART."], 15),                     # (+1 maximum heart)
     (0x2A08A, ["SILVER COCOON", "FIVE OF THEM", "FOR A 1UP."]),
     (0x2A0E0, ["NECTAR", "RESTORES", "1 HEART."]),                 # HONEY. / STAMIRA RECOV- / ERS.
     (0x2A132, ["LUCKY RING", "IT WILL BRING", "YOU LOVE."]),       # (the princess always says yes)
@@ -100,7 +101,7 @@ SHOP = [
     # (addresses of the price variants, new name, new description lines or None = keep, also take the orphan)
     ([0x2107C, 0x210AA, 0x212A8], "NECTAR", ["  RESTORES", "  1 HEART"], False),
     ([0x210D8, 0x21108, 0x21138, 0x212D6, 0x21306, 0x21336], "FLIPPERS", ["  SWIM", "  FASTER"], False),
-    ([0x21168, 0x2118C, 0x21366, 0x2138A], "ICE SHOES", ["  NO SLIPPING"], True),
+    ([0x21168, 0x2118C, 0x21366, 0x2138A], "ICE SHOES", [" NO SLIPPING"], True),
     ([0x2123A, 0x21438], "MAGIC WAND", ["  DISPELS", "  CURSE"], False),
     ([0x21268, 0x21288, 0x21466, 0x21486], "FERN", [" SPEED UP"], False),
 ]
@@ -122,7 +123,7 @@ def shop_text(rom, addr, name, desc, orphan):
     return text.ljust(room, b" "), room
 
 
-def whole_string(rom, addr, lines):
+def whole_string(rom, addr, lines, width=None):
     end = addr
     while rom.data[end] not in (0xFF, 0xFC, 0xFB):
         if rom.data[end] < 0x20 and rom.data[end] != 0x0A:
@@ -130,6 +131,10 @@ def whole_string(rom, addr, lines):
         end += 1
     tail = bytes(rom.data[end:end + (1 if rom.data[end] == 0xFF else 5)])
     room = end + len(tail) - addr
+    # a line longer than the box's longest can overrun the text engine (the quiz hint froze the game at 28 of 27)
+    width = width or max(len(l) for l in bytes(rom.data[addr:end]).split(b"\xfe"))
+    if max(len(l) for l in lines) > width:
+        raise SystemExit("text-fixes: %r has a line over %d characters" % (lines, width))
     text = b"\xfe".join(l.encode() for l in lines).replace(b"?", b"\x0a") + tail
     if len(text) > room:
         raise SystemExit("text-fixes: %r is %d bytes, room %d" % (lines, len(text), room))
@@ -159,8 +164,8 @@ def apply(rom):
         for addr in addrs:
             text, room = shop_text(rom, addr, name, desc, orphan)
             rom.write(addr, text, expect=bytes(rom.data[addr:addr + room]), why="shop text: %s" % name)
-    for addr, lines in STRINGS:
-        text, room = whole_string(rom, addr, lines)
+    for addr, lines, *width in STRINGS:
+        text, room = whole_string(rom, addr, lines, *width)
         rom.write(addr, text, expect=bytes(rom.data[addr:addr + room]), why="text: %s" % " / ".join(lines))
     print("  (text-fixes: already end with ? in the game) %d lines" % len(already))
     for s in skipped:
