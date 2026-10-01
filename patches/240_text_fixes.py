@@ -131,11 +131,14 @@ def whole_string(rom, addr, lines, width=None):
         end += 1
     tail = bytes(rom.data[end:end + (1 if rom.data[end] == 0xFF else 5)])
     room = end + len(tail) - addr
-    # a line longer than the box's longest can overrun the text engine (the quiz hint froze the game at 28 of 27)
+    # keep each line within the box (the longest original line, unless a wider one is given)
     width = width or max(len(l) for l in bytes(rom.data[addr:end]).split(b"\xfe"))
     if max(len(l) for l in lines) > width:
         raise SystemExit("text-fixes: %r has a line over %d characters" % (lines, width))
-    text = b"\xfe".join(l.encode() for l in lines).replace(b"?", b"\x0a") + tail
+    text = b"\xfe".join(l.encode() for l in lines).replace(b"?", b"\x0a")
+    if tail[0] != 0xFF and (addr + len(text) + 1) % 2:
+        text += b" "             # a callback's address is read as a long: it must stay on an even byte (68000)
+    text += tail
     if len(text) > room:
         raise SystemExit("text-fixes: %r is %d bytes, room %d" % (lines, len(text), room))
     return text.ljust(room, b" "), room
