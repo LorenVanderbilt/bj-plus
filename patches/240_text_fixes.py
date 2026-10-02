@@ -44,7 +44,6 @@ FIXES = [
     (0x2E42E, "WUTH", "WITH"),
     (0x2E964, "IS THAT SO", "IS THAT SO?"),
     (0x2E970, "ON YOUR HAND.", "ON YOUR HAND?"),
-    (0x2EA02, "NO I DIDN'T", "NO, I DIDN'T!"),
     (0x2F3A6, "WHAT CAN WE DO", "WHAT CAN WE DO?"),
     (0x32D70, "CAN YOU BEAT ME", "CAN YOU BEAT ME?"),
     (0x33B20, "MISSIN", "MISSION"),
@@ -80,6 +79,8 @@ STRINGS = [
     # the happy ending: FA ACCEPTED PROPOSE. / THEY LED A HAPPY LIFE. (ACCEPTED THE PROPOSAL doesn't fit)
     # (the ending's box takes 32: BLUE, HAVE A HAPPY LIFE WITH FA. at 0x24CB6)
     (0x24E28, ["FA ACCEPTED.", "THEY LIVED HAPPILY EVER AFTER."], 32),
+    # (after "THEN WHAT'S BURNING ON YOUR HAND?") IN FACT,I SET HIM FREE. / NO I DIDN'T
+    (0x2EA02, ["  FINE, I SET HIM FREE.", "  NO, I DIDN'T!"]),
     # the lottery after each boss (its box takes 15: SETTING US FREE at 0x295E6)
     (0x29900, ["OK! MAYBE", "NEXT TIME."]),                        # I SEE. / SEE YOU LATER.
     (0x29958, ["SORRY! YOU NEED", "10 FLOWERS."], 15),                 # NO. / YOU DON'T HAVE / 10 FLOWERS.
