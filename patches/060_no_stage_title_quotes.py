@@ -1,5 +1,5 @@
 NAME = "no-stage-title-quotes"
-DESCRIPTION = "Stage title cards: no quotation marks around the act number, each name centered (e.g. JUNGLE ZONE 1), STRANGE SPACE spelled right"
+DESCRIPTION = "Stage title cards: no quotation marks around the act number, each name centered across and down the screen (e.g. JUNGLE ZONE 1), STRANGE SPACE spelled right"
 
 # Each stage's English title card (e.g. ` JUNGLE ZONE  "1"`) is a plain ASCII string in the program ROM, one
 # per zone/act (6 zones x 4 acts = 24), printed by a small per-act routine: `lea string,a0 ; move.w #pos,d0 ;
@@ -22,6 +22,9 @@ SCREEN_COLUMNS = 40
 # The English version misspells one zone: its Japanese name, 不思議空間 ("mysterious space"), was meant as
 # STRANGE SPACE.
 RENAMES = {"STARGE SPACE": "STRANGE SPACE"}
+# Down the screen the cards sat one row (8 pixels) high: the 16-pixel text spans lines 96-111 of the 224, centred
+# on 103.5 rather than 111.5 (and above the fireworks around it). pos is column * 32 + row, so row + 1.
+ROWS_DOWN = 1
 
 
 def apply(rom):
@@ -40,3 +43,6 @@ def apply(rom):
             raise SystemExit("can't center %r in its %d-byte string" % (name, len(old)))
         new = (" " * lead + name).ljust(len(old)).encode("ascii")
         rom.write(text_at, new, expect=old, why="title card %r: no quotes, centered" % name)
+        pos = rom.u16(r + 6)
+        rom.write(r + 6, (pos + ROWS_DOWN).to_bytes(2, "big"), expect=pos.to_bytes(2, "big"),
+                  why="title card %r: one row lower (centered down the screen)" % name)

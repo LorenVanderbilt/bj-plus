@@ -10,6 +10,9 @@ DESCRIPTION = "Item screens' header: BLUE'S ITEMS (was BLUE'S ITEM), the apostro
 # Both header calls now draw a copy laid out pixel by pixel instead - reading BLUE'S ITEMS, plural: the letters
 # on their usual 16-pixel spacing, the apostrophe trimmed to its ink plus a pixel either side, the whole line
 # re-centered on the screen, cut into new fix tiles (rom.add_fix_tile).
+#
+# The font's S fills its cell to the right edge on three rows, so its black outline is missing there (a notch in
+# the S's lower right). Its outline goes back in the column just past the cell (blank: a space or the line's end).
 SITES = [(0x35CE0, "41F900035D4E303C71264EBA0348"), (0x35E9E, "41F900035FC0303C71264EBA018A")]
 TEXT = "BLUE'S ITEMS"             # the original says ITEM
 FONT = {"B": 0x904, "L": 0x928, "U": 0x94A, "E": 0x90A, "'": 0xAE4, "S": 0x946, "I": 0x922, "T": 0x948,
@@ -18,6 +21,7 @@ APOSTROPHE_COLUMNS = (4, 12)      # pixel columns of the apostrophe's 16-pixel c
 FIRST_COLUMN, COLUMNS, ROW, PALETTE = 8, 24, 6, 5
 SCREEN_CENTER_X = 160
 BLANK = 0x0520
+OUTLINE = 15
 FIX_COLUMN_BYTE = (16, 16, 24, 24, 0, 0, 8, 8)   # see tools/hackbuild.py
 
 
@@ -45,11 +49,13 @@ def apply(rom):
     width = sum(len(p[0]) for p in pieces)
     canvas = [[0] * (COLUMNS * 8) for _ in range(16)]
     x = SCREEN_CENTER_X - width // 2 - FIRST_COLUMN * 8
-    for piece in pieces:
+    for ch, piece in zip(TEXT, pieces):
         for y in range(16):
             for i, v in enumerate(piece[y]):
                 if v:
                     canvas[y][x + i] = v
+            if ch == "S" and piece[y][15] not in (0, OUTLINE) and not canvas[y][x + 16]:
+                canvas[y][x + 16] = OUTLINE
         x += len(piece[0])
     writes = ""
     for col in range(COLUMNS):
