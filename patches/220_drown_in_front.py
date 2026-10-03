@@ -38,11 +38,17 @@ LAVA_LINE = 40               # the same for a hero burning in lava (state 33): p
 FRAME = 0x100207
 RAM = 0x10EB80               # +0 2 entries (object offset word, first y word), +8 a byte: entries seen this frame,
                              # +10 / +12 words: cover's arguments, +14 word: the drawing loop's next sprite,
-                             # +16 / +22 player 1 / 2 in lava: first sprite, end sprite (words), frame (byte),
+                             # (+16 / +22: unused - the lava records moved to LAVA1 / LAVA2),
                              # +24 / +26 words and +28 4 bytes: cover's workspace (the liquid's palettes), +34..+45
                              # more of it: the entry (x2), each entry's sideways shift (+36 / +38), the liquid's
                              # ends (+40 / +42), the hero's first sprite (+44), +48 / +52 the sinking hero and his
                              # first sprite, +56 up to 4 x (object long, draw byte, pad) hidden from the behind group
+# Player 1 / 2 burning in lava: first sprite, end sprite (words), drawn this frame (byte). (They were RAM+16 /
+# RAM+22, where player 2's flag shared a byte with the cover's workspace RAM+26: a cover over player 1 then
+# looked like player 2 burning too, and a second cover over junk sprites took a whole frame - the game ran at
+# half speed and the screen broke up.)
+LAVA1, LAVA2 = RAM + 96, RAM + 102
+STRIPS = 0x10ED00            # 64 x 8 bytes: the front layer's strips, read once a frame for the cover (see strips)
 GROUP_START = 0xA3BC         # lea 0x3C0002,a2 - the drawing loop, starting a group (d1 = its first sprite)
 OBJECT_DONE = 0xA3FE         # move.w 656(a6),d0 ; dbf d0,0xA3D8 - the drawing loop, after each object
 
@@ -80,9 +86,9 @@ post:
     jsr DRAW_BEHIND
     tst.l RAM+56                     | (nothing sinking and no hero burning in lava this frame: nothing to do)
     bne 22f
-    tst.b RAM+16+4
+    tst.b LAVA1+4
     bne 22f
-    tst.b RAM+22+4
+    tst.b LAVA2+4
     bne 22f
     rts
 22: movem.l %d0-%d7/%a0-%a6,-(%sp)
@@ -167,7 +173,7 @@ post:
     bsr shift_spr
 12: clr.l RAM+48
     clr.l RAM+84
-10: lea RAM+16,%a1                   | a hero burning in lava (state 33), drawn this frame: the lava's cover
+10: lea LAVA1,%a1                   | a hero burning in lava (state 33), drawn this frame: the lava's cover
     lea 0x104000,%a0
     moveq #1,%d7
 20: tst.b 4(%a1)                   | (this player's hero drawn burning this frame?)
@@ -218,12 +224,17 @@ after_obj:
     jmp 0xA406
 4:  movem.l %d0/%a0-%a1,-(%sp)
     move.w -2(%a4),%d0
-    lea RAM+16,%a1
+    lea LAVA1,%a1
     cmp.w #0x4000,%d0
-    beq 1f
-    lea RAM+22,%a1
+    bne 5f
+    btst #0,0x6808(%a6)              | (only a player in the game: with player 2 out, slot 0x4080 can be another
+    beq 2f                           | object - one with 33 at +0x68 made a cover over junk sprites, which took a
+    bra 1f                           | whole frame)
+5:  lea LAVA2,%a1
     cmp.w #0x4080,%d0
     bne 2f
+    btst #1,0x6808(%a6)
+    beq 2f
 1:  lea (%a6,%d0.w),%a0
     cmp.b #33,0x68(%a0)
     bne 2f
@@ -269,6 +280,63 @@ shift_spr:
 1:  addq.w #1,%d2
     bra shift_spr
 2:  rts
+
+| the front layer's strips (sprite word 0x246 up to the front group's first sprite, at most 64), read once a
+| frame for the cover's passes - reading them in every pass took too long in busy levels (the game lost frames
+| and the screen broke up): STRIPS + 8 * n = the strip's chain-head SCB3 word (a4), y (d6), x (d7)
+strips:
+    movem.l %d0-%d2/%d6-%d7/%a0/%a4,-(%sp)
+    lea STRIPS,%a0
+    move.w 0x246(%a6),%d2
+    moveq #0,%d6
+    moveq #0,%d7
+    move.w %d7,%a4
+1:  cmp.w 0x2E4(%a6),%d2
+    bcc 9f
+    cmp.l #STRIPS+8*64,%a0
+    bcc 9f
+    move.w %d2,%d0
+    add.w #0x8200,%d0
+    bsr vread
+    btst #6,%d0
+    bne 2f
+    move.w %d0,%a4                   | a chain's first sprite: its y, size, x
+    lsr.w #7,%d0
+    neg.w %d0
+    add.w #496,%d0
+    and.w #511,%d0
+    move.w %d0,%d6
+    move.w %d2,%d0
+    add.w #0x8400,%d0
+    bsr vread
+    lsr.w #7,%d0
+    move.w %d0,%d7
+    bra 3f
+2:  add.w #16,%d7
+    and.w #511,%d7
+3:  move.w %a4,(%a0)+
+    move.w %d6,(%a0)+
+    move.w %d7,(%a0)+
+    addq.l #2,%a0
+    addq.w #1,%d2
+    bra 1b
+9:  movem.l (%sp)+,%d0-%d2/%d6-%d7/%a0/%a4
+    rts
+
+| strip d2 from the table -> a4, d6, d7 (as the passes read them)
+strip_at:
+    move.l %a0,-(%sp)
+    move.w %d2,%d0
+    sub.w 0x246(%a6),%d0
+    and.w #63,%d0
+    lsl.w #3,%d0
+    lea STRIPS,%a0
+    add.w %d0,%a0
+    move.w (%a0)+,%a4
+    move.w (%a0)+,%d6
+    move.w (%a0),%d7
+    move.l (%sp)+,%a0
+    rts
 
 | VRAM word at d0 -> d0 (reading doesn't move the address)
 vread:
@@ -346,7 +414,8 @@ cover:
     move.w %d0,%d4
 54: addq.w #1,%d2
     bra 5b
-6:  | pass 1: the liquid's palettes - those of the strip under the hero's middle, from the line down (a wall or
+6:  bsr strips                     | (the front layer's strips read once: a table for the passes below)
+    | pass 1: the liquid's palettes - those of the strip under the hero's middle, from the line down (a wall or
     | cliff beside him is in the same layer, but in other palettes: the cover leaves those out)
     move.w %d1,RAM+24
     move.l #-1,RAM+28                | up to 4 palettes (0xFF = none)
@@ -359,25 +428,7 @@ cover:
     moveq #0,%d7
 30: cmp.w 0x2E4(%a6),%d2
     bcc 39f
-    move.w %d2,%d0
-    add.w #0x8200,%d0
-    bsr vread
-    btst #6,%d0
-    bne 31f
-    move.w %d0,%a4
-    lsr.w #7,%d0
-    neg.w %d0
-    add.w #496,%d0
-    and.w #511,%d0
-    move.w %d0,%d6
-    move.w %d2,%d0
-    add.w #0x8400,%d0
-    bsr vread
-    lsr.w #7,%d0
-    move.w %d0,%d7
-    bra 32f
-31: add.w #16,%d7
-    and.w #511,%d7
+    bsr strip_at
 32: move.w %a4,%d0
     and.w #63,%d0
     cmp.w #32,%d0
@@ -497,25 +548,7 @@ cover:
     moveq #0,%d7
 40: cmp.w 0x2E4(%a6),%d2
     bcc 49f
-    move.w %d2,%d0
-    add.w #0x8200,%d0
-    bsr vread
-    btst #6,%d0
-    bne 41f
-    move.w %d0,%a4
-    lsr.w #7,%d0
-    neg.w %d0
-    add.w #496,%d0
-    and.w #511,%d0
-    move.w %d0,%d6
-    move.w %d2,%d0
-    add.w #0x8400,%d0
-    bsr vread
-    lsr.w #7,%d0
-    move.w %d0,%d7
-    bra 42f
-41: add.w #16,%d7
-    and.w #511,%d7
+    bsr strip_at
 42: move.w %a4,%d0
     and.w #63,%d0
     cmp.w #32,%d0
@@ -626,25 +659,7 @@ cover:
     moveq #0,%d0
 10: cmp.w 0x2E4(%a6),%d2
     bcc 90f
-    move.w %d2,%d0
-    add.w #0x8200,%d0
-    bsr vread
-    btst #6,%d0
-    bne 11f
-    move.w %d0,%a4                   | a chain's first sprite: its y, size, x
-    lsr.w #7,%d0
-    neg.w %d0
-    add.w #496,%d0
-    and.w #511,%d0
-    move.w %d0,%d6
-    move.w %d2,%d0
-    add.w #0x8400,%d0
-    bsr vread
-    lsr.w #7,%d0
-    move.w %d0,%d7
-    bra 12f
-11: add.w #16,%d7
-    and.w #511,%d7
+    bsr strip_at
 12: move.w %a4,%d0                   | a full-height strip?
     and.w #63,%d0
     cmp.w #32,%d0
@@ -742,7 +757,7 @@ cover:
 """
     consts = {"DRAW_BEHIND": "0x%X" % DRAW_BEHIND, "DROWN_CODE": "0x%X" % DROWN_CODE,
               "SPLASH_CODE": "0x%X" % SPLASH_CODE, "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS), "SPLASH_UP": str(SPLASH_UP), "POOL_DOWN": str(POOL_DOWN),
-              "RAM": "0x%X" % RAM, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
+              "RAM": "0x%X" % RAM, "STRIPS": "0x%X" % STRIPS, "LAVA1": "0x%X" % LAVA1, "LAVA2": "0x%X" % LAVA2, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
               "BLANK_TILE": "0x%X" % rom.add_sprite_tile([[0] * 16 for _ in range(16)], why="drowning: a blank tile")}
     for k in sorted(consts, key=len, reverse=True):
         src = src.replace(k, consts[k])
