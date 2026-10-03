@@ -11,6 +11,9 @@ DESCRIPTION = "Fairy shop: \"SHOP\" on the plate at the top (where the countdown
 # are copied out of the S ROM onto a pixel canvas with LETTER_GAP extra pixels between them, centered on the
 # plate, and the canvas is cut into new fix tiles (rom.add_fix_tile).
 #
+# The font's S fills its cell to the right edge on three rows, leaving its black outline off there (a notch in its
+# lower right); the outline goes back in the column just past the cell (in the gap before the H).
+#
 # It is drawn during the shop's set-up, before the fade-in, at the spot where the countdown digits used to be
 # drawn: `move.w #0x71C2,d0` (their position) followed by the call no-shop-timer turned into NOPs - so this
 # needs no-shop-timer (the digits would land on the same spot anyway).
@@ -21,6 +24,7 @@ LETTER_GAP = 3                    # extra pixels between letters
 PLATE_CENTER_X = 96               # screen x
 FIRST_COLUMN, COLUMNS, ROW = 7, 10, 2
 BLANK = 0x0520
+OUTLINE = 15
 FIX_COLUMN_BYTE = (16, 16, 24, 24, 0, 0, 8, 8)   # see tools/hackbuild.py
 
 
@@ -42,6 +46,11 @@ def apply(rom):
                     v = glyph_pixel(rom.fix_orig, tile, x, y)
                     if v:
                         canvas[ty * 8 + y][left + i * (16 + LETTER_GAP) + tx * 8 + x] = v
+        if ch == "S":
+            x0 = left + i * (16 + LETTER_GAP)
+            for y in range(16):
+                if canvas[y][x0 + 15] not in (0, OUTLINE) and not canvas[y][x0 + 16]:
+                    canvas[y][x0 + 16] = OUTLINE
     writes = ""
     for col in range(COLUMNS):
         for row in range(2):
