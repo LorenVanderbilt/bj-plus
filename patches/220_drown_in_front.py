@@ -90,6 +90,9 @@ post:
     bne 22f
     tst.b LAVA2+4
     bne 22f
+    clr.l RAM                        | (nothing sinking: forget the sinking objects' entries and shifts - kept
+    clr.l RAM+4                      | until the next one, a new sinking in the same object slot took the old
+    clr.l RAM+36                     | one's first y, and its line, from an earlier drowning)
     rts
 22: movem.l %d0-%d7/%a0-%a6,-(%sp)
     lea 0x100000,%a6
@@ -472,8 +475,11 @@ cover:
     add.w #15,%d1
     lsr.w #4,%d1                     | the line's row
     cmp.w %d0,%d1
-    bne 62f
-    move.w %d0,-(%sp)                | ... unless the row above is already the liquid (a waterfall's band): same
+    beq 63f
+    subq.w #1,%d1                    | (or the line falls inside that row - e.g. a lake whose surface he hits
+    cmp.w %d0,%d1                    | higher up: rounding down, the cover started a row lower and a band of him
+    bne 62f                          | showed under the drawn surface)
+63: move.w %d0,-(%sp)                | ... unless the row above is already the liquid (a waterfall's band): same
     move.w %d2,%d1                   | palette as the surface row
     lsl.w #6,%d1
     add.w %d0,%d1
@@ -493,6 +499,10 @@ cover:
     tst.w %d1
     beq 62f
     move.b #1,RAM+46                 | (a pool: the line stays at its surface; see post for how it's drawn)
+    move.w %d0,%d5                   | (the line: the surface row's top - the row's tiles draw the surface)
+    lsl.w #4,%d5
+    add.w %d6,%d5
+    and.w #511,%d5
 62: move.w RAM+24,%d1                | (d1 back)
     move.w %d5,%d0                   | r0, as below
     sub.w %d6,%d0
