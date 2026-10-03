@@ -7,9 +7,13 @@ DESCRIPTION = "Empire Marsh 1: the pit with water at its bottom drowns the hero 
 # item bar), but its bottom cells - tile 0x0100, blank - are type 0xB, so he just fell out of view. The level
 # map stores runs of cells as attribute / tile entries (decoded by 0xD418: the attribute's bits 2-3 mark a run);
 # the two runs that make those cells are made type 0xC: the same blank tile, now water.
-RUNS = [0x880D5, 0x88236]     # attribute low byte 0xBC (type 0xB, run) -> 0xCC (type 0xC, run)
+# The row above them (where the water's surface shows, as in the other pits) was type 0: the hero and enemies
+# only met the water a row (16 px) too low, behind the item bar. Its two runs (each just that one cell of two
+# strips) are made type 0xC too.
+RUNS = [(0x880D5, 0xBC), (0x88236, 0xBC),     # the bottom row: 0xBC (type 0xB, run) -> 0xCC
+        (0x880BE, 0x0C), (0x8821C, 0x0C)]     # the surface row: 0x0C (type 0, run) -> 0xCC
 
 
 def apply(rom):
-    for at in RUNS:
-        rom.write(at, bytes([0xCC]), expect=bytes([0xBC]), why="Marsh 1 pit: water at the bottom (type 0xC)")
+    for at, old in RUNS:
+        rom.write(at, bytes([0xCC]), expect=bytes([old]), why="Marsh 1 pit: water (type 0xC)")
