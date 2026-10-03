@@ -42,7 +42,8 @@ RAM = 0x10EB80               # +0 2 entries (object offset word, first y word), 
                              # +24 / +26 words and +28 4 bytes: cover's workspace (the liquid's palettes), +34..+45
                              # more of it: the entry (x2), each entry's sideways shift (+36 / +38), the liquid's
                              # ends (+40 / +42), the hero's first sprite (+44), +48 / +52 the sinking hero and his
-                             # first sprite, +56 up to 4 x (object long, draw byte, pad) hidden from the behind group
+                             # first sprite, +56 up to 4 x (object long, draw byte, pad) hidden from the behind group,
+                             # +108 / +110 each entry's shift target (0x8000 = not worked out yet)
 # Player 1 / 2 burning in lava: first sprite, end sprite (words), drawn this frame (byte). (They were RAM+16 /
 # RAM+22, where player 2's flag shared a byte with the cover's workspace RAM+26: a cover over player 1 then
 # looked like player 2 burning too, and a second cover over junk sprites took a whole frame - the game ran at
@@ -93,6 +94,7 @@ post:
     clr.l RAM                        | (nothing sinking: forget the sinking objects' entries and shifts - kept
     clr.l RAM+4                      | until the next one, a new sinking in the same object slot took the old
     clr.l RAM+36                     | one's first y, and its line, from an earlier drowning)
+    move.l #0x80008000,RAM+108
     rts
 22: movem.l %d0-%d7/%a0-%a6,-(%sp)
     lea 0x100000,%a6
@@ -239,8 +241,11 @@ after_obj:
     btst #1,0x6808(%a6)
     beq 2f
 1:  lea (%a6,%d0.w),%a0
-    cmp.b #33,0x68(%a0)
+    cmp.b #33,0x68(%a0)              | (33: burning in lava; 37: sinking in acid - the same cover)
+    beq 6f
+    cmp.b #37,0x68(%a0)
     bne 2f
+6:
     move.w RAM+14,(%a1)
     move.w %d1,2(%a1)
     move.b #1,4(%a1)                 | (drawn this frame: post uses it and clears it)
@@ -383,6 +388,12 @@ cover:
     bra 90f                          | (no room: no cover)
 4:  move.w %d0,(%a1)
     move.w %d5,2(%a1)
+    move.l %a0,-(%sp)                | (its shift's target: not worked out yet)
+    lea RAM+108,%a0
+    add.w %d2,%a0
+    add.w %d2,%a0
+    move.w #-0x8000,(%a0)
+    move.l (%sp)+,%a0
 3:  bset %d2,RAM+8
     add.w %d2,%d2
     move.w %d2,RAM+34                | (his entry's shift: RAM+36 + this)
@@ -479,7 +490,11 @@ cover:
     subq.w #1,%d1                    | (or the line falls inside that row - e.g. a lake whose surface he hits
     cmp.w %d0,%d1                    | higher up: rounding down, the cover started a row lower and a band of him
     bne 62f                          | showed under the drawn surface)
-63: move.w %d0,-(%sp)                | ... unless the row above is already the liquid (a waterfall's band): same
+63: move.w %d0,%d5                   | the line: that row's top (its own tiles draw the surface; the cover copies only
+    lsl.w #4,%d5                     | the liquid's pixels, so starting there hides him exactly below the surface)
+    add.w %d6,%d5
+    and.w #511,%d5
+    move.w %d0,-(%sp)                | ... unless the row above is already the liquid (a waterfall's band): same
     move.w %d2,%d1                   | palette as the surface row
     lsl.w #6,%d1
     add.w %d0,%d1
@@ -499,10 +514,6 @@ cover:
     tst.w %d1
     beq 62f
     move.b #1,RAM+46                 | (a pool: the line stays at its surface; see post for how it's drawn)
-    move.w %d0,%d5                   | (the line: the surface row's top - the row's tiles draw the surface)
-    lsl.w #4,%d5
-    add.w %d6,%d5
-    and.w #511,%d5
 62: move.w RAM+24,%d1                | (d1 back)
     move.w %d5,%d0                   | r0, as below
     sub.w %d6,%d0
@@ -609,16 +620,24 @@ cover:
     move.w %d7,RAM+42
 48: addq.w #1,%d2
     bra 40b
-49: | the shift that keeps him over the liquid (not over a wall or cliff beside it), eased 2 px a frame
+49: | the shift that keeps him over the liquid (not over a wall or cliff beside it), eased 2 px a frame - its target
+    | worked out once per sinking (RAM+108 + entry: 0x8000 = not yet): recomputed every frame it flipped while he
+    | hopped about in a burning liquid, and he zigzagged across the screen
+    lea RAM+108,%a0
+    add.w RAM+34,%a0
+    cmp.w #-0x8000,(%a0)
+    bne 54f
     move.w RAM+40,%d0
     sub.w %d3,%d0
-    bgt 50f
+    bgt 55f
     move.w %d4,%d0
     sub.w RAM+42,%d0
     ble 51f
     neg.w %d0
-    bra 50f
+    bra 55f
 51: moveq #0,%d0
+55: move.w %d0,(%a0)
+54: move.w (%a0),%d0
 50: lea RAM+36,%a0
     add.w RAM+34,%a0
     move.w (%a0),%d2
