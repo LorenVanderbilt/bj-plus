@@ -23,7 +23,7 @@ SCENE4_SETUP = 0x35372       # jsr 0x9FBE
 SCENE4_LOOP = 0x353D0        # jsr 0xCAF2
 BEAM_START = 0x35494         # move.l #0x3551C,4(a5)
 TEXT_EN, TEXT_JP = 0x3595E, 0x3591E
-STAGE2_TIMER = 0x35470       # move.w #32,16384(a5)
+STAGE2_TIMER = 0x3546E       # move.w #32,16384(a5)
 STAGE2_HOLD = 180
 TEXT_POS = 0x7078
 # With the last line gone, scene 3 would sit on an empty box for 63 frames (0x359A0's countdown, like each line's)
