@@ -29,6 +29,8 @@ TEXT_POS = 0x7078
 # With the last line gone, scene 3 would sit on an empty box for 63 frames (0x359A0's countdown, like each line's)
 # before Blue's leap; the leap itself is kept whole.
 LEAP_WAIT_AT, LEAP_WAIT = 0x359C3, 15
+# How long a line stays after it has typed out (each line's countdown, 63 frames in the original).
+LINE_HOLDS = [(0x3576F, 95, "THIS IS BLUE, ... LEAF DUMP."), (0x35839, 95, "BLUE LOVES PRINCESS FA ...")]
 
 
 def text_copy(rom, at, stub):
@@ -79,6 +81,8 @@ def apply(rom):
     rom.write(BEAM_START, bytes.fromhex("4EB9") + beam.to_bytes(4, "big") + bytes.fromhex("4E71"),
               expect=bytes.fromhex("2B7C0003551C0004"), why="story scene 4: clear the line as the beam starts")
 
+    for at, frames, line in LINE_HOLDS:
+        rom.write(at, bytes([frames]), expect=bytes([63]), why="story scene 3: %s stays a little longer" % line)
     rom.write(LEAP_WAIT_AT, bytes([LEAP_WAIT]), expect=bytes([63]), why="story scene 3: a short wait before the leap")
     rom.write(STAGE2_TIMER + 2, STAGE2_HOLD.to_bytes(2, "big"), expect=(32).to_bytes(2, "big"),
               why="story scene 4: Blue holds over the leaves longer before the beam")
