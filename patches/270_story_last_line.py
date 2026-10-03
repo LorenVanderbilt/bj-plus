@@ -25,8 +25,11 @@ STAGE1_SHRINK = 0x3545A      # subi.w #0x202,38(a5)
 BLUE_VELOCITY = 0x3538E      # in Blue's spawn data: +12 / +14 velocity 0x00A0, 0xFF80 (stage 1 ends by clearing it)
 BEAM_START = 0x35494         # move.l #0x3551C,4(a5)
 TEXT_EN, TEXT_JP = 0x3595E, 0x3591E
-RISE_SLOWDOWN = 4
+RISE_SLOWDOWN = 3
 TEXT_POS = 0x7078
+# With the last line gone, scene 3 would sit on an empty box for 63 frames (0x359A0's countdown, like each line's)
+# before Blue's leap; the leap itself is kept whole.
+LEAP_WAIT_AT, LEAP_WAIT = 0x359C3, 15
 
 
 def text_copy(rom, at, stub):
@@ -81,6 +84,7 @@ def apply(rom):
               why="story scene 4: Blue rises over the leaves for longer")
     rom.write(STAGE1_SHRINK + 2, (0x202 // RISE_SLOWDOWN).to_bytes(2, "big"), expect=(0x202).to_bytes(2, "big"),
               why="story scene 4: ... and shrinks more slowly to match")
+    rom.write(LEAP_WAIT_AT, bytes([LEAP_WAIT]), expect=bytes([63]), why="story scene 3: a short wait before the leap")
     vx, vy = 0x00A0, -0x80
     rom.write(BLUE_VELOCITY, (vx // RISE_SLOWDOWN).to_bytes(2, "big") + (vy // RISE_SLOWDOWN & 0xFFFF).to_bytes(2, "big"),
               expect=bytes.fromhex("00A0FF80"), why="story scene 4: ... and flies more slowly to match")
