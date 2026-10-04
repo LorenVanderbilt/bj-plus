@@ -103,6 +103,10 @@ STRINGS = [
     # answers (was YES I WILL. / NO KIDDING. - read as agreeing; Japanese: はい喜んで。 / 馬鹿言うな！)
     (0x32DE4, ["JOIN ME, AND", "I'LL SPARE", "YOUR LIFE."]),
     (0x32E9B, [" YES, SIR!", "  DREAM ON!"]),       # (after its 0x11, the cursor)
+    # ... and YES, SIR!'s ending (was RAGUY IS RUINED BY POLLUTION. / BLUE LIVES THE REST OF HIS LIFE / IN THE
+    # DARUMA TRIBE.; Japanese: Raguy was destroyed by pollution, but Blue lived his whole life as one of the Daruma)
+    (0x239D0, ["RAGUY WAS RUINED BY POLLUTION,", "BUT BLUE LIVED OUT HIS DAYS", "AS ONE OF THE DARUMA TRIBE.",
+               " " * 31, " " * 12 + "THE END"]),
     # the card game: "DO YOU KNOW THE RULES?" - its first answer (YES) actually explained them; WHAT'YOUR BET?
     (0x2C826, ["DO YOU WANT THE RULES?"]),
     (0x2CA0E, ["PLACE YOUR BET."]),
