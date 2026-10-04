@@ -212,6 +212,9 @@ MOVED = [
     # the princess on the continue screen (was GIVE A HAND / TO RAGUY'S / PEOPLE.; Japanese: a loving hand for
     # Raguy's people...)
     (0x346D0, 0x3495A, ["BLUE, PLEASE", "DON'T GIVE", "UP ON US!"]),
+    # the frozen princess's house: Blue's last choice - the second asks why her charm didn't save her (Japanese:
+    # "if you had that, you wouldn't have turned to ice"; her answer: no antidote without knowing the poison)
+    (0x2EDF2, 0x2EE44, ["  THANK YOU, PRINCESS LIM.", "  ...WAIT, THEN HOW DID", "  YOU GET FROZEN YOURSELF?"]),
 ]
 
 # Strings that end in a callback (0xFC) or a chain (0xFB: the next text, then a callback), too long for their space:
@@ -306,7 +309,7 @@ def apply(rom):
         if ref is not None:
             rom.write(ref, at.to_bytes(4, "big"), expect=old.to_bytes(4, "big"), why="text: %s (moved)" % " / ".join(lines))
     for ref, old, lines in MOVED:
-        text = b"\xfe".join(l.encode() for l in lines) + b"\xff"
+        text = b"\xfe".join(l.encode() for l in lines).replace(b"?", b"\x0a") + b"\xff"
         at = rom.alloc(len(text))
         rom.data[at:at + len(text)] = text
         rom.write(ref, at.to_bytes(4, "big"), expect=old.to_bytes(4, "big"), why="text: %s (moved)" % " / ".join(lines))
