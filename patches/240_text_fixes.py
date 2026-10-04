@@ -99,6 +99,10 @@ STRINGS = [
     (0x22718, ["TAKE MY ADVICE.", "RENT ONE OF MY BOATS."]),           # (was FOGET THAT IDEA. / YOU SHOULD USE MY BOAT.)
     (0x22462, ["  A LEAF BOAT, PLEASE.", "  A MUD BOAT, PLEASE.", "  NO THANKS."]),   # ASK FOR LEAF MADE BOAT ...
     (0x2280C, ["SORRY, YOU CAN'T AFFORD IT."]),                        # (was YOU HAVE RUN OUT OF MONEY.)
+    # the Daruma Empire 1 mini boss's offer (was IF YOU BECOME / ONE OF US / I WON'T TAKE / YOUR LIFE.) and Blue's
+    # answers (was YES I WILL. / NO KIDDING. - read as agreeing; Japanese: はい喜んで。 / 馬鹿言うな！)
+    (0x32DE4, ["JOIN ME, AND", "I'LL SPARE", "YOUR LIFE."]),
+    (0x32E9B, [" YES, SIR!", "  DREAM ON!"]),       # (after its 0x11, the cursor)
     # the card game: "DO YOU KNOW THE RULES?" - its first answer (YES) actually explained them; WHAT'YOUR BET?
     (0x2C826, ["DO YOU WANT THE RULES?"]),
     (0x2CA0E, ["PLACE YOUR BET."]),
