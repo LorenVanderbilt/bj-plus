@@ -115,6 +115,7 @@ STRINGS = [
     (0x2E064, ["  GO CLOSER.", "  LEAVE."]),                              # APPROACH. / JUST IGNORE IT.
     (0x2E178, ["WHAT WILL YOU DO?"]),                                      # WHAT ARE YOU GOING TO DO?
     (0x2E21E, ["  PRETEND NOT TO SEE.", "  CALL HER NAME.", "  USE A TORCH.", "  JUST WAIT."], 30),
+    (0x2E466, ["..."]),                                                    # JUST WAIT.'s ....... (7)
     (0x2E340, ['"PRINCESS LIM!" BLUE SHOUTED.']),                         # "PRICESS LIM", BLUE SHOUTED.
     (0x2E42E, ["BLUE DOESN'T HAVE A TORCH."]),                              # BLUE DID NOT HAVE THE TORCH / WITH HIM.
     (0x2EDA8, ["WITH THIS CHARM, NEROS'S", "SPELL WON'T FREEZE YOU."]),     # THIS SPELL PROTECTS YOU FROM / ...
