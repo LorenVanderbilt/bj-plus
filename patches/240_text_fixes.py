@@ -93,6 +93,12 @@ STRINGS = [
     (0x26ED4, ["YOU MAKE ME HAPPY.", "TAKE THIS NECTAR WITH YOU."]),  # (was ... HONEY ..., as the shop's NECTAR)
     # the boatman, after SEE THE LARGE RIVER AHEAD? - YES (was IT'S GOOD IF YOU KNOW IT.)
     (0x22596, ["GOOD, YOU ALREADY KNOW.", "YOU CAN RENT MY BOAT."]),
+    # ... after NO (the IVY is the swinging vine; Japanese: rope), and his menu
+    (0x22664, ["THE BIG RIVER IS POLLUTED.", "FALL IN AND YOU'RE DONE FOR.", "YOU CAN CROSS WITH THE VINE,",
+               "BUT MANY HAVE DIED TRYING."]),
+    (0x22718, ["TAKE MY ADVICE.", "RENT ONE OF MY BOATS."]),           # (was FOGET THAT IDEA. / YOU SHOULD USE MY BOAT.)
+    (0x22462, ["  A LEAF BOAT, PLEASE.", "  A MUD BOAT, PLEASE.", "  NO THANKS."]),   # ASK FOR LEAF MADE BOAT ...
+    (0x2280C, ["SORRY, YOU CAN'T AFFORD IT."]),                        # (was YOU HAVE RUN OUT OF MONEY.)
     # the card game: "DO YOU KNOW THE RULES?" - its first answer (YES) actually explained them; WHAT'YOUR BET?
     (0x2C826, ["DO YOU WANT THE RULES?"]),
     (0x2CA0E, ["PLACE YOUR BET."]),
