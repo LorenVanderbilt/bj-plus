@@ -141,7 +141,7 @@ def whole_string(rom, addr, lines, width=None):
         if rom.data[end] < 0x20 and rom.data[end] != 0x0A:
             raise SystemExit("text-fixes: 0x%X isn't a plain string" % addr)
         end += 1
-    tail = bytes(rom.data[end:end + (1 if rom.data[end] == 0xFF else 5)])
+    tail = bytes(rom.data[end:end + {0xFF: 1, 0xFC: 5, 0xFB: 9}[rom.data[end]]])   # (0xFB: next text, then a callback)
     room = end + len(tail) - addr
     # keep each line within the box (the longest original line, unless a wider one is given)
     width = width or max(len(l) for l in bytes(rom.data[addr:end]).split(b"\xfe"))
