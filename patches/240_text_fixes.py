@@ -102,6 +102,13 @@ STRINGS = [
     # the Daruma Empire 1 mini boss's offer (was IF YOU BECOME / ONE OF US / I WON'T TAKE / YOUR LIFE.) and Blue's
     # answers (was YES I WILL. / NO KIDDING. - read as agreeing; Japanese: はい喜んで。 / 馬鹿言うな！)
     (0x32DE4, ["JOIN ME, AND", "I'LL SPARE", "YOUR LIFE."]),
+    # the travel agent (Japanese: the "Pyuu" travel center)
+    (0x2724A, ["NEED A RIDE SOMEWHERE?"]),                 # (was WILL YOU USE THE TRAVEL AGENT?)
+    (0x2744C, ["  10 FLOWERS", "    TO THIS AREA'S BOSS", "  20 FLOWERS", "    TO THE EMPIRE MARSH",
+               "  60 FLOWERS", "    TO THE MECHANICAL CITY", "  NO THANKS."]),   # (was USE 10 FLOWERS TO GET TO / ...)
+    (0x27620, ["HEY! NO FREE RIDES!"]),      # too few flowers (was ARE YOU GOING TO GRAB A RIDE?; Japanese: a fare dodger!)
+    (0x27660, ["ALL ABOARD!"]),                            # (was O.K. LET'S GO.)
+    (0x27362, ["COME AGAIN!"]),                            # (was COME AGAIN.)
     (0x32E9B, [" YES, SIR!", "  DREAM ON!"]),       # (after its 0x11, the cursor)
     # ... and YES, SIR!'s ending (was RAGUY IS RUINED BY POLLUTION. / BLUE LIVES THE REST OF HIS LIFE / IN THE
     # DARUMA TRIBE.; Japanese: Raguy was destroyed by pollution, but Blue lived his whole life as one of the Daruma)
