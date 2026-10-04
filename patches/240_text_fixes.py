@@ -106,6 +106,8 @@ STRINGS = [
     # RUINED RAGUY.), and the fake endings' tag line (was DO YOU BELIEVE IT?; Japanese: なんちゃって, "just kidding")
     (0x234E4, ["BLUE GAVE UP AND WENT HOME.", "RAGUY WAS RUINED BY POLLUTION.", " ", "          THE END              "]),
     (0x235B0, ["JUST KIDDING!"]),
+    # the last level's mini boss (was MY MISSIONIS TO / KILL YOU BLUE. - its box showed only KILL YOU)
+    (0x33B22, ["MY ONLY MISSION", "IS TO KILL YOU!"]),
     # the travel agent (Japanese: the "Pyuu" travel center)
     (0x2724A, ["NEED A RIDE SOMEWHERE?"]),                 # (was WILL YOU USE THE TRAVEL AGENT?)
     (0x2744C, ["  10 FLOWERS", "    TO THIS AREA'S BOSS", "  20 FLOWERS", "    TO THE EMPIRE MARSH",
