@@ -20,7 +20,7 @@ FRAME_COUNT = 0x6902          # (a6)
 OFF_SCREEN = 0x1922A
 FOAM_DY = -0x2A00             # from the geyser's first height: straddling the line the water covers it from (a row
                               # below its surface: drown-in-front's GEYSER_ROWS)
-PIECES = [(0, 0x22F0)]        # (x from the geyser's (its left edge), first picture: 4 tiles, as wide as the geyser)
+PIECES = [(0x800, 0x2300)]     # (x from the geyser's (its left edge): over its stalk; first picture: 3 tiles)
 
 
 def apply(rom):

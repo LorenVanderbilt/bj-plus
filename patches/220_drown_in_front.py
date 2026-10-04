@@ -33,8 +33,9 @@ SPLASH_CODE = 0x3DEC4
 GEYSER_CODE = 0x300FA        # Empire Marsh 1's geysers (their platforms are 0x30090): drawn in front of the water,
 GEYSER_ROWS = 1              # ... which is drawn again over them from this many tile rows below its surface,
 GEYSER_COVER_ROWS = 2        # ... this many rows (their column stretched down to a row past the line)
+STALK_SHOWS = 60             # ... and only once its stalk shows (its top this far above the line: not just the dome)
 BUBBLE_UP = 12               # geyser-foam's bubbles are drawn this many px above that line (straddling it); only
-                             # their middle two columns (the 64 px picture over the geyser's 32 px stalk)
+                             # their first two columns (a 48 px picture; the geyser's stalk is 32 px)
 POOL_DOWN = 12               # px the sinking hero and splash are drawn lower in a flat pool (after the cover)
 SPLASH_UP = 10               # ... the splash that much less (2 px lower in all)
 WATER_LINE = 40              # px below the sinking hero's first sprite y
@@ -229,6 +230,13 @@ post:
     add.w #8,%d0
     cmp.w 0x2E6(%a6),%d0
     bcc 39f
+    move.l 0x70(%a0),%a1             | (only with its geyser's line known, and its stalk showing: its top at
+    move.w 0x7C(%a1),%d0             | least STALK_SHOWS px above the line)
+    bmi 38f
+    sub.w 0x7E(%a1),%d0
+    and.w #511,%d0
+    cmp.w #STALK_SHOWS,%d0
+    bcs 38f
     move.w %d7,-(%sp)
     move.w %d1,-(%sp)
     move.l %a0,-(%sp)
@@ -246,12 +254,11 @@ post:
     move.w %d2,%d5                   | (its first sprite: the 1st and 4th columns are hidden)
 36: cmp.w %d1,%d2
     bcc 37f
-    move.w %d2,%d4                   | (the 1st and 4th columns: a blank tile)
+    move.w %d2,%d4                   | (its 3rd column: a blank tile - the first two cover the stalk)
     sub.w %d5,%d4
-    beq 34f
-    cmp.w #3,%d4
+    cmp.w #2,%d4
     bne 33f
-34: move.w %d2,%d0
+    move.w %d2,%d0
     lsl.w #6,%d0
     move.w %d0,0x3C0000
     move.w #BLANK_TILE,0x3C0002
@@ -432,8 +439,8 @@ geyser_cover:
     move.w %d1,RAM+10
     move.w %d6,RAM+44
     move.w #GEYSER_COVER_ROWS,RAM+92
-    move.l %a0,RAM+112               | (the geyser: its line is kept in it, +0x7C, for its bubbles)
-    move.w #-1,0x7C(%a0)
+    move.l %a0,RAM+112               | (the geyser: its line is kept in it, +0x7C, and its top, +0x7E, for its
+    move.w #-1,0x7C(%a0)             | bubbles)
     move.w #0x7FFF,%d3               | its x range: d3..d4, and its top y: d5
     moveq #0,%d4
     move.w %d6,%d0
@@ -444,6 +451,7 @@ geyser_cover:
     add.w #496,%d0
     and.w #511,%d0
     move.w %d0,%d5
+    move.w %d0,0x7E(%a0)
     move.w %d6,%d2
 1:  cmp.w RAM+10,%d2
     bcc 3f
@@ -1045,7 +1053,7 @@ pass2:
     rts
 """
     consts = {"DRAW_BEHIND": "0x%X" % DRAW_BEHIND, "DROWN_CODE": "0x%X" % DROWN_CODE,
-              "SPLASH_CODE": "0x%X" % SPLASH_CODE, "GEYSER_CODE": "0x%X" % GEYSER_CODE, "GEYSER_ROWS": str(GEYSER_ROWS), "GEYSER_COVER_ROWS": str(GEYSER_COVER_ROWS), "BUBBLE_UP": str(BUBBLE_UP), "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS), "SPLASH_UP": str(SPLASH_UP), "POOL_DOWN": str(POOL_DOWN),
+              "SPLASH_CODE": "0x%X" % SPLASH_CODE, "GEYSER_CODE": "0x%X" % GEYSER_CODE, "GEYSER_ROWS": str(GEYSER_ROWS), "GEYSER_COVER_ROWS": str(GEYSER_COVER_ROWS), "BUBBLE_UP": str(BUBBLE_UP), "STALK_SHOWS": str(STALK_SHOWS), "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS), "SPLASH_UP": str(SPLASH_UP), "POOL_DOWN": str(POOL_DOWN),
               "RAM": "0x%X" % RAM, "STRIPS": "0x%X" % STRIPS, "HIDE": "0x%X" % HIDE, "FOAM_CODE": "0x%X" % (getattr(rom, "geyser_foam_code", 0) or 1), "LAVA1": "0x%X" % LAVA1, "LAVA2": "0x%X" % LAVA2, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
               "BLANK_TILE": "0x%X" % rom.add_sprite_tile([[0] * 16 for _ in range(16)], why="drowning: a blank tile")}
     for k in sorted(consts, key=len, reverse=True):
