@@ -30,6 +30,8 @@ DRAW_BEHIND_CALL = 0x1180A   # jsr 0xA3A0 - the behind group (after the front gr
 DRAW_BEHIND = 0xA3A0
 DROWN_CODE = 0x3DE90         # the sinking hero
 SPLASH_CODE = 0x3DEC4
+GEYSER_CODE = 0x300FA        # Empire Marsh 1's geysers (their platforms are 0x30090): drawn in front of the water,
+GEYSER_ROWS = 1              # ... which is drawn again over them from this many tile rows below its surface
 POOL_DOWN = 12               # px the sinking hero and splash are drawn lower in a flat pool (after the cover)
 SPLASH_UP = 10               # ... the splash that much less (2 px lower in all)
 WATER_LINE = 40              # px below the sinking hero's first sprite y
@@ -70,6 +72,8 @@ post:
     beq 15f
     move.l 4(%a0),%d0
     cmp.l #DROWN_CODE,%d0
+    beq 17f
+    cmp.l #GEYSER_CODE,%d0
     beq 17f
     cmp.l #SPLASH_CODE,%d0
     bne 15f
@@ -124,6 +128,8 @@ post:
     move.l 4(%a0),%d0
     cmp.l #DROWN_CODE,%d0
     beq 2f
+    cmp.l #GEYSER_CODE,%d0
+    beq 2f
     cmp.l #SPLASH_CODE,%d0
     bne 8f
 2:  move.w %d1,%d0                   | room for it and a cover?
@@ -136,7 +142,11 @@ post:
     bsr draw_obj
     move.w (%sp)+,%d6                | d6..d1-1: its sprites
     move.l (%sp)+,%a0
-    cmp.l #DROWN_CODE,4(%a0)
+    cmp.l #GEYSER_CODE,4(%a0)
+    bne 4f
+    bsr geyser_cover                 | a geyser: the water over its foot
+    bra 7f
+4:  cmp.l #DROWN_CODE,4(%a0)
     bne 3f
     move.l %a0,RAM+48                | the sinking hero: covered below (after the splash is drawn too)
     move.w %d6,RAM+52
@@ -345,6 +355,112 @@ strip_at:
     move.w (%a0),%d7
     move.l (%sp)+,%a0
     rts
+
+| a geyser (a0; its sprites d6..d1-1): the water drawn again over its foot, from GEYSER_ROWS tile rows below the
+| water's surface under its middle - so it spouts from inside the water. Then pass 2 of the cover (d3..d4 its x
+| range, d5 the line, RAM+28 the water's palettes; d1 moves past the cover's sprites).
+geyser_cover:
+    move.w %sr,-(%sp)
+    or.w #0x0700,%sr
+    move.w %d1,RAM+10
+    move.w #0x7FFF,%d3               | its x range: d3..d4, and its top y: d5
+    moveq #0,%d4
+    move.w %d6,%d0
+    add.w #0x8200,%d0
+    bsr vread
+    lsr.w #7,%d0
+    neg.w %d0
+    add.w #496,%d0
+    and.w #511,%d0
+    move.w %d0,%d5
+    move.w %d6,%d2
+1:  cmp.w RAM+10,%d2
+    bcc 3f
+    move.w %d2,%d0
+    add.w #0x8200,%d0
+    bsr vread
+    btst #6,%d0
+    bne 2f
+    move.w %d2,%d0
+    add.w #0x8400,%d0
+    bsr vread
+    lsr.w #7,%d0
+    move.w %d0,%d7
+    bra 4f
+2:  add.w #16,%d7
+4:  cmp.w %d3,%d7
+    bcc 5f
+    move.w %d7,%d3
+5:  move.w %d7,%d0
+    add.w #16,%d0
+    cmp.w %d4,%d0
+    bls 6f
+    move.w %d0,%d4
+6:  addq.w #1,%d2
+    bra 1b
+3:  bsr strips
+    move.w %d3,%d0                   | the strip under its middle: its first non-empty cell below its top = the surface
+    add.w %d4,%d0
+    lsr.w #1,%d0
+    move.w %d0,RAM+26
+    move.w 0x246(%a6),%d2
+7:  cmp.w 0x2E4(%a6),%d2
+    bcc 90f
+    bsr strip_at
+    move.w %a4,%d0
+    and.w #63,%d0
+    cmp.w #32,%d0
+    bcs 8f
+    move.w RAM+26,%d0
+    sub.w %d7,%d0
+    cmp.w #16,%d0
+    bcs 9f
+8:  addq.w #1,%d2
+    bra 7b
+9:  move.w %d5,%d0                   | its top's row in that strip, then down up to 16 rows
+    sub.w %d6,%d0
+    and.w #511,%d0
+    lsr.w #4,%d0
+    moveq #15,%d7
+10: move.w %d2,%d1
+    lsl.w #6,%d1
+    add.w %d0,%d1
+    add.w %d0,%d1
+    addq.w #1,%d1
+    move.w %d0,-(%sp)
+    move.w %d1,%d0
+    bsr vread
+    move.w %d0,%a1
+    move.w (%sp)+,%d0
+    move.w %a1,%d1
+    and.w #0xF0,%d1
+    bne 11f
+    addq.w #1,%d0
+    and.w #31,%d0
+    dbf %d7,10b
+    bra 90f                          | (no water under it)
+11: move.w %a1,%d1                   | the surface row's palette, and the row below's
+    lsr.w #8,%d1
+    move.l #-1,RAM+28
+    move.b %d1,RAM+28
+    move.w %d2,%d1
+    lsl.w #6,%d1
+    add.w %d0,%d1
+    add.w %d0,%d1
+    addq.w #3,%d1
+    move.w %d0,-(%sp)
+    move.w %d1,%d0
+    bsr vread
+    lsr.w #8,%d0
+    move.b %d0,RAM+29
+    move.w (%sp)+,%d0
+    add.w #GEYSER_ROWS,%d0           | the line: that many rows below the surface row's top
+    lsl.w #4,%d0
+    add.w %d6,%d0
+    and.w #511,%d0
+    move.w %d0,%d5
+    move.w RAM+10,%d1
+    bra pass2
 
 | VRAM word at d0 -> d0 (reading doesn't move the address)
 vread:
@@ -681,6 +797,7 @@ cover:
 55: addq.w #1,%d2
     bra 54b
 59:
+pass2:
     | pass 2: the front layer's strips (from sprite word 0x246 up to the front group's first sprite)
     move.w 0x246(%a6),%d2
     moveq #0,%d6                     | (strip y)
@@ -785,7 +902,7 @@ cover:
     rts
 """
     consts = {"DRAW_BEHIND": "0x%X" % DRAW_BEHIND, "DROWN_CODE": "0x%X" % DROWN_CODE,
-              "SPLASH_CODE": "0x%X" % SPLASH_CODE, "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS), "SPLASH_UP": str(SPLASH_UP), "POOL_DOWN": str(POOL_DOWN),
+              "SPLASH_CODE": "0x%X" % SPLASH_CODE, "GEYSER_CODE": "0x%X" % GEYSER_CODE, "GEYSER_ROWS": str(GEYSER_ROWS), "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS), "SPLASH_UP": str(SPLASH_UP), "POOL_DOWN": str(POOL_DOWN),
               "RAM": "0x%X" % RAM, "STRIPS": "0x%X" % STRIPS, "LAVA1": "0x%X" % LAVA1, "LAVA2": "0x%X" % LAVA2, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
               "BLANK_TILE": "0x%X" % rom.add_sprite_tile([[0] * 16 for _ in range(16)], why="drowning: a blank tile")}
     for k in sorted(consts, key=len, reverse=True):
