@@ -156,9 +156,9 @@ def whole_string(rom, addr, lines, width=None):
 
 
 # Strings too long for their space, written elsewhere: (where the game loads the string's address, old address,
-# new lines). The card game's answers to DO YOU WANT THE RULES? (NO / TELL ME; their handlers swapped below).
+# new lines). The card game's answers to DO YOU WANT THE RULES? (TELL ME / NO: the first explains them, as YES did).
 MOVED = [
-    (0x2C852, 0x2C89C, ["  NO", "  TELL ME"]),        # (was   YES /   NO)
+    (0x2C852, 0x2C89C, ["  TELL ME", "  NO"]),        # (was   YES /   NO; the first explains the rules)
 ]
 
 
@@ -188,9 +188,6 @@ def apply(rom):
     for addr, lines, *width in STRINGS:
         text, room = whole_string(rom, addr, lines, *width)
         rom.write(addr, text, expect=bytes(rom.data[addr:addr + room]), why="text: %s" % " / ".join(lines))
-    # (the card game's answer handlers: 0x2C8B0 explains the rules, 0x2C9CC skips them - now NO first, TELL ME second)
-    rom.write(0x2C8A8, bytes.fromhex("0002C9CC0002C8B0"), expect=bytes.fromhex("0002C8B00002C9CC"),
-              why="card game: NO skips the rules, TELL ME explains them")
     for ref, old, lines in MOVED:
         text = b"\xfe".join(l.encode() for l in lines) + b"\xff"
         at = rom.alloc(len(text))
