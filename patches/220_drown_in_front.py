@@ -33,7 +33,8 @@ SPLASH_CODE = 0x3DEC4
 GEYSER_CODE = 0x300FA        # Empire Marsh 1's geysers (their platforms are 0x30090): drawn in front of the water,
 GEYSER_ROWS = 1              # ... which is drawn again over them from this many tile rows below its surface,
 GEYSER_COVER_ROWS = 2        # ... this many rows (their column stretched down to a row past the line)
-BUBBLE_UP = 8                # geyser-foam's bubbles are drawn this many px above that line (straddling it)
+BUBBLE_UP = 12               # geyser-foam's bubbles are drawn this many px above that line (straddling it); only
+                             # their middle two columns (the 64 px picture over the geyser's 32 px stalk)
 POOL_DOWN = 12               # px the sinking hero and splash are drawn lower in a flat pool (after the cover)
 SPLASH_UP = 10               # ... the splash that much less (2 px lower in all)
 WATER_LINE = 40              # px below the sinking hero's first sprite y
@@ -242,9 +243,19 @@ post:
     add.w #496,%d3
     and.w #511,%d3
     lsl.w #7,%d3                     | the y field
+    move.w %d2,%d5                   | (its first sprite: the 1st and 4th columns are hidden)
 36: cmp.w %d1,%d2
     bcc 37f
-    move.w %d2,%d0
+    move.w %d2,%d4                   | (the 1st and 4th columns: a blank tile)
+    sub.w %d5,%d4
+    beq 34f
+    cmp.w #3,%d4
+    bne 33f
+34: move.w %d2,%d0
+    lsl.w #6,%d0
+    move.w %d0,0x3C0000
+    move.w #BLANK_TILE,0x3C0002
+33: move.w %d2,%d0
     add.w #0x8200,%d0
     bsr vread
     btst #6,%d0
