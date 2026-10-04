@@ -110,6 +110,7 @@ STRINGS = [
     (0x33B22, ["MY ONLY MISSION", "IS TO KILL YOU!"]),
     # ... and after his defeat (the rest of that scene: RELOCATED)
     (0x2F2B8, ["NONE OF YOUR WEAPONS CAN", "EVEN SCRATCH HIM."]),   # (was YOU CAN'T HURT HIM WITH ANY OF / YOUR WEAPONS.)
+    (0x3636A, ["YOU DARE", "DEFY ME?"]),                    # the final boss (was ARE YOU / RESISTINS ME?)
     # the travel agent (Japanese: the "Pyuu" travel center)
     (0x2724A, ["NEED A RIDE SOMEWHERE?"]),                 # (was WILL YOU USE THE TRAVEL AGENT?)
     (0x2744C, ["  10 FLOWERS", "    TO THIS AREA'S BOSS", "  20 FLOWERS", "    TO THE EMPIRE MARSH",
@@ -196,6 +197,9 @@ def whole_string(rom, addr, lines, width=None):
 # new lines). The card game's answers to DO YOU WANT THE RULES? (TELL ME / NO: the first explains them, as YES did).
 MOVED = [
     (0x2C852, 0x2C89C, ["  TELL ME", "  NO"]),        # (was   YES /   NO; the first explains the rules)
+    # the final boss's question's answers: the first fights, the second gives in (the Daruma tribe ending) - was
+    # I CAN'T FORGIVE / NO WAY! (which read as refusing; Japanese: probably とんでもない, "of course not")
+    (0x363C8, 0x3640E, ["\x11 YOU'RE FINISHED!", "  I SURRENDER..."]),
 ]
 
 # Strings that end in a callback (0xFC) or a chain (0xFB: the next text, then a callback), too long for their space:
