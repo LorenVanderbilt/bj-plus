@@ -21,7 +21,6 @@ FIXES = [
     (0x26556, "WANT TO KNOW", "WANT TO KNOW?"),
     (0x26926, "ARE YOU INTERESTED", "ARE YOU INTERESTED?"),
     (0x269A6, "ARE YOU SURPRISED", "ARE YOU SURPRISED?"),
-    (0x26A88, "LOOK MY MAGIC.", "SEE MY MAGIC."),     # (LOOK AT MY MAGIC. doesn't fit)
     (0x26BC8, "GO BUCK", "GO BACK"),
     (0x26C64, "IS SO THAT.", "IS THAT SO?"),
     (0x26DB2, "DID YOU ENJOY IT", "DID YOU ENJOY IT?"),
@@ -87,6 +86,8 @@ STRINGS = [
     (0x3595E, ["BLUE, DRIVE OUT THE DARUMA", "AND BRING RAGUY BACK TO LIFE!"], 33),
     # (after "THEN WHAT'S BURNING ON YOUR HAND?") IN FACT,I SET HIM FREE. / NO I DIDN'T
     (0x2EA02, ["  FINE, I SET HIM FREE.", "  NO, I DIDN'T!"]),
+    # the magician's opener (was LOOK MY MAGIC. / IT'S ONLY 5 FLOWERS.); his box takes 27, as the quiz hint's
+    (0x26A88, ["WANT TO SEE A TRICK?", "ONLY 5 FLOWERS"], 27),
     # the card game: "DO YOU KNOW THE RULES?" - its first answer (YES) actually explained them; WHAT'YOUR BET?
     (0x2C826, ["DO YOU WANT THE RULES?"]),
     (0x2CA0E, ["PLACE YOUR BET."]),
