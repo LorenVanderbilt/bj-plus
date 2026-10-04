@@ -34,7 +34,6 @@ FIXES = [
     (0x281E0, "CHOICE.I'LL FIGHT.", "CHOICE. I'LL FIGHT"),
     (0x28760, "BULE, YOU", "BLUE, YOU"), (0x28760, "BULE TOOK", "BLUE TOOK"),
     (0x2C6C6, "TIME FOR CARDS", "TIME FOR CARDS?"),
-    (0x2C825, "KNOW THE RULES", "KNOW THE RULES?"),
     (0x2C960, "ODD ARE DOUBLE.", "ODDS ARE DOUBLE"),
     (0x2CCD6, "ENOUGH FLOWER.", "ENOUGH FLOWERS"),
     (0x2D3FE, "UNTERSTAND", "UNDERSTAND"),
@@ -89,6 +88,9 @@ STRINGS = [
     (0x3595E, ["BLUE, DRIVE OUT THE DARUMA", "AND BRING RAGUY BACK TO LIFE!"], 33),
     # (after "THEN WHAT'S BURNING ON YOUR HAND?") IN FACT,I SET HIM FREE. / NO I DIDN'T
     (0x2EA02, ["  FINE, I SET HIM FREE.", "  NO, I DIDN'T!"]),
+    # the card game: "DO YOU KNOW THE RULES?" - its first answer (YES) actually explained them; WHAT'YOUR BET?
+    (0x2C826, ["DO YOU WANT THE RULES?"]),
+    (0x2CA0E, ["PLACE YOUR BET."]),
     # the lottery after each boss (its box takes 15: SETTING US FREE at 0x295E6)
     (0x29900, ["OK! MAYBE", "NEXT TIME."]),                        # I SEE. / SEE YOU LATER.
     (0x29958, ["SORRY! YOU NEED", "10 FLOWERS."], 15),                 # NO. / YOU DON'T HAVE / 10 FLOWERS.
@@ -153,6 +155,13 @@ def whole_string(rom, addr, lines, width=None):
     return text.ljust(room, b" "), room
 
 
+# Strings too long for their space, written elsewhere: (where the game loads the string's address, old address,
+# new lines). The card game's answers to DO YOU WANT THE RULES? (NO / TELL ME; their handlers swapped below).
+MOVED = [
+    (0x2C852, 0x2C89C, ["  NO", "  TELL ME"]),        # (was   YES /   NO)
+]
+
+
 def apply(rom):
     skipped, already = [], []
     for addr, old, new in FIXES:
@@ -179,6 +188,14 @@ def apply(rom):
     for addr, lines, *width in STRINGS:
         text, room = whole_string(rom, addr, lines, *width)
         rom.write(addr, text, expect=bytes(rom.data[addr:addr + room]), why="text: %s" % " / ".join(lines))
+    # (the card game's answer handlers: 0x2C8B0 explains the rules, 0x2C9CC skips them - now NO first, TELL ME second)
+    rom.write(0x2C8A8, bytes.fromhex("0002C9CC0002C8B0"), expect=bytes.fromhex("0002C8B00002C9CC"),
+              why="card game: NO skips the rules, TELL ME explains them")
+    for ref, old, lines in MOVED:
+        text = b"\xfe".join(l.encode() for l in lines) + b"\xff"
+        at = rom.alloc(len(text))
+        rom.data[at:at + len(text)] = text
+        rom.write(ref, at.to_bytes(4, "big"), expect=old.to_bytes(4, "big"), why="text: %s (moved)" % " / ".join(lines))
     print("  (text-fixes: already end with ? in the game) %d lines" % len(already))
     for s in skipped:
         print("  (text-fixes: doesn't fit yet) " + s)
