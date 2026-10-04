@@ -171,8 +171,10 @@ MOVED = [
 
 
 # A text that ends in 0xFB (show the next text) waits 63 frames (0x21832: move.b #63,0x78A8(a6)) - for every such
-# chain. The card game's rules are long: before its PLACE YOUR BET. they wait longer.
-LONGER_WAITS = {0x2CA0E: 123, 0x2C9F2: 123}       # next text (English, Japanese) -> frames
+# chain. The card game's rules are long: before its PLACE YOUR BET. they wait longer; so is the boatman's warning
+# about the river (4 lines), before his next line.
+LONGER_WAITS = {0x2CA0E: 123, 0x2C9F2: 123,       # next text (English, Japanese) -> frames
+                0x22718: 210, 0x226E2: 210}
 CHAIN_WAIT = 0x21832
 
 
