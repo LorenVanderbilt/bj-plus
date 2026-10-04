@@ -33,7 +33,7 @@ SPLASH_CODE = 0x3DEC4
 GEYSER_CODE = 0x300FA        # Empire Marsh 1's geysers (their platforms are 0x30090): drawn in front of the water,
 GEYSER_ROWS = 1              # ... which is drawn again over them from this many tile rows below its surface,
 GEYSER_COVER_ROWS = 2        # ... this many rows (their column stretched down to a row past the line)
-STALK_SHOWS = 60             # ... and only once its stalk shows (its top this far above the line: not just the dome)
+STALK_SHOWS = 46             # ... and only once its stalk shows (its top this far above the line: not just the dome)
 BUBBLE_UP = 12               # geyser-foam's bubbles are drawn this many px above that line (straddling it); only
                              # their first two columns (a 48 px picture; the geyser's stalk is 32 px)
 POOL_DOWN = 12               # px the sinking hero and splash are drawn lower in a flat pool (after the cover)
