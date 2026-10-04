@@ -49,7 +49,8 @@ RAM = 0x10EB80               # +0 2 entries (object offset word, first y word), 
                              # more of it: the entry (x2), each entry's sideways shift (+36 / +38), the liquid's
                              # ends (+40 / +42), the hero's first sprite (+44), +48 / +52 the sinking hero and his
                              # first sprite, +56 up to 4 x (object long, draw byte, pad) hidden from the behind group,
-                             # +108 / +110 each entry's shift target (0x8000 = not worked out yet)
+                             # +108 / +110 each entry's shift target (0x8000 = not worked out yet), +112 the geyser being covered, +116 a byte:
+                             # the drawing's round (0: sinking heroes and splashes, then their covers; else geysers)
 # Player 1 / 2 burning in lava: first sprite, end sprite (words), drawn this frame (byte). (They were RAM+16 /
 # RAM+22, where player 2's flag shared a byte with the cover's workspace RAM+26: a cover over player 1 then
 # looked like player 2 burning too, and a second cover over junk sprites took a whole frame - the game ran at
@@ -122,6 +123,7 @@ post:
     bcs 18b
 19:
     clr.b RAM+8
+    clr.b RAM+116                    | (the sinking heroes and splashes first; the geysers on a second round)
     clr.l RAM+48
     clr.l RAM+84
     move.w 0x2E8(%a6),%d1            | the next free sprite after the front group
@@ -135,9 +137,14 @@ post:
     tst.b 0x28(%a0)                  | (not drawn)
     beq 8f
     move.l 4(%a0),%d0
-    cmp.l #DROWN_CODE,%d0
-    beq 2f
     cmp.l #GEYSER_CODE,%d0
+    bne 5f
+    tst.b RAM+116
+    bne 2f
+    bra 8f
+5:  tst.b RAM+116
+    bne 8f
+    cmp.l #DROWN_CODE,%d0
     beq 2f
     cmp.l #SPLASH_CODE,%d0
     bne 8f
@@ -166,7 +173,9 @@ post:
 7:  move.w (%sp)+,%d7
 8:  addq.w #2,%d7
     bra 1b
-9:  tst.l RAM+48                     | the cover over the sinking hero and the splash (their sprites, from his first)
+9:  tst.b RAM+116
+    bne 30f
+    tst.l RAM+48                     | the cover over the sinking hero and the splash (their sprites, from his first)
     beq 10f
     move.l RAM+48,%a0
     move.w RAM+52,%d6
@@ -216,7 +225,10 @@ post:
 21: lea 6(%a1),%a1
     lea 0x80(%a0),%a0
     dbf %d7,20b
-    move.w 0x2F0(%a6),%d7            | last, the geysers' foam (geyser-foam) - over their covers
+    st RAM+116                       | the geysers after those covers: a hero sinking beside one goes into the water
+    move.w 0x2F0(%a6),%d7            | behind it, and his cover's surface rows don't cut across its stalk
+    bra 1b
+30: move.w 0x2F0(%a6),%d7            | last, the geysers' foam (geyser-foam) - over their covers
 31: cmp.w 0x2F2(%a6),%d7
     bhi 39f
     lea 0x500(%a6),%a0
@@ -477,7 +489,11 @@ geyser_cover:
     move.w %d0,%d4
 6:  addq.w #1,%d2
     bra 1b
-3:  bsr strips
+3:  cmp.w #320,%d3                   | (off screen, right of it: no cover - nor the search for its water)
+    bcs 30f
+    cmp.w #448,%d3
+    bcs 90f
+30: bsr strips
     move.w %d3,%d0                   | the strip under its middle: its first non-empty cell below its top = the surface
     add.w %d4,%d0
     lsr.w #1,%d0
@@ -517,7 +533,8 @@ geyser_cover:
     addq.w #1,%d0
     and.w #31,%d0
     dbf %d7,10b
-    bra 90f                          | (no water under it)
+    move.w RAM+10,%d1                | (no water under it; d1 back past its sprites)
+    bra 90f
 11: move.w %a1,%d1                   | the surface row's palette, and the row below's
     lsr.w #8,%d1
     move.l #-1,RAM+28
