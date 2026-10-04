@@ -90,8 +90,9 @@ STRINGS = [
     # the card game: "DO YOU KNOW THE RULES?" - its first answer (YES) actually explained them; WHAT'YOUR BET?
     (0x2C826, ["DO YOU WANT THE RULES?"]),
     (0x2CA0E, ["PLACE YOUR BET."]),
-    (0x2C960, ["YOU WIN IF YOU PICK THE SAME", "CARD AS ME.", "ODDS ARE DOUBLE.", "YOU ONLY GET TO PLAY ONCE.",
-               "OK. LET'S GO."]),                                     # (was ... OPEN ... / ODD ... / O.K. ...)
+    (0x2C960, ["YOU WIN IF YOU PICK THE SAME", "CARD AS ME.", "WIN DOUBLE YOUR BET.", "ONE GAME ONLY.",
+               "OK. LET'S GO."]),     # (was ... OPEN ... / ODD ARE DOUBLE. / YOU ONLY GET TO PLAY ONCE. / O.K. ...;
+                                      # Japanese: the payout is 2x, a one-game match)
     # the lottery after each boss (its box takes 15: SETTING US FREE at 0x295E6)
     (0x29900, ["OK! MAYBE", "NEXT TIME."]),                        # I SEE. / SEE YOU LATER.
     (0x29958, ["SORRY! YOU NEED", "10 FLOWERS."], 15),                 # NO. / YOU DON'T HAVE / 10 FLOWERS.
