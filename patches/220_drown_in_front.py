@@ -31,7 +31,7 @@ DRAW_BEHIND = 0xA3A0
 DROWN_CODE = 0x3DE90         # the sinking hero
 SPLASH_CODE = 0x3DEC4
 GEYSER_CODE = 0x300FA        # Empire Marsh 1's geysers (their platforms are 0x30090): drawn in front of the water,
-GEYSER_ROWS = 1              # ... which is drawn again over them from this many tile rows below its surface,
+GEYSER_ROWS = 0              # ... which is drawn again over them from this many tile rows below its surface,
 GEYSER_COVER_ROWS = 2        # ... this many rows (their column stretched down to a row past the line)
 POOL_DOWN = 12               # px the sinking hero and splash are drawn lower in a flat pool (after the cover)
 SPLASH_UP = 10               # ... the splash that much less (2 px lower in all)
@@ -52,7 +52,9 @@ RAM = 0x10EB80               # +0 2 entries (object offset word, first y word), 
 # looked like player 2 burning too, and a second cover over junk sprites took a whole frame - the game ran at
 # half speed and the screen broke up.)
 LAVA1, LAVA2 = RAM + 96, RAM + 102
-STRIPS = 0x10ED00            # 64 x 8 bytes: the front layer's strips, read once a frame for the cover (see strips)
+STRIPS = 0x10ED00
+HIDE = 0x10EF00              # up to 16 x (object long, draw byte, pad): objects hidden from the behind group's drawing
+FOAM_CODE = 0                # geyser-foam's object code (set by that patch before this one is applied, if enabled)            # 64 x 8 bytes: the front layer's strips, read once a frame for the cover (see strips)
 GROUP_START = 0xA3BC         # lea 0x3C0002,a2 - the drawing loop, starting a group (d1 = its first sprite)
 OBJECT_DONE = 0xA3FE         # move.w 656(a6),d0 ; dbf d0,0xA3D8 - the drawing loop, after each object
 
@@ -62,7 +64,7 @@ def apply(rom):
 post:
     movem.l %d0-%d1/%a0-%a2,-(%sp)   | the game's own copies of the sinking hero and splash (the behind group) are
     lea 0x100000,%a6                 | skipped - only ours, in front, are drawn: their draw byte +0x28 cleared
-    lea RAM+56,%a2                   | for the behind group's drawing and put back after (up to 4 objects)
+    lea HIDE,%a2                     | for the behind group's drawing and put back after (up to 16 objects)
     move.w 0x2F0(%a6),%d1
 14: cmp.w 0x2F2(%a6),%d1
     bhi 16f
@@ -76,9 +78,11 @@ post:
     beq 17f
     cmp.l #GEYSER_CODE,%d0
     beq 17f
+    cmp.l #FOAM_CODE,%d0
+    beq 17f
     cmp.l #SPLASH_CODE,%d0
     bne 15f
-17: lea RAM+56+24,%a1
+17: lea HIDE+96,%a1
     cmp.l %a1,%a2
     bcc 15f
     move.l %a0,(%a2)+
@@ -90,7 +94,7 @@ post:
 16: clr.l (%a2)
     movem.l (%sp)+,%d0-%d1/%a0-%a2
     jsr DRAW_BEHIND
-    tst.l RAM+56                     | (nothing sinking and no hero burning in lava this frame: nothing to do)
+    tst.l HIDE                       | (nothing sinking and no hero burning in lava this frame: nothing to do)
     bne 22f
     tst.b LAVA1+4
     bne 22f
@@ -104,13 +108,13 @@ post:
 22: movem.l %d0-%d7/%a0-%a6,-(%sp)
     lea 0x100000,%a6
     clr.b RAM+94                     | (the strips table: not read yet this frame)
-    lea RAM+56,%a2                   | (their draw bytes back)
+    lea HIDE,%a2                     | (their draw bytes back)
 18: move.l (%a2)+,%d0
     beq 19f
     move.l %d0,%a0
     move.b (%a2),0x28(%a0)
     addq.l #2,%a2
-    lea RAM+56+24,%a1
+    lea HIDE+96,%a1
     cmp.l %a1,%a2
     bcs 18b
 19:
@@ -209,7 +213,26 @@ post:
 21: lea 6(%a1),%a1
     lea 0x80(%a0),%a0
     dbf %d7,20b
-    move.w %d1,0x2E8(%a6)            | (the front group hides them next frame unless drawn again)
+    move.w 0x2F0(%a6),%d7            | last, the geysers' foam (geyser-foam) - over their covers
+31: cmp.w 0x2F2(%a6),%d7
+    bhi 39f
+    lea 0x500(%a6),%a0
+    move.w (%a0,%d7.w),%d3
+    lea (%a6,%d3.w),%a0
+    tst.b 0x28(%a0)
+    beq 38f
+    cmp.l #FOAM_CODE,4(%a0)
+    bne 38f
+    move.w %d1,%d0
+    add.w #8,%d0
+    cmp.w 0x2E6(%a6),%d0
+    bcc 39f
+    move.w %d7,-(%sp)
+    bsr draw_obj
+    move.w (%sp)+,%d7
+38: addq.w #2,%d7
+    bra 31b
+39: move.w %d1,0x2E8(%a6)            | (the front group hides them next frame unless drawn again)
     lea RAM,%a0                      | forget sinking objects that are gone
     btst #0,RAM+8
     bne 3f
@@ -980,7 +1003,7 @@ pass2:
 """
     consts = {"DRAW_BEHIND": "0x%X" % DRAW_BEHIND, "DROWN_CODE": "0x%X" % DROWN_CODE,
               "SPLASH_CODE": "0x%X" % SPLASH_CODE, "GEYSER_CODE": "0x%X" % GEYSER_CODE, "GEYSER_ROWS": str(GEYSER_ROWS), "GEYSER_COVER_ROWS": str(GEYSER_COVER_ROWS), "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS), "SPLASH_UP": str(SPLASH_UP), "POOL_DOWN": str(POOL_DOWN),
-              "RAM": "0x%X" % RAM, "STRIPS": "0x%X" % STRIPS, "LAVA1": "0x%X" % LAVA1, "LAVA2": "0x%X" % LAVA2, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
+              "RAM": "0x%X" % RAM, "STRIPS": "0x%X" % STRIPS, "HIDE": "0x%X" % HIDE, "FOAM_CODE": "0x%X" % (getattr(rom, "geyser_foam_code", 0) or 1), "LAVA1": "0x%X" % LAVA1, "LAVA2": "0x%X" % LAVA2, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
               "BLANK_TILE": "0x%X" % rom.add_sprite_tile([[0] * 16 for _ in range(16)], why="drowning: a blank tile")}
     for k in sorted(consts, key=len, reverse=True):
         src = src.replace(k, consts[k])
