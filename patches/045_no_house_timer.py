@@ -14,6 +14,10 @@ DESCRIPTION = "No answer countdown in the NPC houses (the travel agent, the drin
 TICK = 0x218A0               # cmpi.b #0x99,0x783F(a6) ...
 DRAW = 0x218D4               # move.w #1,0x3C0004 ...
 FLAG_RTS = 0x21926           # tst.b 0x7868(a6) ; rts
+# The continue screen (after a game over) counts down with the same two routines: it calls an untouched copy of
+# them (they only branch within themselves) and keeps its countdown and digits.
+ROUTINES = (0x218A0, 0x2192C)
+CONTINUE_CALLS = [(0x34750, TICK), (0x3469C, DRAW)]   # jsr TICK / jsr DRAW
 FADE_IN = 0x1572C
 FADE_SITES = [0x1F7C2, 0x22EAE, 0x2340A, 0x236EE, 0x238EE, 0x23BB4, 0x26790, 0x27016, 0x27AAE, 0x285EE,
               0x2BABA, 0x2C024, 0x2C488, 0x2D33C, 0x2DDCA, 0x2F076]   # (no-shop-timer has 0x21AA4, 0x228B0, 0x25A0C)
@@ -110,6 +114,12 @@ def banner_tiles(rom):
 
 
 def apply(rom):
+    lo, hi = ROUTINES
+    copy = rom.alloc(hi - lo, align=2)
+    rom.data[copy:copy + hi - lo] = rom.orig[lo:hi]
+    for site, target in CONTINUE_CALLS:
+        rom.write(site + 2, (copy + target - lo).to_bytes(4, "big"), expect=target.to_bytes(4, "big"),
+                  why="continue screen: its countdown keeps the original routines (a copy)")
     rom.write(TICK, bytes.fromhex("4EF9") + FLAG_RTS.to_bytes(4, "big"), expect=bytes.fromhex("0C2E0099783F"),
               why="NPC screens: the answer countdown never ticks")
     rom.write(DRAW, bytes.fromhex("4EF9") + FLAG_RTS.to_bytes(4, "big") + bytes.fromhex("4E71"),
