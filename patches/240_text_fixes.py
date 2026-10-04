@@ -200,6 +200,9 @@ MOVED = [
     # the final boss's question's answers: the first fights, the second gives in (the Daruma tribe ending) - was
     # I CAN'T FORGIVE / NO WAY! (which read as refusing; Japanese: probably とんでもない, "of course not")
     (0x363C8, 0x3640E, ["\x11 YOU'RE FINISHED!", "  I SURRENDER..."]),
+    # the princess on the continue screen (was GIVE A HAND / TO RAGUY'S / PEOPLE.; Japanese: a loving hand for
+    # Raguy's people...)
+    (0x346D0, 0x3495A, ["BLUE, PLEASE", "DON'T GIVE", "UP ON US!"]),
 ]
 
 # Strings that end in a callback (0xFC) or a chain (0xFB: the next text, then a callback), too long for their space:
