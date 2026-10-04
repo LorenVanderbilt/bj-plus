@@ -86,7 +86,7 @@ STRINGS = [
     (0x358A2, ["FA FELL ILL FROM THE POLLUTION."]),
     (0x3595E, ["BLUE, DRIVE OUT THE DARUMA", "AND BRING RAGUY BACK TO LIFE!"], 33),
     # (after "THEN WHAT'S BURNING ON YOUR HAND?") IN FACT,I SET HIM FREE. / NO I DIDN'T
-    (0x2EA02, ["  FINE, I SET HIM FREE.", "  NO, I DIDN'T!"]),
+    (0x2EA02, ["  HEH, OKAY, IT WAS ME.", "  NO, I DIDN'T!"]),   # (was FINE, I SET HIM FREE. - she asked whether he freed her)
     # the magician's opener (was LOOK MY MAGIC. / IT'S ONLY 5 FLOWERS.); his box takes 27, as the quiz hint's
     (0x26A88, ["WANT TO SEE A TRICK?", "ONLY 5 FLOWERS"], 27),
     (0x26AEC, ["  SURE!", "  NO THANKS."]),                       # (was I'LL LOOK. / I WON'T LOOK.)
@@ -111,6 +111,14 @@ STRINGS = [
     # ... and after his defeat (the rest of that scene: RELOCATED)
     (0x2F2B8, ["NONE OF YOUR WEAPONS CAN", "EVEN SCRATCH HIM."]),   # (was YOU CAN'T HURT HIM WITH ANY OF / YOUR WEAPONS.)
     (0x3636A, ["YOU DARE", "DEFY ME?"]),                    # the final boss (was ARE YOU / RESISTINS ME?)
+    # Mechanical City 3: the frozen princess's house (Japanese as a guide; the longer lines: RELOCATED)
+    (0x2E064, ["  GO CLOSER.", "  LEAVE."]),                              # APPROACH. / JUST IGNORE IT.
+    (0x2E178, ["WHAT WILL YOU DO?"]),                                      # WHAT ARE YOU GOING TO DO?
+    (0x2E21E, ["  PRETEND NOT TO SEE.", "  CALL HER NAME.", "  USE A TORCH.", "  JUST WAIT."], 30),
+    (0x2E340, ['"PRINCESS LIM!" BLUE SHOUTED.']),                         # "PRICESS LIM", BLUE SHOUTED.
+    (0x2E42E, ["BLUE DOESN'T HAVE A TORCH."]),                              # BLUE DID NOT HAVE THE TORCH / WITH HIM.
+    (0x2EDA8, ["WITH THIS CHARM, NEROS'S", "SPELL WON'T FREEZE YOU."]),     # THIS SPELL PROTECTS YOU FROM / ...
+    (0x2DF16, ["BLUE COULDN'T ANSWER,", "SO HE RAN AWAY."]),                 # (time-up) ... SO HE RUN AWAY.
     # the travel agent (Japanese: the "Pyuu" travel center)
     (0x2724A, ["NEED A RIDE SOMEWHERE?"]),                 # (was WILL YOU USE THE TRAVEL AGENT?)
     (0x2744C, ["  10 FLOWERS", "    TO THIS AREA'S BOSS", "  20 FLOWERS", "    TO THE EMPIRE MARSH",
@@ -210,6 +218,16 @@ MOVED = [
 # pointer in the text before (by name: a chain to a string moved here too points at its new place). The robot mini
 # boss in the last level, after his defeat (Japanese: it's not programmed into him - he was only built to fight).
 RELOCATED = [   # (name, where its address is (an lea's operand) or None, old address, new lines, the 0xFB next by name)
+    # the frozen princess's house (Mechanical City 3)
+    ("lim1", 0x2DDFA, 0x2DFCE, ["A WOMAN STANDS FROZEN IN ICE.", "WHAT WILL YOU DO?"], None),  # A WOMAN FROZE BEFORE. / ...
+    ("lim2", 0x2E0D0, 0x2E12E, ["W-WAIT! ISN'T THAT LIM,", "THE PRINCESS OF RAGUY?!"], None),  # ISN'T SHE PRINCESS "LIM" OF / ...
+    ("lim3", 0x2E39E, 0x2E3E0, ["BUT NOTHING HAPPENED."], None),          # NOTHING HAPPENED.
+    ("lim4", 0x2E520, 0x2E55E, ["THE ICE QUICKLY MELTED AWAY."], None),    # THE ICE IS MELTING.
+    ("lim5", 0x2E662, 0x2E790, ["OH... THAT'S RIGHT, THE WIZARD", "NEROS FROZE ME...", "DID YOU SET ME FREE?"], None),
+    ("lim6", 0x2E90C, 0x2E964, ["REALLY? THEN WHAT'S THAT", "BURNING IN YOUR HAND?"], None),     # IS THAT SO? / ...
+    ("lim7", 0x2E852, 0x2E8BA, ["THANK YOU! LET ME CAST A", "CHARM ON YOU IN RETURN.", " ", "     EZORF!"], None),
+    ("lim9", 0x2E4AE, 0x2E4EA, ["...THAT WAS A WASTE OF TIME."], None),    # IT'S JUST A WASTE OF TIME.
+    ("lim8", 0x2DEBC, 0x2DF7E, ["I HATE INDECISIVE MEN."], None),           # (time-up) I DATE UNSURE MEN.
     ("robot5", None, 0x2F4D0, ["THIS IS THE END FOR ME...", "FAREWELL, MY ETERNAL RIVAL..."], None),   # IT SEEMS LIKE ...
     ("robot4", 0x2F420, 0x2F45A, ["...I WAS ONLY BUILT", "TO FIGHT."], "robot5"),                  # I'M NOT HURT.
     ("robot3", 0x2F376, 0x2F3A6, ["THEN HOW CAN I BEAT HIM?!"], None),                           # WHAT CAN WE DO? (Blue)
