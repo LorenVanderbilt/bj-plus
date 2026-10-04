@@ -34,7 +34,6 @@ FIXES = [
     (0x281E0, "CHOICE.I'LL FIGHT.", "CHOICE. I'LL FIGHT"),
     (0x28760, "BULE, YOU", "BLUE, YOU"), (0x28760, "BULE TOOK", "BLUE TOOK"),
     (0x2C6C6, "TIME FOR CARDS", "TIME FOR CARDS?"),
-    (0x2C960, "ODD ARE DOUBLE.", "ODDS ARE DOUBLE"),
     (0x2CCD6, "ENOUGH FLOWER.", "ENOUGH FLOWERS"),
     (0x2D3FE, "UNTERSTAND", "UNDERSTAND"),
     (0x2D68A, "LISTEN TO ME", "LISTEN TO ME?"),
@@ -91,6 +90,8 @@ STRINGS = [
     # the card game: "DO YOU KNOW THE RULES?" - its first answer (YES) actually explained them; WHAT'YOUR BET?
     (0x2C826, ["DO YOU WANT THE RULES?"]),
     (0x2CA0E, ["PLACE YOUR BET."]),
+    (0x2C960, ["YOU WIN IF YOU PICK THE SAME", "CARD AS ME.", "ODDS ARE DOUBLE.", "YOU ONLY GET TO PLAY ONCE.",
+               "OK. LET'S GO."]),                                     # (was ... OPEN ... / ODD ... / O.K. ...)
     # the lottery after each boss (its box takes 15: SETTING US FREE at 0x295E6)
     (0x29900, ["OK! MAYBE", "NEXT TIME."]),                        # I SEE. / SEE YOU LATER.
     (0x29958, ["SORRY! YOU NEED", "10 FLOWERS."], 15),                 # NO. / YOU DON'T HAVE / 10 FLOWERS.
@@ -162,6 +163,12 @@ MOVED = [
 ]
 
 
+# A text that ends in 0xFB (show the next text) waits 63 frames (0x21832: move.b #63,0x78A8(a6)) - for every such
+# chain. The card game's rules are long: before its PLACE YOUR BET. they wait longer.
+LONGER_WAITS = {0x2CA0E: 123, 0x2C9F2: 123}       # next text (English, Japanese) -> frames
+CHAIN_WAIT = 0x21832
+
+
 def apply(rom):
     skipped, already = [], []
     for addr, old, new in FIXES:
@@ -188,6 +195,12 @@ def apply(rom):
     for addr, lines, *width in STRINGS:
         text, room = whole_string(rom, addr, lines, *width)
         rom.write(addr, text, expect=bytes(rom.data[addr:addr + room]), why="text: %s" % " / ".join(lines))
+    src = "    move.b #63,0x78A8(%a6)\n"
+    for i, (nxt, frames) in enumerate(LONGER_WAITS.items(), 1):
+        src += "    cmp.l #0x%X,0x78A4(%%a6)\n    bne.s %df\n    move.b #%d,0x78A8(%%a6)\n%d:\n" % (nxt, i, frames, i)
+    wait = rom.place_code(src + "    rts\n", why="text chains: longer waits before some texts")
+    rom.write(CHAIN_WAIT, bytes.fromhex("4EB9") + wait.to_bytes(4, "big"), expect=bytes.fromhex("1D7C003F78A8"),
+              why="text chains: the wait, longer before some texts")
     for ref, old, lines in MOVED:
         text = b"\xfe".join(l.encode() for l in lines) + b"\xff"
         at = rom.alloc(len(text))
