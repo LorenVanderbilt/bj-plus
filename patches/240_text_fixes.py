@@ -102,6 +102,10 @@ STRINGS = [
     # the Daruma Empire 1 mini boss's offer (was IF YOU BECOME / ONE OF US / I WON'T TAKE / YOUR LIFE.) and Blue's
     # answers (was YES I WILL. / NO KIDDING. - read as agreeing; Japanese: はい喜んで。 / 馬鹿言うな！)
     (0x32DE4, ["JOIN ME, AND", "I'LL SPARE", "YOUR LIFE."]),
+    # the fake ending after the first boss's I'LL GO HOME! (was BLUE'S IRRESPONSIBILITY CAUSED / THE POLLUTION THAT
+    # RUINED RAGUY.), and the fake endings' tag line (was DO YOU BELIEVE IT?; Japanese: なんちゃって, "just kidding")
+    (0x234E4, ["BLUE GAVE UP AND WENT HOME.", "RAGUY WAS RUINED BY POLLUTION.", " ", "          THE END              "]),
+    (0x235B0, ["JUST KIDDING!"]),
     # the travel agent (Japanese: the "Pyuu" travel center)
     (0x2724A, ["NEED A RIDE SOMEWHERE?"]),                 # (was WILL YOU USE THE TRAVEL AGENT?)
     (0x2744C, ["  10 FLOWERS", "    TO THIS AREA'S BOSS", "  20 FLOWERS", "    TO THE EMPIRE MARSH",
