@@ -108,6 +108,8 @@ STRINGS = [
     (0x235B0, ["JUST KIDDING!"]),
     # the last level's mini boss (was MY MISSIONIS TO / KILL YOU BLUE. - its box showed only KILL YOU)
     (0x33B22, ["MY ONLY MISSION", "IS TO KILL YOU!"]),
+    # ... and after his defeat (the rest of that scene: RELOCATED)
+    (0x2F2B8, ["NONE OF YOUR WEAPONS CAN", "EVEN SCRATCH HIM."]),   # (was YOU CAN'T HURT HIM WITH ANY OF / YOUR WEAPONS.)
     # the travel agent (Japanese: the "Pyuu" travel center)
     (0x2724A, ["NEED A RIDE SOMEWHERE?"]),                 # (was WILL YOU USE THE TRAVEL AGENT?)
     (0x2744C, ["  10 FLOWERS", "    TO THIS AREA'S BOSS", "  20 FLOWERS", "    TO THE EMPIRE MARSH",
@@ -196,6 +198,34 @@ MOVED = [
     (0x2C852, 0x2C89C, ["  TELL ME", "  NO"]),        # (was   YES /   NO; the first explains the rules)
 ]
 
+# Strings that end in a callback (0xFC) or a chain (0xFB: the next text, then a callback), too long for their space:
+# written elsewhere with their ending, and the long that points at them changed - an lea's operand, or the 0xFB
+# pointer in the text before (by name: a chain to a string moved here too points at its new place). The robot mini
+# boss in the last level, after his defeat (Japanese: it's not programmed into him - he was only built to fight).
+RELOCATED = [   # (name, where its address is (an lea's operand) or None, old address, new lines, the 0xFB next by name)
+    ("robot5", None, 0x2F4D0, ["THIS IS THE END FOR ME...", "FAREWELL, MY ETERNAL RIVAL..."], None),   # IT SEEMS LIKE ...
+    ("robot4", 0x2F420, 0x2F45A, ["...I WAS ONLY BUILT", "TO FIGHT."], "robot5"),                  # I'M NOT HURT.
+    ("robot3", 0x2F376, 0x2F3A6, ["THEN HOW CAN I BEAT HIM?!"], None),                           # WHAT CAN WE DO? (Blue)
+    ("robot1", 0x2F08C, 0x2F228, ["YOU WIN, BLUE... BUT EMPEROR", "DARUMA IS FAR STRONGER.", "HIS WEAPON IS DRIVEN BY",
+                                  "HIS EVIL WILL."], None),         # I LOST BUT EMPEROR DARUMA IS STRONGER. / ...
+]
+
+
+def relocate(rom, old, lines, next_text=None):
+    end = old
+    while rom.data[end] not in (0xFF, 0xFC, 0xFB):
+        end += 1
+    tail = bytearray(rom.data[end:end + {0xFF: 1, 0xFC: 5, 0xFB: 9}[rom.data[end]]])
+    if next_text is not None:
+        tail[1:5] = next_text.to_bytes(4, "big")
+    text = b"\xfe".join(l.encode() for l in lines).replace(b"?", b"\x0a")
+    if tail[0] != 0xFF and (len(text) + 1) % 2:
+        text += b" "              # (the callback's long on an even byte; the text starts on one)
+    text += bytes(tail)
+    at = rom.alloc(len(text), align=2)
+    rom.data[at:at + len(text)] = text
+    return at
+
 
 # A text that ends in 0xFB (show the next text) waits 63 frames (0x21832: move.b #63,0x78A8(a6)) - for every such
 # chain. The card game's rules are long: before its PLACE YOUR BET. they wait longer; so is the boatman's warning
@@ -237,6 +267,13 @@ def apply(rom):
     wait = rom.place_code(src + "    rts\n", why="text chains: longer waits before some texts")
     rom.write(CHAIN_WAIT, bytes.fromhex("4EB9") + wait.to_bytes(4, "big"), expect=bytes.fromhex("1D7C003F78A8"),
               why="text chains: the wait, longer before some texts")
+    placed = {}
+    for name, ref, old, lines, nxt in RELOCATED:
+        if max(len(l) for l in lines) > 30:
+            raise SystemExit("text-fixes: %r has a line over 30 characters" % lines)
+        placed[name] = at = relocate(rom, old, lines, placed[nxt] if nxt else None)
+        if ref is not None:
+            rom.write(ref, at.to_bytes(4, "big"), expect=old.to_bytes(4, "big"), why="text: %s (moved)" % " / ".join(lines))
     for ref, old, lines in MOVED:
         text = b"\xfe".join(l.encode() for l in lines) + b"\xff"
         at = rom.alloc(len(text))
