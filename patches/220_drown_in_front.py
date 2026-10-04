@@ -57,6 +57,7 @@ RAM = 0x10EB80               # +0 2 entries (object offset word, first y word), 
 # half speed and the screen broke up.)
 LAVA1, LAVA2 = RAM + 96, RAM + 102
 STRIPS = 0x10ED00
+FULL = 0x10EF60              # up to 24 x (sprite, y, x) words, then -1: the full-height strips among them (see strips)
 HIDE = 0x10EF00              # up to 16 x (object long, draw byte, pad): objects hidden from the behind group's drawing
 FOAM_CODE = 0                # geyser-foam's object code (set by that patch before this one is applied, if enabled)            # 64 x 8 bytes: the front layer's strips, read once a frame for the cover (see strips)
 GROUP_START = 0xA3BC         # lea 0x3C0002,a2 - the drawing loop, starting a group (d1 = its first sprite)
@@ -384,13 +385,15 @@ shift_spr:
 
 | the front layer's strips (sprite word 0x246 up to the front group's first sprite, at most 64), read once a
 | frame for the cover's passes - reading them in every pass took too long in busy levels (the game lost frames
-| and the screen broke up): STRIPS + 8 * n = the strip's chain-head SCB3 word (a4), y (d6), x (d7)
+| and the screen broke up): STRIPS + 8 * n = the strip's chain-head SCB3 word (a4), y (d6), x (d7). The full-height
+| ones (the layer's columns; the rest are empty) are also listed at FULL: the geyser's passes walk only those
 strips:
     tst.b RAM+94                     | (already read this frame - by another geyser or the cover)
     bne 10f
     st RAM+94
-    movem.l %d0-%d2/%d6-%d7/%a0/%a4,-(%sp)
+    movem.l %d0-%d2/%d6-%d7/%a0-%a1/%a4,-(%sp)
     lea STRIPS,%a0
+    lea FULL,%a1
     move.w 0x246(%a6),%d2
     moveq #0,%d6
     moveq #0,%d7
@@ -422,9 +425,19 @@ strips:
     move.w %d6,(%a0)+
     move.w %d7,(%a0)+
     addq.l #2,%a0
-    addq.w #1,%d2
+    move.w %a4,%d0
+    and.w #63,%d0
+    cmp.w #32,%d0
+    bcs 4f
+    cmp.l #FULL+6*24,%a1
+    bcc 4f
+    move.w %d2,(%a1)+
+    move.w %d6,(%a1)+
+    move.w %d7,(%a1)+
+4:  addq.w #1,%d2
     bra 1b
-9:  movem.l (%sp)+,%d0-%d2/%d6-%d7/%a0/%a4
+9:  move.w #-1,(%a1)
+    movem.l (%sp)+,%d0-%d2/%d6-%d7/%a0-%a1/%a4
 10: rts
 
 | strip d2 from the table -> a4, d6, d7 (as the passes read them)
@@ -498,20 +511,15 @@ geyser_cover:
     add.w %d4,%d0
     lsr.w #1,%d0
     move.w %d0,RAM+26
-    move.w 0x246(%a6),%d2
-7:  cmp.w 0x2E4(%a6),%d2
-    bcc 90f
-    bsr strip_at
-    move.w %a4,%d0
-    and.w #63,%d0
-    cmp.w #32,%d0
-    bcs 8f
+    lea FULL,%a4
+7:  move.w (%a4)+,%d2
+    bmi 90f
+    move.w (%a4)+,%d6
+    move.w (%a4)+,%d7
     move.w RAM+26,%d0
     sub.w %d7,%d0
     cmp.w #16,%d0
-    bcs 9f
-8:  addq.w #1,%d2
-    bra 7b
+    bcc 7b
 9:  move.w %d5,%d0                   | its top's row in that strip, then down up to 16 rows
     sub.w %d6,%d0
     and.w #511,%d0
@@ -967,17 +975,12 @@ cover:
 59:
 pass2:
     | pass 2: the front layer's strips (from sprite word 0x246 up to the front group's first sprite)
-    move.w 0x246(%a6),%d2
-    moveq #0,%d6                     | (strip y)
-    moveq #0,%d7                     | (strip x)
+    lea FULL,%a4                     | (only the full-height ones: the list made with the table)
     moveq #0,%d0
-10: cmp.w 0x2E4(%a6),%d2
-    bcc 90f
-    bsr strip_at
-12: move.w %a4,%d0                   | a full-height strip?
-    and.w #63,%d0
-    cmp.w #32,%d0
-    bcs 19f
+10: move.w (%a4)+,%d2
+    bmi 90f
+    move.w (%a4)+,%d6                | (strip y)
+    move.w (%a4)+,%d7                | (strip x)
     move.w %d7,%d0                   | across the hero? (x + 16 > d3 and x < d4)
     add.w #16,%d0
     cmp.w %d3,%d0
@@ -1064,14 +1067,13 @@ pass2:
     move.w %d1,%d0
     cmp.w 0x2E6(%a6),%d0
     bcc 90f
-19: addq.w #1,%d2
-    bra 10b
+19: bra 10b
 90: move.w (%sp)+,%sr
     rts
 """
     consts = {"DRAW_BEHIND": "0x%X" % DRAW_BEHIND, "DROWN_CODE": "0x%X" % DROWN_CODE,
               "SPLASH_CODE": "0x%X" % SPLASH_CODE, "GEYSER_CODE": "0x%X" % GEYSER_CODE, "GEYSER_ROWS": str(GEYSER_ROWS), "GEYSER_COVER_ROWS": str(GEYSER_COVER_ROWS), "BUBBLE_UP": str(BUBBLE_UP), "STALK_SHOWS": str(STALK_SHOWS), "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS), "SPLASH_UP": str(SPLASH_UP), "POOL_DOWN": str(POOL_DOWN),
-              "RAM": "0x%X" % RAM, "STRIPS": "0x%X" % STRIPS, "HIDE": "0x%X" % HIDE, "FOAM_CODE": "0x%X" % (getattr(rom, "geyser_foam_code", 0) or 1), "LAVA1": "0x%X" % LAVA1, "LAVA2": "0x%X" % LAVA2, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
+              "RAM": "0x%X" % RAM, "STRIPS": "0x%X" % STRIPS, "FULL": "0x%X" % FULL, "HIDE": "0x%X" % HIDE, "FOAM_CODE": "0x%X" % (getattr(rom, "geyser_foam_code", 0) or 1), "LAVA1": "0x%X" % LAVA1, "LAVA2": "0x%X" % LAVA2, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
               "BLANK_TILE": "0x%X" % rom.add_sprite_tile([[0] * 16 for _ in range(16)], why="drowning: a blank tile")}
     for k in sorted(consts, key=len, reverse=True):
         src = src.replace(k, consts[k])
