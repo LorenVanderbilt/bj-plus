@@ -231,7 +231,10 @@ def relocate(rom, old, lines, next_text=None):
 # chain. The card game's rules are long: before its PLACE YOUR BET. they wait longer; so is the boatman's warning
 # about the river (4 lines), before his next line.
 LONGER_WAITS = {0x2CA0E: 123, 0x2C9F2: 123,       # next text (English, Japanese) -> frames
-                0x22718: 210, 0x226E2: 210}
+                0x22718: 210, 0x226E2: 210,
+                0x2F2B8: 123, 0x2F284: 123}       # (the robot mini boss's first line, before NONE OF YOUR WEAPONS ...)
+# ... and its next line then waits less before the scene moves on: its callback's object counts down from this
+ROBOT_LINE2_HOLD = (0x2F30D, 31)              # (63)
 CHAIN_WAIT = 0x21832
 
 
@@ -267,6 +270,8 @@ def apply(rom):
     wait = rom.place_code(src + "    rts\n", why="text chains: longer waits before some texts")
     rom.write(CHAIN_WAIT, bytes.fromhex("4EB9") + wait.to_bytes(4, "big"), expect=bytes.fromhex("1D7C003F78A8"),
               why="text chains: the wait, longer before some texts")
+    at, frames = ROBOT_LINE2_HOLD
+    rom.write(at, bytes([frames]), expect=bytes([63]), why="robot mini boss: NONE OF YOUR WEAPONS ... a shorter hold")
     placed = {}
     for name, ref, old, lines, nxt in RELOCATED:
         if max(len(l) for l in lines) > 30:
