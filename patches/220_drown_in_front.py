@@ -466,7 +466,7 @@ geyser_cover:
     add.w %d6,%d0
     and.w #511,%d0
     move.w %d0,%d5
-    | its column stretched down to a row past the line (its last tile row repeated): it bobs up and down, and its
+    | its column stretched down to a row past the line (its second-last tile row repeated): it bobs up and down, and its
     | foot showed above the line as it rose - now it always meets the water at the line
     move.w RAM+44,%d2
     moveq #0,%d7                     | d7 = rows added to the current chain, d6 = its height
@@ -515,17 +515,17 @@ geyser_cover:
     lsl.w #6,%d0
     add.w %d6,%d0
     add.w %d6,%d0
-    move.w %d0,%a3                   | the first new row's tile word
+    subq.w #2,%d0
+    move.w %d0,%a3                   | from its last row (its ragged end, see-through at the bottom) on ...
     subq.w #2,%d0
     bsr vread
-    move.w %d0,%a1                   | the last row's tile ...
+    move.w %d0,%a1                   | ... the row above it repeated (solid column): its tile ...
     move.w %a3,%d0
     subq.w #1,%d0
     bsr vread
     move.w %d0,%a0                   | ... and attributes
     move.w %a3,0x3C0000              | (the modulo is 1: tile, attributes, next row ...)
     move.w %d7,%d0
-    subq.w #1,%d0
 24: move.w %a1,0x3C0002
     move.w %a0,0x3C0002
     dbf %d0,24b
