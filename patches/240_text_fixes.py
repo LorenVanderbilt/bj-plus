@@ -91,6 +91,8 @@ STRINGS = [
     (0x26A88, ["WANT TO SEE A TRICK?", "ONLY 5 FLOWERS"], 27),
     (0x26AEC, ["  SURE!", "  NO THANKS."]),                       # (was I'LL LOOK. / I WON'T LOOK.)
     (0x26ED4, ["YOU MAKE ME HAPPY.", "TAKE THIS NECTAR WITH YOU."]),  # (was ... HONEY ..., as the shop's NECTAR)
+    # the boatman, after SEE THE LARGE RIVER AHEAD? - YES (was IT'S GOOD IF YOU KNOW IT.)
+    (0x22596, ["GOOD, YOU ALREADY KNOW.", "YOU CAN RENT MY BOAT."]),
     # the card game: "DO YOU KNOW THE RULES?" - its first answer (YES) actually explained them; WHAT'YOUR BET?
     (0x2C826, ["DO YOU WANT THE RULES?"]),
     (0x2CA0E, ["PLACE YOUR BET."]),
