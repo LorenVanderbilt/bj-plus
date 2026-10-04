@@ -466,7 +466,7 @@ geyser_cover:
     add.w %d6,%d0
     and.w #511,%d0
     move.w %d0,%d5
-    | its column stretched down to a row past the line (its second-last tile row repeated): it bobs up and down, and its
+    | its column stretched down to a row past the line (its 48 px texture continued): it bobs up and down, and its
     | foot showed above the line as it rose - now it always meets the water at the line
     move.w RAM+44,%d2
     moveq #0,%d7                     | d7 = rows added to the current chain, d6 = its height
@@ -509,26 +509,30 @@ geyser_cover:
     move.w %a2,%d0
     add.w %d7,%d0
     move.w %d0,0x3C0002
-23: tst.w %d7                        | its rows (this sprite of the chain): the last one repeated
-    beq 28f
-    move.w %d2,%d0
+23: tst.w %d7                        | its rows (this sprite of the chain), from its last (its ragged end) on: each
+    beq 28f                          | a copy of the row 3 above - the column's texture repeats every 48 px, so the
+    move.w %d2,%d0                   | stretch is seamless
     lsl.w #6,%d0
     add.w %d6,%d0
     add.w %d6,%d0
     subq.w #2,%d0
-    move.w %d0,%a3                   | from its last row (its ragged end, see-through at the bottom) on ...
-    subq.w #2,%d0
+    move.w %d0,%a3                   | the row's tile word
+    move.w %d7,-(%sp)
+24: move.w %a3,%d0
+    subq.w #6,%d0
     bsr vread
-    move.w %d0,%a1                   | ... the row above it repeated (solid column): its tile ...
+    move.w %d0,%a1                   | (3 rows up: its tile ...
     move.w %a3,%d0
-    subq.w #1,%d0
+    subq.w #5,%d0
     bsr vread
-    move.w %d0,%a0                   | ... and attributes
-    move.w %a3,0x3C0000              | (the modulo is 1: tile, attributes, next row ...)
-    move.w %d7,%d0
-24: move.w %a1,0x3C0002
+    move.w %d0,%a0                   | ... and attributes)
+    move.w %a3,0x3C0000              | (the modulo is 1: tile, then attributes)
+    move.w %a1,0x3C0002
     move.w %a0,0x3C0002
-    dbf %d0,24b
+    addq.w #2,%a3
+    subq.w #1,%d7
+    bpl 24b                          | (k + 1 rows: the ragged end and the k added)
+    move.w (%sp)+,%d7
 28: addq.w #1,%d2
     bra 20b
 29: move.w RAM+10,%d1
