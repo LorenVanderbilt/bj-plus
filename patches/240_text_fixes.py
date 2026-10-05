@@ -288,6 +288,7 @@ ENDING_WAITS = [0x23CE4, 0x23DD6, 0x23E46]
 ENDING_HOLD = 90
 HAPPY_DONE = 0x2411E          # move.b #1,0x7861(a6)
 HAPPY_HOLD = 150
+FROZEN_WAIT, FROZEN_HOLD = 0x24002, 180       # BUT NEROS'S CURSE / TURNED BLUE TO ICE.: move.w #60,d0 ; jsr 0xE858, then the fade
 CHAIN_WAIT = 0x21832
 
 
@@ -326,6 +327,8 @@ def apply(rom):
     for at in ENDING_WAITS:
         rom.write(at + 2, ENDING_HOLD.to_bytes(2, "big"), expect=(30).to_bytes(2, "big"),
                   why="good ending: a line's hold once typed")
+    rom.write(FROZEN_WAIT + 2, FROZEN_HOLD.to_bytes(2, "big"), expect=(60).to_bytes(2, "big"),
+              why="frozen ending: its line stays before the fade")
     hold = rom.place_code(
         "    move.w #%d,%%d0\n"
         "    jsr 0xE858\n"
