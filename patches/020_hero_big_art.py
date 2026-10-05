@@ -70,6 +70,10 @@ HERO_OBJECTS = [0x104000, 0x104080]   # the objects for player 1 and player 2
 RED_PAIR = 0x10EA40
 RED_OBJ = 0x10EA50
 RED_CODE = (0x23000, 0x25400)   # ... running the ending's code (its scenes and the duel: 0x234xx-0x2530x)
+RED_DUEL_CODE = (0x28400, 0x28680)
+BOXES = 0x64772                   # hit boxes: a pointer per frame number (as the frame table)
+RED_BOX_SIDE_PX, RED_BOX_UP_PX = 3, 8   # Red's hit box in the duels: this much wider each side, and taller
+BOX_LOOKUP = 0xB6A0               # the overlap test's other object's box: move.w 8(a0),d5 ; movea.l (a1,d5.w),a2   # ... or the torch duel's (Lower Earth Empire's house: Red is 0x284BE)
 BIG_SET = 0x80
 # The big form has no throwing poses (its throw animations 0x23-0x26 + 0x80 are an empty frame), so the
 # normal throw's frames are drawn with two big poses from the ROM: the wind-up (arm back) with an unused
@@ -310,8 +314,44 @@ def upscaled_frame(rom, frame):
     return n
 
 
+def red_boxes(rom, frame_map):
+    """Red drawn big keeps the small art's hit box (object+8 is the normal frame), so a leaf could touch the big
+    art and miss him. When the overlap test (0xB642) checks an object against the noted Red, it now takes a box
+    from RED_BOXES: his small frame's outer box (y offset, height, x offset, width; x128) RED_BOX_SIDE_PX wider
+    each side and RED_BOX_UP_PX taller - between the small art's and the big art's (the big frames' own boxes made
+    the duel too easy, and sit off the nudged art's middle)."""
+    made, table = {}, b""
+    for f in range(0, NORMAL_FRAMES, 4):
+        q = rom.u32(BOXES + f)
+        if q not in made:
+            yoff, h, xoff, w = (rom.u16(q + i) for i in range(0, 8, 2))
+            rec = b"".join(v.to_bytes(2, "big") for v in (yoff, h + RED_BOX_UP_PX * 128,
+                                                          (xoff - RED_BOX_SIDE_PX * 128) & 0xFFFF,
+                                                          w + 2 * RED_BOX_SIDE_PX * 128, 0))
+            made[q] = rom.alloc(len(rec), align=2)
+            rom.data[made[q]:made[q] + len(rec)] = rec
+        table += made[q].to_bytes(4, "big")
+    at = rom.alloc(len(table), align=2)
+    rom.data[at:at + len(table)] = table
+    hook(rom, BOX_LOOKUP, "3A28000824715000",
+         "    move.w 8(%%a0),%%d5\n"
+         "    cmpa.l 0x%X,%%a0\n"
+         "    bne 1f\n"
+         "    and.w #0x7FF,%%d5\n"
+         "    cmp.w #0x%X,%%d5\n"
+         "    bcc 2f\n"
+         "    lea 0x%X,%%a2\n"
+         "    movea.l (%%a2,%%d5.w),%%a2\n"
+         "    rts\n"
+         "2:  move.w 8(%%a0),%%d5\n"
+         "1:  movea.l (%%a1,%%d5.w),%%a2\n"
+         "    rts\n" % (RED_OBJ, NORMAL_FRAMES, at),
+         "overlap test: Red drawn big is hit as the big art")
+
+
 def apply(rom):
     rows, frame_map = big_frame_tables(rom)
+    red_boxes(rom, frame_map)
     burned = {}
     for n in BURN_ANIMS:
         p = rom.u32(ANIM_TABLE + 4 * n)
@@ -417,9 +457,14 @@ draw:
     cmp.w #NORMAL_FRAMES,%d4
     bcc 11f
     cmpi.l #RED_CODE_LO,4(%a0)      | (the ending's objects only - e.g. the title screen's green player stays small)
-    bcs 11f
+    bcs 13f
     cmpi.l #RED_CODE_HI,4(%a0)
+    bcs 14f
+13: cmpi.l #RED_DUEL_LO,4(%a0)      | (... or the torch duel's)
+    bcs 11f
+    cmpi.l #RED_DUEL_HI,4(%a0)
     bcc 11f
+14:
 HERO_ONLY_A0    move.l %a0,RED_OBJ_RAM
     bra 12f
 11: cmpa.l RED_OBJ_RAM,%a0             | (the noted object drawing something else: forgotten)
@@ -629,6 +674,7 @@ DATA
     src = src.replace("HERO_ONLY_A0", "".join("    cmpa.l #0x%X,%%a0\n    beq 12f\n" % obj for obj in HERO_OBJECTS))
     src = src.replace("RED_OBJ_RAM", "0x%X" % RED_OBJ)
     src = src.replace("RED_CODE_LO", "0x%X" % RED_CODE[0]).replace("RED_CODE_HI", "0x%X" % RED_CODE[1])
+    src = src.replace("RED_DUEL_LO", "0x%X" % RED_DUEL_CODE[0]).replace("RED_DUEL_HI", "0x%X" % RED_DUEL_CODE[1])
     src = (src.replace("HERO_A0F", hero_check("a0")).replace("PAIR_A0F", pair("a0", "a1"))
            .replace("HERO_A0H", hero_check("a0")).replace("PAIR_A0H", pair("a0", "a1"))
            .replace("HERO_A5", hero_check("a5")).replace("HERO_A0", hero_check("a0"))

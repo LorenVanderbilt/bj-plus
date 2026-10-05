@@ -27,6 +27,16 @@ BOX_TOP = (17 * 64 + 10 * 2, 0x535D)
 # frame's mirrored left side: the gold bar (0x5812, as beside both corner stars) and the map's top edge, whose tiles
 # run on from the neighbours (0x4A84-0x4A86 at sprites 13-15 row 12 -> 0x4A87; 0x4B45 at sprite 18 -> 0x4B44 at 17).
 MAP_BOX_TOP = (16 * 64 + 11 * 2, 0x581E)
+# Red's duel (Lower Earth Empire's house, the torch): after a tie or a loss the result text's callback (0x288B8)
+# sets the screen's done flag 0x107861, but after a win its callback (0x288C0: Red's torch shown - object 0x104600 -
+# and given by 0x4BEF0) doesn't - the screen's loop (0x2865C) ended at the countdown's expiry, which never comes
+# now: the win screen stayed for good. The win now starts WIN_COUNT at WIN_HOLD; the loop counts it down a frame
+# at a time with its tick (so Red's torch animates meanwhile) and sets the done flag when it runs out.
+WIN_GIVE = 0x288E0           # jsr 0x4BEF0 ; rts (the win callback's end)
+LOOP_TICK = 0x28660          # jsr 0x218A0 (the screen's loop: its countdown tick)
+GIVE_ITEM, DONE = 0x4BEF0, 0x107861
+WIN_COUNT = 0x10E81C         # (word)
+WIN_HOLD = 150
 MAP_COVER = [   # (VRAM address of the first tile word, (tile, attribute) going down)
     (16 * 64 + 11 * 2, [(0x5812, 0xDD00), (0x4A87, 0xF000)]),
     (17 * 64 + 11 * 2, [(0x5812, 0xDD00), (0x4B44, 0xF000)]),
@@ -120,6 +130,16 @@ def apply(rom):
     for site, target in CONTINUE_CALLS:
         rom.write(site + 2, (copy + target - lo).to_bytes(4, "big"), expect=target.to_bytes(4, "big"),
                   why="continue screen: its countdown keeps the original routines (a copy)")
+    win = rom.place_code(
+        "    jsr 0x%X\n    move.w #%d,0x%X\n    rts\n" % (GIVE_ITEM, WIN_HOLD, WIN_COUNT),
+        why="Red's duel won: the torch, then a hold")
+    rom.write(WIN_GIVE, bytes.fromhex("4EB9") + win.to_bytes(4, "big"), expect=bytes.fromhex("4EB9") + GIVE_ITEM.to_bytes(4, "big"),
+              why="Red's duel won: end the screen after a hold (it waited for the countdown)")
+    tick = rom.place_code(
+        "    tst.w 0x%X\n    beq 1f\n    subq.w #1,0x%X\n    bne 1f\n    move.b #1,0x%X\n1:  jmp 0x%X\n"
+        % (WIN_COUNT, WIN_COUNT, DONE, TICK), why="Red's duel screen: the win's hold counted down")
+    rom.write(LOOP_TICK, bytes.fromhex("4EB9") + tick.to_bytes(4, "big"), expect=bytes.fromhex("4EB9") + TICK.to_bytes(4, "big"),
+              why="Red's duel screen: its tick also counts down the win's hold")
     rom.write(TICK, bytes.fromhex("4EF9") + FLAG_RTS.to_bytes(4, "big"), expect=bytes.fromhex("0C2E0099783F"),
               why="NPC screens: the answer countdown never ticks")
     rom.write(DRAW, bytes.fromhex("4EF9") + FLAG_RTS.to_bytes(4, "big") + bytes.fromhex("4E71"),

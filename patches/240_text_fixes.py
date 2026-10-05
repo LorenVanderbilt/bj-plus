@@ -33,7 +33,6 @@ FIXES = [
     (0x280C2, "LOSTER.", "LOSER."),
     (0x28168, "AWAY FROM ME", "AWAY FROM ME?"),
     (0x281E0, "CHOICE.I'LL FIGHT.", "CHOICE. I'LL FIGHT"),
-    (0x28760, "BULE, YOU", "BLUE, YOU"), (0x28760, "BULE TOOK", "BLUE TOOK"),
     (0x2C6C6, "TIME FOR CARDS", "TIME FOR CARDS?"),
     (0x2CCD6, "ENOUGH FLOWER.", "ENOUGH FLOWERS"),
     (0x2D3FE, "UNTERSTAND", "UNDERSTAND"),
@@ -117,6 +116,15 @@ STRINGS = [
     (0x2E42E, ["BLUE DOESN'T HAVE A TORCH."]),                              # BLUE DID NOT HAVE THE TORCH / WITH HIM.
     (0x2EDA8, ["WITH THIS CHARM, NEROS'S", "SPELL WON'T FREEZE YOU."]),     # THIS SPELL PROTECTS YOU FROM / ...
     (0x2DF16, ["BLUE COULDN'T ANSWER,", "SO HE RAN AWAY."]),                 # (time-up) ... SO HE RUN AWAY.
+    # Lower Earth Empire: Red's duel for the torch
+    (0x27E9A, ["WHAT?! YOU BEAT ME IN THE", "CONTEST! NOW FIGHT ME!"]),          # WHAT?! / YOU BEAT ME IN THE CONTEST, / ...
+    (0x27F38, ["YOU BEAT ME IN THE CONTEST,", "BUT I'VE BEEN TRAINING.", "NOW FIGHT ME!"]),   # I'VE BEEN TRAINIG SINCE THEN,
+    (0x28010, ["  YOU'RE ON!", "  NO TIME TO FIGHT."]),                   # YOU HAVE MY WORD. / THERE'S NO TIME TO FIGHT.
+    (0x280C2, ["FIRST ONE TO GET HIT LOSES.", "HERE WE GO!"]),           # WHOEVER RECEIVES ANY DAMAGE IS / IS THE LOSTER.
+    (0x281E0, ["  FINE, I'LL FIGHT.", "  I'M IN A HURRY."]),             # I HAVE NO CHOICE.I'LL FIGHT. / I'M HURRYING.
+    (0x282D2, ["  WHAT?! I'LL DO IT!", "  I GUESS I'M A COWARD."]),       # WHAT? I'LL DO IT. / I'M A COWARD AFTER ALL.
+    (0x28760, ["DANG IT! BACK TO TRAINING.", "BLUE, TAKE THIS.", " ", " BLUE TOOK THE TORCH."]),   # GOT THEN! ... BULE
+    (0x28808, ["HA! NOW I'M THE STRONGEST!", "SO LONG, BLUE."]),          # AHH, ... SO LONG, BULE.
     # the travel agent (Japanese: the "Pyuu" travel center)
     (0x2724A, ["NEED A RIDE SOMEWHERE?"]),                 # (was WILL YOU USE THE TRAVEL AGENT?)
     (0x2744C, ["  10 FLOWERS", "    TO THIS AREA'S BOSS", "  20 FLOWERS", "    TO THE EMPIRE MARSH",
@@ -221,6 +229,8 @@ MOVED = [
 # boss in the last level, after his defeat (Japanese: it's not programmed into him - he was only built to fight).
 RELOCATED = [   # (name, where its address is (an lea's operand) or None, old address, new lines, the 0xFB next by name)
     # the endings (Japanese as a guide)
+    # Red's duel for the torch: his greeting (was ... A LONG TIME TO SEE YOU.)
+    ("red1", 0x27ADE, 0x27C92, ["BLUE, I'VE BEEN WAITING", "A LONG TIME TO SEE YOU AGAIN.", "DON'T TELL ME YOU FORGOT ME!"], None),
     ("end1", 0x23BCA, 0x23CAC, ["THE DARUMA TRIBE LEFT, AND", "NATURE RETURNED TO RAGUY."], None),
     ("end2", 0x23D04, 0x23D78, ["ALL WHO FELL ILL FROM THE", "POLLUTION WERE CURED,", " ", "INCLUDING PRINCESS FA."], None),
     ("end4", 0x23F14, 0x240F6, ["OF COURSE, FA SAID YES.", "AND THEY LIVED", "HAPPILY EVER AFTER."], None),
