@@ -222,7 +222,7 @@ MOVED = [
 RELOCATED = [   # (name, where its address is (an lea's operand) or None, old address, new lines, the 0xFB next by name)
     # the endings (Japanese as a guide)
     ("end1", 0x23BCA, 0x23CAC, ["THE DARUMA TRIBE LEFT, AND", "NATURE RETURNED TO RAGUY."], None),
-    ("end2", 0x23D04, 0x23D78, ["ALL WHO FELL ILL FROM THE", "POLLUTION WERE CURED,", "INCLUDING PRINCESS FA."], None),
+    ("end2", 0x23D04, 0x23D78, ["ALL WHO FELL ILL FROM THE", "POLLUTION WERE CURED,", " ", "INCLUDING PRINCESS FA."], None),
     ("end4", 0x23F14, 0x240F6, ["OF COURSE, FA SAID YES.", "AND THEY LIVED", "HAPPILY EVER AFTER."], None),
     ("end4b", 0x24DB6, 0x24E28, ["OF COURSE, FA SAID YES.", "AND THEY LIVED", "HAPPILY EVER AFTER."], None),
     ("end5", 0x23F8A, 0x23FD8, ["BUT NEROS'S CURSE", "TURNED BLUE TO ICE."], None),        # THEN BLUE WAS FROZEN BY NROS'S ...
