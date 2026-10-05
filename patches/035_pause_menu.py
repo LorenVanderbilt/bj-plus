@@ -16,6 +16,7 @@ RESUME_AT = 0x11B16
 START_CHECK_SITE = 0x11B06  # pause-start's `jsr <its Start press check>` (Z clear on a new press)
 WAIT_FRAME = 0xE856
 MODE = 0x103004
+CHECKPOINT = 0x103008       # the restart point reached (10 bytes; 0 = the stage's beginning)
 ATTRACT_TOGGLE = 0x1033CA   # bit 0 clear: the attract cycle with the title runs next
 P_TILE = 0x722C             # PAUSE's P on the fix layer
 MENU_ADDR = 0x7000 + 13 * 32 + 15   # column 13, row 15
@@ -76,7 +77,10 @@ def apply(rom):
     jsr 0x%(exit)X
     cmp.b #1,0x%(cursor)X
     bne 5f
-    move.b #0,0x%(mode)X               | RESTART LEVEL: the stage's start
+    clr.l 0x%(checkpoint)X              | RESTART LEVEL: the checkpoint forgotten, then the stage's start
+    clr.l 0x%(checkpoint)X+4
+    clr.w 0x%(checkpoint)X+8
+    move.b #0,0x%(mode)X
     rts
 5:  bclr #0,0x%(toggle)X              | QUIT TO TITLE
     move.b #8,0x%(mode)X
@@ -143,7 +147,7 @@ items:
 %(lines)s    .even
 """ % {"enter": PAUSE_ENTER, "exit": PAUSE_EXIT, "ptile": P_TILE, "base": BASE, "cursor": CURSOR, "prev": PREV,
        "p1": P1_NOW, "wait": WAIT_FRAME, "start": start_check, "mode": MODE, "toggle": ATTRACT_TOGGLE,
-       "resume_at": RESUME_AT, "addr": MENU_ADDR, "w1": WIDTH - 1, "lines": lines},
+       "resume_at": RESUME_AT, "checkpoint": CHECKPOINT, "addr": MENU_ADDR, "w1": WIDTH - 1, "lines": lines},
         why="pause menu: RESUME / RESTART LEVEL / QUIT TO TITLE")
     rom.write(PAUSE_SITE, bytes.fromhex("4EF9") + code.to_bytes(4, "big"), expect=bytes.fromhex("61003" + "94C4EB9"),
               why="pause: the menu instead of waiting for Start")
