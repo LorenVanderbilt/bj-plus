@@ -6,7 +6,8 @@ DESCRIPTION = "Free sprite tiles for new art: frames using blank or duplicate ti
 # written again (an empty spot instead of the blank tile, the first of the identical tiles instead of the others),
 # which leaves the other tiles unused: they go to rom.tile_pool, which add_sprite_tile uses after its range.
 # A tile is only freed if:
-#   * every frame using it is a plain one (no per-tile attributes - those frames aren't rewritten);
+#   * every frame using it is a plain one (no per-tile attributes, and mode 0: a mode 1 frame - the hero's -
+#     has no "1, attribute, bank, tile" entries, so one can't be rewritten to use a tile in another bank);
 #   * its number never appears as a word in the code (below 0x60000), nor - with the rest of its group of 8, the
 #     hardware's tile animation - in the data after it, outside the frame definitions (level maps name tiles);
 #   * no patch names it (a 0x.... number in their source - e.g. the text box tiles drawn by story-last-line).
@@ -63,6 +64,8 @@ def apply(rom):
         if not 0x60000 <= p < len(rom.orig):
             continue
         cols, rows, mode, attr, tiles, plain, end = decode(rom, p)
+        if mode != 0:             # (mode 1 - the hero's frames - has no bank-switch entries: never rewritten)
+            plain = False
         frames[fr] = (cols, rows, mode, attr, tiles, plain)
         defs_bytes.update(range(p, end + 1))
     refs, fixed = {}, set()
