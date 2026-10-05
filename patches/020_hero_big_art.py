@@ -50,6 +50,10 @@ NORMAL_FRAMES = 0x190             # the normal hero's frames are 0-0x18C (0x134-
 #     every fourth frame; like the normal cycle (0x6C 0x70 0x74 0x70) it repeats its second pose instead.
 ROW_OVERRIDES = {0x2D: "none", 0x2B: "none", 0x18: [0x330, 0x334, 0x338, 0x334]}
 BREATHE = (0x364, 0x368)
+# Standing still (animation 0), the small art's antennas are spread (one leaning out); the big standing pair
+# 0x364 / 0x368 has them straight up side by side. They're drawn with spread_antennas copies (new frames: the walk,
+# whose big frames 0x30C-0x314 lean and close them, is untouched).
+STANDING_ANIM, ANTENNA_FROM = 0, 0x314
 PAIR_RAM = [0x10EA20, 0x10EA30]   # spare RAM per player: +0 normal frame, +2 the big frame drawn for it, +4 the
                                   # normal frame's width in tiles, +5 1 if this draw used the big frame, +6 its
                                   # height, +7 which of +34 / +36 / +38 (bits 0-2) to set back after the draw,
@@ -329,14 +333,23 @@ def upscaled_frame(rom, frame):
             if v:
                 big[x, y] = v
     p = rom.u32(__import__("hackbuild").FRAME_TABLE + frame)
-    main_cols, main_rows = (rom.data[p] + 1) * 3 // 2, (rom.data[p + 1] + 1) * 3 // 2
+    return frame_from_pixels(rom, big, palette, (rom.data[p] + 1) * 3 // 2, (rom.data[p + 1] + 1) * 3 // 2, frame,
+                             "1.5x")
+
+
+def frame_from_pixels(rom, big, palette, main_cols, main_rows, frame, what, keep=None):
+    """A new frame from {(x, y): colour} (x, y from the main block's top left): a main block of main_cols x
+    main_rows tiles, whatever lies outside it as pieces; and its player 2 copy (as `frame`'s, in its palette).
+    keep: {(column, row): an existing tile} used again where the cell's pixels are that tile's."""
     cells = {}
     for (x, y), v in big.items():
         cells.setdefault((x // 16, y // 16), {})[x % 16, y % 16] = v
 
     def new_tile(cell):
         block = [[cells[cell].get((x, y), 0) for x in range(16)] for y in range(16)]
-        return rom.add_sprite_tile(block, why="big hero frame 0x%X, 1.5x" % frame, share=True)
+        if keep and cell in keep and rom.sprite_tile(keep[cell]) == block:
+            return keep[cell]
+        return rom.add_sprite_tile(block, why="big hero frame 0x%X, %s" % (frame, what), share=True)
     out = [[new_tile((c, r)) if (c, r) in cells else None for c in range(main_cols)] for r in range(main_rows)]
     pieces = []
     for c in sorted({c for c, _ in cells}):
@@ -347,14 +360,37 @@ def upscaled_frame(rom, frame):
                 run.append(rs.pop(0))
             pieces.append((c * 8, -run[0] * 8, [new_tile((c, r)) for r in run]))
     import hackbuild
-    n = rom.add_frame(out, palette, why="big hero: frame 0x%X, 1.5x" % frame, pieces=pieces)
+    n = rom.add_frame(out, palette, why="big hero: frame 0x%X, %s" % (frame, what), pieces=pieces)
     rom.data[rom.u32(hackbuild.FRAME_TABLE + n) + 2] = BURN_MODE
     p2_palette = rom.data[rom.u32(hackbuild.FRAME_TABLE + frame + P2_FRAMES) + 3]
     if p2_palette != palette:                 # (player 2's copy of the frame: the same art in its own palette)
-        m = rom.add_frame(out, p2_palette, why="big hero: frame 0x%X, 1.5x, player 2" % frame, pieces=pieces)
+        m = rom.add_frame(out, p2_palette, why="big hero: frame 0x%X, %s, player 2" % (frame, what), pieces=pieces)
         rom.data[rom.u32(hackbuild.FRAME_TABLE + m) + 2] = BURN_MODE
         P2_COPIES[n] = m
     return n
+
+
+def spread_antennas(rom, frame):
+    """The big standing frame `frame` (0x364 / 0x368: both antennas straight up, side by side) with its right
+    antenna leaning out, as the small art's standing pose has it - that antenna as the big walk frame 0x314 draws
+    it (its head 1 px lower: moved up 1). Columns / rows as in 0x364."""
+    px, palette = frame_pixels(rom, frame)
+    lean = frame_pixels(rom, ANTENNA_FROM)[0]
+    for y in range(5, 12):                    # the straight right antenna out
+        for x in range(23, 27):
+            px.pop((x, y), None)
+    for y in range(7, 13):                    # the leaning one in (it starts at x = 36 - y)
+        for x in range(36 - y, 33):
+            if (x, y) in lean:
+                px[x, y - 1] = lean[x, y]
+    for x in range(23, 27):                   # where it joins the head
+        if (x, 13) in lean:
+            px[x, 12] = lean[x, 13]
+    p = rom.u32(__import__("hackbuild").FRAME_TABLE + frame)
+    tiles = rom.frame_tiles(frame)[0]        # (the cells left alone keep their tiles)
+    keep = {(c, r): t for r, row in enumerate(tiles) for c, t in enumerate(row) if t is not None}
+    return frame_from_pixels(rom, px, palette, rom.data[p] + 1, rom.data[p + 1] + 1, frame, "antennas spread",
+                             keep)
 
 
 def red_boxes(rom, frame_map):
@@ -393,6 +429,7 @@ def red_boxes(rom, frame_map):
 
 
 def apply(rom):
+    ROW_OVERRIDES[STANDING_ANIM] = [spread_antennas(rom, f) for f in BREATHE]
     rows, frame_map = big_frame_tables(rom)
     hook(rom, ROPE_IDLE, "4A2E78CB66000052",
          "    move.w #1,0x%X\n    tst.b 0x78CB(%%a6)\n    beq 1f\n    addq.l #4,%%sp\n    jmp 0x29A44\n1:  rts\n"
