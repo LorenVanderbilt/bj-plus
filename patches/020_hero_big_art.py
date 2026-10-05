@@ -81,6 +81,10 @@ FRAME_SUBSTITUTES = {0xB0: BIG_WINDUP, 0xB4: BIG_RELEASE, 0xB8: BIG_WINDUP, 0xBC
                      # with the big crawling poses
                      0x8C: BIG_WINDUP, 0x90: BIG_RELEASE, 0x94: 0x330, 0x98: 0x334, 0x9C: 0x338}
 HERO_UP_PX = 15
+# The burn in lava (animations 0x1D-0x1F, the hop, and 0x31, lying in it) uses charred art the big form has no
+# version of (its big rows are plain poses): these frames get big versions scaled up 1.5x from the small ones
+# (new frames; player 2 draws them too - no copies 0x800 further on, which aren't free).
+BURN_ANIMS = [0x1D, 0x1E, 0x1F, 0x31]
 # ... per hero state (+104): the big art is lined up by its feet, which is wrong where the hero hangs by his hands:
 #   44, hanging from the balloon (player 2 floating in): the big pose's hands are 2px lower in its frame than the
 #   normal pose's, so it only goes up 2px (15 lifted his hands well above the balloon's string)
@@ -230,8 +234,47 @@ def big_frame_tables(rom):
     return rows, frame_map
 
 
+def upscaled_frame(rom, frame):
+    """A new frame: `frame` drawn 1.5x as big (each pixel to 1 or 2 rows / columns, nearest)."""
+    tiles, palette = rom.frame_tiles(frame)
+    rows, cols = len(tiles), len(tiles[0])
+    src = [[0] * (cols * 16) for _ in range(rows * 16)]
+    for r in range(rows):
+        for c in range(cols):
+            if tiles[r][c] is not None:
+                px = rom.sprite_tile(tiles[r][c])
+                for y in range(16):
+                    src[r * 16 + y][c * 16:c * 16 + 16] = px[y]
+    h, w = rows * 24, cols * 24
+    big = [[src[y * 2 // 3][x * 2 // 3] for x in range(w)] for y in range(h)]
+    out = []
+    for r in range((h + 15) // 16):
+        line = []
+        for c in range((w + 15) // 16):
+            block = [(big[r * 16 + y][c * 16:c * 16 + 16] + [0] * 16)[:16] if r * 16 + y < h else [0] * 16
+                     for y in range(16)]
+            line.append(rom.add_sprite_tile(block, why="big burn frame 0x%X" % frame) if any(any(b) for b in block)
+                        else None)
+        out.append(line)
+    return rom.add_frame(out, palette, why="big hero: burned frame 0x%X, 1.5x" % frame)
+
+
 def apply(rom):
     rows, frame_map = big_frame_tables(rom)
+    burned = {}
+    for n in BURN_ANIMS:
+        p = rom.u32(ANIM_TABLE + 4 * n)
+        i = 0
+        while True:
+            w = rom.u16(p + 2 * i)
+            if w >= 0xFFFE:
+                break
+            if w not in burned:
+                burned[w] = upscaled_frame(rom, w)
+            if i < len(rows[n]):
+                rows[n][i] = burned[w]
+            i += 1
+    frame_map.update(burned)
     offs, off = [], 0
     for row in rows:
         offs.append(off)
@@ -359,6 +402,8 @@ PAIR_A0    clr.b 5(%a1)                    | (1 = this draw uses a big frame: th
 5:  move.b #1,5(%a1)
     move.w (%sp)+,%d4
     and.w #0x800,%d4
+    cmp.w #NEW_FRAMES,%d3           | (frames made here have no player 2 copies)
+    bcc 8f
     add.w %d4,%d3                   | player 2: its copy of the big frame
     bra 8f
 4:  move.w (%sp)+,%d3               | as it is
@@ -529,7 +574,7 @@ DATA
            .replace("HERO_A5", hero_check("a5")).replace("HERO_A0", hero_check("a0"))
            .replace("PAIR_A5", pair("a5", "a2")).replace("PAIR_A0", pair("a0", "a1"))
            .replace("NORMAL_ANIMS", "0x%X" % NORMAL_ANIMS).replace("NORMAL_FRAMES", "0x%X" % NORMAL_FRAMES)
-           .replace("ANIM_TABLE", "0x%X" % ANIM_TABLE)
+           .replace("ANIM_TABLE", "0x%X" % ANIM_TABLE).replace("NEW_FRAMES", "0x3F00")
            .replace("DRAW_LOOP_RETURN", "0x%X" % DRAW_LOOP_RETURN)
            .replace("ZOOM_SHRINK", str(ZOOM_SHRINK)).replace("ZOOM_GROW", str(ZOOM_GROW)).replace("RESTORES", restores).replace("DATA", data))
     base = rom.place_code(src, why="hero big art: pick and draw the big frame for the normal hero's frame")
