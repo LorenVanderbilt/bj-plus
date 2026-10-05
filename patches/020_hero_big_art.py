@@ -117,6 +117,18 @@ HERO_LEFT_PX_FACING_LEFT = 10   # facing left: it sits ~10px right of centre (me
 # art grips it), so while climbing it is moved that much further toward the hands' side.
 VINE_STATES = [20]
 VINE_PX = 12
+# The lottery's ropes (after a boss): Blue jumps up and hangs on one (state 20, as on a vine), at whatever x he
+# caught it - the game doesn't line him up, and the small art's hand is near its middle; the big art's hand is
+# further out, so he could hang a hand's width from the cord. While the ropes are there their routine (ROPE_IDLE,
+# every frame, each rope not pulled) sets ROPE_HELD, cleared whenever a hero is drawn not hanging; a hero hanging
+# meanwhile, facing right, is drawn so his hand is on the nearest rope (ROPE_CODES: idle, being pulled, pulled)
+# within ROPE_NEAR_PX (with the nudges above his hand is ROPE_HAND_PX right of the rope's x: measured from
+# sta/aes/lotto_ocarina_afford.sta). Facing left, as it is (not seen in play).
+ROPE_IDLE = 0x299EC          # tst.b 0x78CB(a6) ; bne.w 0x29A44
+ROPE_CODES = [0x299EC, 0x29A46, 0x29A6A, 0x29AA8]
+ROPE_HELD = 0x10E820
+OBJECTS = 96
+ROPE_NEAR_PX, ROPE_HAND_PX = 32, 10
 
 DRAW_X_ZOOMED = 0xA604    # subi.w #0x4000,d5 ; move.w #256,d6
 DRAW_X_PLAIN = 0xA6AA     # subi.w #0x4000,d6 ; move.w d6,(a2)
@@ -170,8 +182,19 @@ def x_shift(dreg, px=None, facing_left=False):
     per_anim = ("    movem.l %%d0/%%a1,-(%%sp)\n    moveq #0,%%d0\n    move.b 104(%%a0),%%d0\n    and.w #0x7F,%%d0\n"
                 "    add.w %%d0,%%d0\n    lea 0x%X,%%a1\n    move.w (%%a1,%%d0.w),%%d0\n    %s.w %%d0,%%%s\n"
                 "    movem.l (%%sp)+,%%d0/%%a1\n" % (_side_table[0], "add" if facing_left else "sub", dreg))
+    if not facing_left:                      # hanging on a lottery rope: his big hand drawn on its cord
+        codes = "".join("    cmp.l #0x%X,%%d1\n    beq ropc%d\n" % (c, n) for c in ROPE_CODES)
+        vine += ("    tst.w 0x%X\n    beq rope%d\n    movem.l %%d0-%%d4/%%a1,-(%%sp)\n    lea 0x104000,%%a1\n"
+                 "    moveq #%d,%%d0\n    move.w #0x7FFF,%%d2\n    moveq #0,%%d3\nropl%d:\n    move.l 4(%%a1),%%d1\n%s"
+                 "    bra ropn%d\nropc%d:\n    move.w 2(%%a1),%%d1\n    sub.w 2(%%a0),%%d1\n    move.w %%d1,%%d4\n"
+                 "    bpl ropa%d\n    neg.w %%d4\nropa%d:\n    cmp.w %%d2,%%d4\n    bcc ropn%d\n    move.w %%d4,%%d2\n"
+                 "    move.w %%d1,%%d3\nropn%d:\n    lea 0x80(%%a1),%%a1\n    dbf %%d0,ropl%d\n    cmp.w #%d,%%d2\n"
+                 "    bhi ropx%d\n    add.w %%d3,%%%s\n    sub.w #%d,%%%s\nropx%d:\n    movem.l (%%sp)+,%%d0-%%d4/%%a1\n"
+                 "rope%d:\n"
+                 % (ROPE_HELD, n, OBJECTS - 1, n, codes, n, n, n, n, n, n, n, ROPE_NEAR_PX * 128, n, dreg,
+                    ROPE_HAND_PX * 128, dreg, n, n))
     return ("    sub.w #%d,%%%s\n" % ((HERO_LEFT_PX if px is None else px) * 128, dreg) + per_anim +
-            checks + "    bra novine%d\nvine%d:\n%snovine%d:\n" % (n, n, vine, n))
+            checks + "    clr.w 0x%X\n    bra novine%d\nvine%d:\n%snovine%d:\n" % (ROPE_HELD, n, n, vine, n))
 
 
 _up_table = [None]
@@ -371,6 +394,9 @@ def red_boxes(rom, frame_map):
 
 def apply(rom):
     rows, frame_map = big_frame_tables(rom)
+    hook(rom, ROPE_IDLE, "4A2E78CB66000052",
+         "    move.w #1,0x%X\n    tst.b 0x78CB(%%a6)\n    beq 1f\n    addq.l #4,%%sp\n    jmp 0x29A44\n1:  rts\n"
+         % ROPE_HELD, "lottery ropes: note that they're there (for the big hero hanging on one)")
     red_boxes(rom, frame_map)
     fidget, q = [], rom.u32(ANIM_TABLE + 4 * FIDGET_ANIM)
     while rom.u16(q) < 0xFFFE:
