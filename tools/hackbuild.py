@@ -202,7 +202,7 @@ class Rom:
         self.next_sprite_tile = n + 1
         return n
 
-    def _frame_definition(self, tiles, palette):
+    def _frame_definition(self, tiles, palette, pieces=()):
         """The bytes of a frame definition in the per-tile form (see 0xA996): columns-1, rows-1, 0, palette, the tile
         number's high byte; then for each column top to bottom a byte: 0 = blank, else the tile number's low byte -
         or, when the high byte changes (or the low byte is 0 or 1), 1, 0x20, the new high byte, the low byte."""
@@ -218,6 +218,15 @@ class Rom:
                 if t is None:
                     body.append(0)
                 elif t >> 8 == hi and (t & 0xFF) > 1:
+                    body.append(t & 0xFF)
+                else:
+                    hi = t >> 8
+                    body += bytes([1, 0x20, hi, t & 0xFF])
+        for x, up, column in pieces:         # extra one-column sprites (see 0xAF1C): offsets in 2px units
+            hi = column[0] >> 8
+            body += bytes([len(column) - 1, x & 0xFF, up & 0xFF, palette, hi])
+            for t in column:
+                if t >> 8 == hi and (t & 0xFF) > 1:
                     body.append(t & 0xFF)
                 else:
                     hi = t >> 8
@@ -246,10 +255,11 @@ class Rom:
                 tiles[r][c] = (hi << 8) | b
         return tiles, attr
 
-    def add_frame(self, tiles, palette, why=""):
+    def add_frame(self, tiles, palette, why="", pieces=()):
         """Add a sprite frame: tiles[row][col] = a tile number or None (blank), drawn with palette (0-255) unless the
-        object overrides it. Returns the new frame number (what the game stores in an object's +8)."""
-        body = self._frame_definition(tiles, palette)
+        object overrides it. pieces: extra columns (x, up, [tile, ...]) - x right and up from the top left in 2px
+        units, tiles top to bottom. Returns the new frame number (what the game stores in an object's +8)."""
+        body = self._frame_definition(tiles, palette, pieces)
         addr = self.alloc(len(body))
         self.data[addr:addr + len(body)] = body
         n = self.next_frame

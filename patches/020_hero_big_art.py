@@ -86,6 +86,7 @@ HERO_UP_PX = 15
 # form has no charred version: in state 33 those frames are drawn as copies scaled up 1.5x from the small ones (new
 # frames; player 2 draws them too - no copies 0x800 further on, which aren't free).
 BURN_ANIMS = [0x31]
+BURN_MODE = 0         # (their definitions' mode byte, as the big art's frames)
 # ... per hero state (+104): the big art is lined up by its feet, which is wrong where the hero hangs by his hands:
 #   44, hanging from the balloon (player 2 floating in): the big pose's hands are 2px lower in its frame than the
 #   normal pose's, so it only goes up 2px (15 lifted his hands well above the balloon's string)
@@ -235,32 +236,77 @@ def big_frame_tables(rom):
     return rows, frame_map
 
 
+def frame_pixels(rom, frame):
+    """({(x, y): colour} of an original frame - its main block and the extra one-column pieces after it (see
+    0xAF1C: tiles-1, x and y-up in 2px units, palette, high byte, the tiles) - from the main block's top left;
+    and its palette)."""
+    import hackbuild
+    p = rom.u32(hackbuild.FRAME_TABLE + frame)
+    d = rom.data
+    cols, rows, _, palette, hi = d[p:p + 5]
+    q, px = p + 5, {}
+
+    def tile(q, hi):
+        b = d[q]
+        if b == 1:
+            return d[q + 3], d[q + 2], q + 4
+        return (b or None), hi, q + 1
+
+    def put(t, x0, y0):
+        art = rom.sprite_tile(t)
+        for y in range(16):
+            for x in range(16):
+                if art[y][x]:
+                    px[x0 + x, y0 + y] = art[y][x]
+    for c in range(cols + 1):
+        for r in range(rows + 1):
+            b, hi, q = tile(q, hi)
+            if b:
+                put(hi << 8 | b, c * 16, r * 16)
+    while d[q] != 0xFF:
+        n, x, up, _, hi = d[q:q + 5]
+        q += 5
+        x, up = (x ^ 0x80) - 0x80, (up ^ 0x80) - 0x80
+        for r in range(n + 1):
+            b, hi, q = tile(q, hi)
+            if b:
+                put(hi << 8 | b, x * 2, r * 16 - up * 2)
+    return px, palette
+
+
 def upscaled_frame(rom, frame):
-    """A new frame: `frame` drawn 1.5x as big (each pixel to 1 or 2 rows / columns, nearest)."""
-    tiles, palette = rom.frame_tiles(frame)
-    rows, cols = len(tiles), len(tiles[0])
-    src = [[0] * (cols * 16) for _ in range(rows * 16)]
-    for r in range(rows):
-        for c in range(cols):
-            if tiles[r][c] is not None:
-                px = rom.sprite_tile(tiles[r][c])
-                for y in range(16):
-                    src[r * 16 + y][c * 16:c * 16 + 16] = px[y]
-    h, w = rows * 24, cols * 24
-    big = [[src[y * 2 // 3][x * 2 // 3] for x in range(w)] for y in range(h)]
-    out = []
-    for r in range((h + 15) // 16):
-        line = []
-        for c in range((w + 15) // 16):
-            block = [(big[r * 16 + y][c * 16:c * 16 + 16] + [0] * 16)[:16] if r * 16 + y < h else [0] * 16
-                     for y in range(16)]
-            line.append(rom.add_sprite_tile(block, why="big burn frame 0x%X" % frame) if any(any(b) for b in block)
-                        else None)
-        out.append(line)
-    n = rom.add_frame(out, palette, why="big hero: burned frame 0x%X, 1.5x" % frame)
+    """A new frame: `frame` (with its pieces) drawn 1.5x as big (each pixel to 1 or 2 rows / columns, nearest).
+    The main block grows from its top left; whatever lies outside it becomes pieces again."""
+    src, palette = frame_pixels(rom, frame)
+    big = {}
+    xs, ys = [x for x, _ in src], [y for _, y in src]
+    for y in range(min(ys) * 3 // 2 - 1, max(ys) * 3 // 2 + 2):
+        for x in range(min(xs) * 3 // 2 - 1, max(xs) * 3 // 2 + 2):
+            v = src.get((x * 2 // 3, y * 2 // 3))
+            if v:
+                big[x, y] = v
+    p = rom.u32(__import__("hackbuild").FRAME_TABLE + frame)
+    main_cols, main_rows = (rom.data[p] + 1) * 3 // 2, (rom.data[p + 1] + 1) * 3 // 2
+    cells = {}
+    for (x, y), v in big.items():
+        cells.setdefault((x // 16, y // 16), {})[x % 16, y % 16] = v
+
+    def new_tile(cell):
+        block = [[cells[cell].get((x, y), 0) for x in range(16)] for y in range(16)]
+        return rom.add_sprite_tile(block, why="big burn frame 0x%X" % frame)
+    out = [[new_tile((c, r)) if (c, r) in cells else None for c in range(main_cols)] for r in range(main_rows)]
+    pieces = []
+    for c in sorted({c for c, _ in cells}):
+        rs = sorted(r for cc, r in cells if cc == c and not (0 <= c < main_cols and 0 <= r < main_rows))
+        while rs:
+            run = [rs.pop(0)]
+            while rs and rs[0] == run[-1] + 1:
+                run.append(rs.pop(0))
+            pieces.append((c * 8, -run[0] * 8, [new_tile((c, r)) for r in run]))
+    n = rom.add_frame(out, palette, why="big hero: burned frame 0x%X, 1.5x" % frame, pieces=pieces)
     import hackbuild
     q = rom.u32(hackbuild.FRAME_TABLE + n)
-    rom.data[q + 2] = rom.data[rom.u32(hackbuild.FRAME_TABLE + frame) + 2]   # (the small frame's drawing mode)
+    rom.data[q + 2] = BURN_MODE
     return n
 
 

@@ -56,6 +56,7 @@ RAM = 0x10EB80               # +0 2 entries (object offset word, first y word), 
 # looked like player 2 burning too, and a second cover over junk sprites took a whole frame - the game ran at
 # half speed and the screen broke up.)
 LAVA1, LAVA2 = RAM + 96, RAM + 102
+APPLIED = RAM + 118           # 2 bytes, per entry: a burning hero's shift added as he was drawn (see shift_now)
 STRIPS = 0x10ED00
 FULL = 0x10EF60              # up to 24 x (sprite, y, x) words, then -1: the full-height strips among them (see strips)
 HIDE = 0x10EF00              # up to 16 x (object long, draw byte, pad): objects hidden from the behind group's drawing
@@ -108,6 +109,7 @@ post:
     clr.l RAM                        | (nothing sinking: forget the sinking objects' entries and shifts - kept
     clr.l RAM+4                      | until the next one, a new sinking in the same object slot took the old
     clr.l RAM+36                     | one's first y, and its line, from an earlier drowning)
+    clr.w APPLIED
     move.l #0x80008000,RAM+108
     rts
 22: movem.l %d0-%d7/%a0-%a6,-(%sp)
@@ -343,12 +345,59 @@ after_obj:
     move.w RAM+14,(%a1)
     move.w %d1,2(%a1)
     move.b #1,4(%a1)                 | (drawn this frame: post uses it and clears it)
+    bsr shift_now
 2:  move.w %d1,RAM+14
     movem.l (%sp)+,%d0/%a0-%a1
     move.w 656(%a6),%d0
     dbf %d0,3f
     jmp 0xA406
 3:  jmp 0xA3D8
+
+| d0 = a burning hero (object offset), his sprites RAM+14..d1-1 just drawn: his entry's sideways shift (see the
+| cover, 53) added to their x now, while the screen isn't being drawn - the cover's passes come partway down the
+| screen, and a shift written then moved only what was below that line (his top drawn apart from the rest). The
+| entry is marked (APPLIED) so the cover doesn't move him again.
+shift_now:
+    movem.l %d0/%d2-%d4/%a1,-(%sp)
+    lea RAM,%a1
+    moveq #0,%d4
+    cmp.w (%a1),%d0
+    beq 1f
+    moveq #1,%d4
+    cmp.w 4(%a1),%d0
+    bne 9f
+1:  lea APPLIED,%a1
+    st (%a1,%d4.w)
+    add.w %d4,%d4
+    lea RAM+36,%a1
+    move.w (%a1,%d4.w),%d2
+    beq 9f
+    move.w %sr,-(%sp)
+    or.w #0x0700,%sr
+    move.w RAM+14,%d3
+2:  cmp.w %d1,%d3
+    bcc 8f
+    move.w %d3,%d0
+    add.w #0x8200,%d0
+    bsr vread
+    btst #6,%d0                      | (chained sprites follow their first)
+    bne 3f
+    move.w %d3,%d0
+    add.w #0x8400,%d0
+    bsr vread
+    lsr.w #7,%d0
+    add.w %d2,%d0
+    and.w #511,%d0
+    lsl.w #7,%d0
+    move.w %d3,%d4
+    add.w #0x8400,%d4
+    move.w %d4,0x3C0000
+    move.w %d0,0x3C0002
+3:  addq.w #1,%d3
+    bra 2b
+8:  move.w (%sp)+,%sr
+9:  movem.l (%sp)+,%d0/%d2-%d4/%a1
+    rts
 
 | a0 = object, d1 = first sprite: the game's drawing routine (as its loop at 0xA3D8 calls it) -> d1 = next free
 draw_obj:
@@ -946,7 +995,14 @@ cover:
     ble 53f
     move.w %d0,%d2
 53: move.w %d2,(%a0)                 | d2 = the shift now: move his sprites (each chain's x) by it
-    add.w %d2,%d3
+    move.w RAM+34,%d0                | (a burning hero's was added as he was drawn - see shift_now: not again)
+    lsr.w #1,%d0
+    lea APPLIED,%a0
+    tst.b (%a0,%d0.w)
+    beq 56f
+    clr.b (%a0,%d0.w)
+    bra 59f
+56: add.w %d2,%d3
     add.w %d2,%d4
     tst.w %d2
     beq 59f
@@ -1073,7 +1129,7 @@ pass2:
 """
     consts = {"DRAW_BEHIND": "0x%X" % DRAW_BEHIND, "DROWN_CODE": "0x%X" % DROWN_CODE,
               "SPLASH_CODE": "0x%X" % SPLASH_CODE, "GEYSER_CODE": "0x%X" % GEYSER_CODE, "GEYSER_ROWS": str(GEYSER_ROWS), "GEYSER_COVER_ROWS": str(GEYSER_COVER_ROWS), "BUBBLE_UP": str(BUBBLE_UP), "STALK_SHOWS": str(STALK_SHOWS), "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS), "SPLASH_UP": str(SPLASH_UP), "POOL_DOWN": str(POOL_DOWN),
-              "RAM": "0x%X" % RAM, "STRIPS": "0x%X" % STRIPS, "FULL": "0x%X" % FULL, "HIDE": "0x%X" % HIDE, "FOAM_CODE": "0x%X" % (getattr(rom, "geyser_foam_code", 0) or 1), "LAVA1": "0x%X" % LAVA1, "LAVA2": "0x%X" % LAVA2, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
+              "RAM": "0x%X" % RAM, "STRIPS": "0x%X" % STRIPS, "FULL": "0x%X" % FULL, "HIDE": "0x%X" % HIDE, "FOAM_CODE": "0x%X" % (getattr(rom, "geyser_foam_code", 0) or 1), "LAVA1": "0x%X" % LAVA1, "APPLIED": "0x%X" % APPLIED, "LAVA2": "0x%X" % LAVA2, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
               "BLANK_TILE": "0x%X" % rom.add_sprite_tile([[0] * 16 for _ in range(16)], why="drowning: a blank tile")}
     for k in sorted(consts, key=len, reverse=True):
         src = src.replace(k, consts[k])
