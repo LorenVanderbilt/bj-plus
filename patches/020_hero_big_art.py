@@ -64,6 +64,11 @@ DRAW_LOOP_RETURN = 0xA3FE         # the object drawing loop calls the drawing ro
 FLIP_OFFSET = 0xA4FC              # computes object+34 from the drawn frame's width: move.b 33(a0),d6 ; andi.b #12,d6
 HEIGHT_OFFSET = 0xA55A            # and object+36 from its height (zoomed drawing): move.b 33(a0),d6 ; andi.b #3,d6
 HERO_OBJECTS = [0x104000, 0x104080]   # the objects for player 1 and player 2
+# Red (the ending's rival: his duel, his scenes) is another object drawing player 2's copies of the hero frames
+# (0x800 further on). The drawing hook notes such an object in RED_OBJ (forgotten once it draws something else)
+# and treats it as a third hero, with its own pair RAM - so he is drawn with the big art too.
+RED_PAIR = 0x10EA40
+RED_OBJ = 0x10EA50
 BIG_SET = 0x80
 # The big form has no throwing poses (its throw animations 0x23-0x26 + 0x80 are an empty frame), so the
 # normal throw's frames are drawn with two big poses from the ROM: the wind-up (arm back) with an unused
@@ -126,8 +131,9 @@ def hero_only(reg, body, tag=""):
     the drawing hook sets in PAIR_RAM +5), else skips it. `tag` makes the labels unique when one routine
     uses this more than once."""
     checks = "".join("    cmpa.l #0x%X,%%%s\n    beq hero%s_%d\n" % (obj, reg, tag, i) for i, obj in enumerate(HERO_OBJECTS))
+    checks += "    cmpa.l 0x%X,%%%s\n    beq hero%s_%d\n" % (RED_OBJ, reg, tag, len(HERO_OBJECTS))
     flags = "".join("hero%s_%d:\n    tst.b 0x%X\n    beq done%s\n    bra hero%s\n" % (tag, i, ram + 5, tag, tag)
-                    for i, ram in enumerate(PAIR_RAM))
+                    for i, ram in enumerate(PAIR_RAM + [RED_PAIR]))
     mark = ""
     if _DEBUG_MARKS:
         mark = "    addq.b #1,0x%X\n" % (0x10E700 + len(_marks))
@@ -235,17 +241,23 @@ def apply(rom):
             "frame_map:\n    .word %s\n" % ",".join("0x%X" % frame_map.get(f, 0) for f in range(0, NORMAL_FRAMES, 4)))
 
     def hero_check(reg):
-        return "".join("    cmpa.l #0x%X,%%%s\n    beq 1f\n" % (obj, reg) for obj in HERO_OBJECTS)
+        return ("".join("    cmpa.l #0x%X,%%%s\n    beq 1f\n" % (obj, reg) for obj in HERO_OBJECTS) +
+                "    cmpa.l 0x%X,%%%s\n    beq 1f\n" % (RED_OBJ, reg))
 
     def pair(reg, ram):
-        return "    lea 0x%X,%%%s\n    cmpa.l #0x%X,%%%s\n    beq 2f\n    lea 0x%X,%%%s\n2:\n" % (
-            PAIR_RAM[0], ram, HERO_OBJECTS[0], reg, PAIR_RAM[1], ram)
+        return ("    lea 0x%X,%%%s\n    cmpa.l #0x%X,%%%s\n    beq 2f\n    lea 0x%X,%%%s\n    cmpa.l #0x%X,%%%s\n"
+                "    beq 2f\n    lea 0x%X,%%%s\n2:\n" % (PAIR_RAM[0], ram, HERO_OBJECTS[0], reg, PAIR_RAM[1], ram,
+                                                          HERO_OBJECTS[1], reg, RED_PAIR, ram))
 
     restores = "".join(
         "    lea 0x%X,%%a1\n    lea 0x%X,%%a0\n    btst #0,7(%%a1)\n    beq no34_%d\n    move.w 8(%%a1),34(%%a0)\n"
         "no34_%d:\n    btst #1,7(%%a1)\n    beq no36_%d\n    move.w 10(%%a1),36(%%a0)\nno36_%d:\n"
         "    btst #2,7(%%a1)\n    beq nozoom_%d\n    move.w 12(%%a1),38(%%a0)\nnozoom_%d:\n    clr.b 7(%%a1)\n"
         % (ram, obj, i, i, i, i, i, i) for i, (ram, obj) in enumerate(zip(PAIR_RAM, HERO_OBJECTS)))
+    restores += ("    lea 0x%X,%%a1\n    move.l 0x%X,%%a0\n    cmpa.w #0,%%a0\n    beq nozoom_r\n    btst #0,7(%%a1)\n"
+                 "    beq no34_r\n    move.w 8(%%a1),34(%%a0)\nno34_r:\n    btst #1,7(%%a1)\n    beq no36_r\n"
+                 "    move.w 10(%%a1),36(%%a0)\nno36_r:\n    btst #2,7(%%a1)\n    beq nozoom_r\n    move.w 12(%%a1),38(%%a0)\n"
+                 "nozoom_r:\n    clr.b 7(%%a1)\n" % (RED_PAIR, RED_OBJ))
     src = r"""
     bra.w step                      | +0: from the animation step
     bra.w draw                      | +4: from the drawing routine
@@ -302,6 +314,21 @@ PAIR_A5    tst.w 98(%a5)                   | normal-size hero only (other forms:
 | ---- drawing: in place of `move.w 8(a0),d3 ; move.l (a3,d3.w),a5` (d3 is already clear)
 draw:
     move.w 8(%a0),%d3
+    move.l %d4,-(%sp)
+    move.w %d3,%d4                  | Red (an object drawing player 2's copies, not a player's hero): noted
+    and.w #0xF800,%d4
+    cmp.w #0x800,%d4
+    bne 11f
+    move.w %d3,%d4
+    and.w #0x7FF,%d4
+    cmp.w #NORMAL_FRAMES,%d4
+    bcc 11f
+HERO_ONLY_A0    move.l %a0,RED_OBJ_RAM
+    bra 12f
+11: cmpa.l RED_OBJ_RAM,%a0             | (the noted object drawing something else: forgotten)
+    bne 12f
+    clr.l RED_OBJ_RAM
+12: move.l (%sp)+,%d4
 HERO_A0    bra 9f
 1:  move.l %a1,-(%sp)
 PAIR_A0    clr.b 5(%a1)                    | (1 = this draw uses a big frame: the +34 fix and the position nudges)
@@ -489,6 +516,8 @@ RESTORES    movem.l (%sp)+,%a0-%a1
 
 DATA
 """
+    src = src.replace("HERO_ONLY_A0", "".join("    cmpa.l #0x%X,%%a0\n    beq 12f\n" % obj for obj in HERO_OBJECTS))
+    src = src.replace("RED_OBJ_RAM", "0x%X" % RED_OBJ)
     src = (src.replace("HERO_A0F", hero_check("a0")).replace("PAIR_A0F", pair("a0", "a1"))
            .replace("HERO_A0H", hero_check("a0")).replace("PAIR_A0H", pair("a0", "a1"))
            .replace("HERO_A5", hero_check("a5")).replace("HERO_A0", hero_check("a0"))
