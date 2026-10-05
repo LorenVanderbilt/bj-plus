@@ -18,6 +18,10 @@ TEXT = "BLUE'S ITEMS"             # the original says ITEM
 FONT = {"B": 0x904, "L": 0x928, "U": 0x94A, "E": 0x90A, "'": 0xAE4, "S": 0x946, "I": 0x922, "T": 0x948,
         "M": 0x92A}
 APOSTROPHE_COLUMNS = (4, 12)      # pixel columns of the apostrophe's 16-pixel cell that are kept
+# The font's letters fill their 16-pixel cells, outline to outline - but the I is narrow (ink in columns 3-12), so
+# it stood 3 px off the T. It's drawn this many px right, a pixel short of touching (3 was too tight); its cell,
+# and the rest of the line, stay where they were.
+NUDGE = {"I": 2}
 FIRST_COLUMN, COLUMNS, ROW, PALETTE = 8, 24, 6, 5
 SCREEN_CENTER_X = 160
 BLANK = 0x0520
@@ -50,10 +54,11 @@ def apply(rom):
     canvas = [[0] * (COLUMNS * 8) for _ in range(16)]
     x = SCREEN_CENTER_X - width // 2 - FIRST_COLUMN * 8
     for ch, piece in zip(TEXT, pieces):
+        dx = NUDGE.get(ch, 0)
         for y in range(16):
             for i, v in enumerate(piece[y]):
                 if v:
-                    canvas[y][x + i] = v
+                    canvas[y][x + dx + i] = v
             if ch == "S" and piece[y][15] not in (0, OUTLINE) and not canvas[y][x + 16]:
                 canvas[y][x + 16] = OUTLINE
         x += len(piece[0])
