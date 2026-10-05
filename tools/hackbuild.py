@@ -188,8 +188,15 @@ class Rom:
                 self.sprites[b][o:o + 2] = bytes(planes[2:4])
         self.log.append("  sprite 0x%04X  tile  %s" % (index, why))
 
-    def add_sprite_tile(self, pixels, why=""):
-        """Store a 16x16 sprite tile in the next free slot and return its tile number."""
+    def add_sprite_tile(self, pixels, why="", share=False):
+        """Store a 16x16 sprite tile in the next free slot and return its tile number. share: if a tile with the same
+        pixels was added with share before, return that one instead (only for tiles nothing changes afterwards)."""
+        if share:
+            key = bytes(v for row in pixels for v in row)
+            shared = self.__dict__.setdefault("shared_tiles", {})
+            if key not in shared:
+                shared[key] = self.add_sprite_tile(pixels, why)
+            return shared[key]
         n = self.next_sprite_tile
         if n > SPRITE_FREE_END:
             if not self.tile_pool:

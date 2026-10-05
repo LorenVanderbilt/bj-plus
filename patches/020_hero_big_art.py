@@ -42,13 +42,13 @@ NORMAL_FRAMES = 0x190             # the normal hero's frames are 0-0x18C (0x134-
                                   # swimming)
 # Animations whose big version doesn't fit:
 #   0x2D, the idle fidget (after standing still a while he bends down, picks something up and looks at it):
-#     the big form has no such art (its 0x2D is the standing pose), so he stands and breathes - the big
-#     standing pair 0x364 / 0x368 alternating with each fidget frame;
+#     the big form has no such art (its 0x2D is the standing pose), so its frames are drawn as 1.5x copies of
+#     the small ones (FIDGET_ANIM; they stood and breathed before - BREATHE);
 #   0x2B (frames 0x184-0x18C), playing the ocarina (standing still with one): the big form has no such art,
 #     so its frames are drawn as 1.5x copies of the small ones (OCARINA_FRAMES).
 #   0x18, swimming: the big version's fourth frame (0x33C) is a walking pose, so the swim cycle flashed upright
 #     every fourth frame; like the normal cycle (0x6C 0x70 0x74 0x70) it repeats its second pose instead.
-ROW_OVERRIDES = {0x2D: "breathe", 0x2B: "none", 0x18: [0x330, 0x334, 0x338, 0x334]}
+ROW_OVERRIDES = {0x2D: "none", 0x2B: "none", 0x18: [0x330, 0x334, 0x338, 0x334]}
 BREATHE = (0x364, 0x368)
 PAIR_RAM = [0x10EA20, 0x10EA30]   # spare RAM per player: +0 normal frame, +2 the big frame drawn for it, +4 the
                                   # normal frame's width in tiles, +5 1 if this draw used the big frame, +6 its
@@ -87,6 +87,9 @@ FRAME_SUBSTITUTES = {0xB0: BIG_WINDUP, 0xB4: BIG_RELEASE, 0xB8: BIG_WINDUP, 0xBC
                      0x8C: BIG_WINDUP, 0x90: BIG_RELEASE, 0x94: 0x330, 0x98: 0x334, 0x9C: 0x338}
 HERO_UP_PX = 15
 OCARINA_FRAMES = [0x184, 0x188, 0x18C]
+FIDGET_ANIM = 0x2D
+P2_FRAMES = 0x800                 # player 2's copies of the hero frames (the same art in player 2's palette)
+P2_COPIES = {}                    # frames made here -> their player 2 copy (when the palette differs)
 # Burning in lava (hero state 33) he flails in charred art: animation 0x31, frames 0x11C-0x128 in palette 0x5C,
 # which the lava stage makes charred (elsewhere 0x31 is the landing from some jumps and keeps the big art). The big
 # form has no charred version: in state 33 those frames are drawn as copies scaled up 1.5x from the small ones (new
@@ -310,7 +313,7 @@ def upscaled_frame(rom, frame):
 
     def new_tile(cell):
         block = [[cells[cell].get((x, y), 0) for x in range(16)] for y in range(16)]
-        return rom.add_sprite_tile(block, why="big burn frame 0x%X" % frame)
+        return rom.add_sprite_tile(block, why="big hero frame 0x%X, 1.5x" % frame, share=True)
     out = [[new_tile((c, r)) if (c, r) in cells else None for c in range(main_cols)] for r in range(main_rows)]
     pieces = []
     for c in sorted({c for c, _ in cells}):
@@ -320,10 +323,14 @@ def upscaled_frame(rom, frame):
             while rs and rs[0] == run[-1] + 1:
                 run.append(rs.pop(0))
             pieces.append((c * 8, -run[0] * 8, [new_tile((c, r)) for r in run]))
-    n = rom.add_frame(out, palette, why="big hero: burned frame 0x%X, 1.5x" % frame, pieces=pieces)
     import hackbuild
-    q = rom.u32(hackbuild.FRAME_TABLE + n)
-    rom.data[q + 2] = BURN_MODE
+    n = rom.add_frame(out, palette, why="big hero: frame 0x%X, 1.5x" % frame, pieces=pieces)
+    rom.data[rom.u32(hackbuild.FRAME_TABLE + n) + 2] = BURN_MODE
+    p2_palette = rom.data[rom.u32(hackbuild.FRAME_TABLE + frame + P2_FRAMES) + 3]
+    if p2_palette != palette:                 # (player 2's copy of the frame: the same art in its own palette)
+        m = rom.add_frame(out, p2_palette, why="big hero: frame 0x%X, 1.5x, player 2" % frame, pieces=pieces)
+        rom.data[rom.u32(hackbuild.FRAME_TABLE + m) + 2] = BURN_MODE
+        P2_COPIES[n] = m
     return n
 
 
@@ -365,7 +372,13 @@ def red_boxes(rom, frame_map):
 def apply(rom):
     rows, frame_map = big_frame_tables(rom)
     red_boxes(rom, frame_map)
-    for f in OCARINA_FRAMES:
+    fidget, q = [], rom.u32(ANIM_TABLE + 4 * FIDGET_ANIM)
+    while rom.u16(q) < 0xFFFE:
+        w = rom.u16(q)
+        if w < 0x8000 and (w & 0x3FFC) < NORMAL_FRAMES and (w & 0x3FFC) not in fidget:
+            fidget.append(w & 0x3FFC)
+        q += 4 if w >= 0x8000 else 2
+    for f in OCARINA_FRAMES + fidget:
         frame_map[f] = upscaled_frame(rom, f)
     burned = {}
     for n in BURN_ANIMS:
@@ -382,7 +395,9 @@ def apply(rom):
     for row in rows:
         offs.append(off)
         off += len(row)
-    data = ("burn_tab:\n    .word %s\n" % ",".join("0x%X" % burned[f] for f in (0x11C, 0x120, 0x124, 0x128)) +
+    p2_end = max(list(P2_COPIES) + [0x3EFC]) + 4
+    data = ("p2_tab:\n    .word %s\n" % ",".join("0x%X" % P2_COPIES.get(f, f) for f in range(0x3F00, p2_end, 4)) +
+            "burn_tab:\n    .word %s\n" % ",".join("0x%X" % burned[f] for f in (0x11C, 0x120, 0x124, 0x128)) +
             "row_off:\n    .word %s\n" % ",".join(str(o) for o in offs) +
             "row_len:\n    .byte %s\n    .even\n" % ",".join(str(min(255, len(r))) for r in rows) +
             "rows:\n" + "".join("    .word %s\n" % ",".join("0x%X" % v for v in row) for row in rows if row) +
@@ -522,8 +537,19 @@ PAIR_A0    clr.b 5(%a1)                    | (1 = this draw uses a big frame: th
 47: move.b #1,5(%a1)
     move.w (%sp)+,%d4
     and.w #0x800,%d4
-    cmp.w #NEW_FRAMES,%d3           | (frames made here have no player 2 copies)
+    cmp.w #NEW_FRAMES,%d3           | (frames made here: player 2's copy from p2_tab, if it has one)
+    bcs 46f
+    tst.w %d4
+    beq 8f
+    cmp.w #P2_TAB_END,%d3
     bcc 8f
+    move.w %d3,%d4
+    sub.w #NEW_FRAMES,%d4
+    lsr.w #1,%d4
+    lea p2_tab(%pc),%a5
+    move.w (%a5,%d4.w),%d3
+    bra 8f
+46:
     add.w %d4,%d3                   | player 2: its copy of the big frame
     bra 8f
 4:  move.w (%sp)+,%d3               | as it is
@@ -695,7 +721,7 @@ DATA
            .replace("HERO_A5", hero_check("a5")).replace("HERO_A0", hero_check("a0"))
            .replace("PAIR_A5", pair("a5", "a2")).replace("PAIR_A0", pair("a0", "a1"))
            .replace("NORMAL_ANIMS", "0x%X" % NORMAL_ANIMS).replace("NORMAL_FRAMES", "0x%X" % NORMAL_FRAMES)
-           .replace("ANIM_TABLE", "0x%X" % ANIM_TABLE).replace("NEW_FRAMES", "0x3F00").replace("BURN_STATE", "33")
+           .replace("ANIM_TABLE", "0x%X" % ANIM_TABLE).replace("NEW_FRAMES", "0x3F00").replace("P2_TAB_END", "0x%X" % p2_end).replace("BURN_STATE", "33")
            .replace("DRAW_LOOP_RETURN", "0x%X" % DRAW_LOOP_RETURN)
            .replace("ZOOM_SHRINK", str(ZOOM_SHRINK)).replace("ZOOM_GROW", str(ZOOM_GROW)).replace("RESTORES", restores).replace("DATA", data))
     base = rom.place_code(src, why="hero big art: pick and draw the big frame for the normal hero's frame")
