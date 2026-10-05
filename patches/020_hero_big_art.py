@@ -69,6 +69,7 @@ HERO_OBJECTS = [0x104000, 0x104080]   # the objects for player 1 and player 2
 # and treats it as a third hero, with its own pair RAM - so he is drawn with the big art too.
 RED_PAIR = 0x10EA40
 RED_OBJ = 0x10EA50
+RED_CODE = (0x23000, 0x25400)   # ... running the ending's code (its scenes and the duel: 0x234xx-0x2530x)
 BIG_SET = 0x80
 # The big form has no throwing poses (its throw animations 0x23-0x26 + 0x80 are an empty frame), so the
 # normal throw's frames are drawn with two big poses from the ROM: the wind-up (arm back) with an unused
@@ -323,6 +324,10 @@ draw:
     and.w #0x7FF,%d4
     cmp.w #NORMAL_FRAMES,%d4
     bcc 11f
+    cmpi.l #RED_CODE_LO,4(%a0)      | (the ending's objects only - e.g. the title screen's green player stays small)
+    bcs 11f
+    cmpi.l #RED_CODE_HI,4(%a0)
+    bcc 11f
 HERO_ONLY_A0    move.l %a0,RED_OBJ_RAM
     bra 12f
 11: cmpa.l RED_OBJ_RAM,%a0             | (the noted object drawing something else: forgotten)
@@ -518,6 +523,7 @@ DATA
 """
     src = src.replace("HERO_ONLY_A0", "".join("    cmpa.l #0x%X,%%a0\n    beq 12f\n" % obj for obj in HERO_OBJECTS))
     src = src.replace("RED_OBJ_RAM", "0x%X" % RED_OBJ)
+    src = src.replace("RED_CODE_LO", "0x%X" % RED_CODE[0]).replace("RED_CODE_HI", "0x%X" % RED_CODE[1])
     src = (src.replace("HERO_A0F", hero_check("a0")).replace("PAIR_A0F", pair("a0", "a1"))
            .replace("HERO_A0H", hero_check("a0")).replace("PAIR_A0H", pair("a0", "a1"))
            .replace("HERO_A5", hero_check("a5")).replace("HERO_A0", hero_check("a0"))

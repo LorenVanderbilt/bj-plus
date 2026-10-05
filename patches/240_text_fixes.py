@@ -7,6 +7,7 @@ DESCRIPTION = "In-game text: typo and wording fixes (from docs/in_game_text.csv)
 # its line. Fixes that don't fit are left out (and listed when building) until the text can be moved elsewhere.
 # "?" is character 0x0A (tile 0x50A); many question lines already end with it.
 FIXES = [
+    (0x2BE3A, "STARGE SPACE", "STRANGE SPACE"),                 # the map screen's area name
     # (string address, old phrase, new phrase)
     (0x227A6, "IHDECISION", "INDECISION"), (0x227A6, "HOWHERE", "NOWHERE"),
     (0x229D0, "BEAT EMPEROR DARUMA", "BEAT EMPEROR DARUMA?"),
