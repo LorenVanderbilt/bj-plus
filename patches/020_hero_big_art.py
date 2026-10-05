@@ -81,10 +81,11 @@ FRAME_SUBSTITUTES = {0xB0: BIG_WINDUP, 0xB4: BIG_RELEASE, 0xB8: BIG_WINDUP, 0xBC
                      # with the big crawling poses
                      0x8C: BIG_WINDUP, 0x90: BIG_RELEASE, 0x94: 0x330, 0x98: 0x334, 0x9C: 0x338}
 HERO_UP_PX = 15
-# The burn in lava (animations 0x1D-0x1F, the hop, and 0x31, lying in it) uses charred art the big form has no
-# version of (its big rows are plain poses): these frames get big versions scaled up 1.5x from the small ones
-# (new frames; player 2 draws them too - no copies 0x800 further on, which aren't free).
-BURN_ANIMS = [0x1D, 0x1E, 0x1F, 0x31]
+# Burning in lava, the hero lies in it as charred art (animation 0x31, frames 0x11C-0x128, in their own palette)
+# the big form has no version of: these frames get big versions scaled up 1.5x from the small ones (new frames;
+# player 2 draws them too - no copies 0x800 further on, which aren't free). (The hop before it, 0x1D-0x1F, is the
+# ordinary hurt pose - also the landing from some jumps - and keeps the big art.)
+BURN_ANIMS = [0x31]
 # ... per hero state (+104): the big art is lined up by its feet, which is wrong where the hero hangs by his hands:
 #   44, hanging from the balloon (player 2 floating in): the big pose's hands are 2px lower in its frame than the
 #   normal pose's, so it only goes up 2px (15 lifted his hands well above the balloon's string)
