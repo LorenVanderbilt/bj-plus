@@ -70,6 +70,7 @@ class Rom:
         self.next_free = FREE_START
         self.free_fix_tiles = [t for a, b in FIX_FREE_RANGES for t in range(a, b + 1)]
         self.next_sprite_tile = SPRITE_FREE_START
+        self.tile_pool = []          # more free sprite tiles (tile-pool frees them), used after the range above
         self.next_frame = FRAME_FREE_START
         self.log = []
 
@@ -171,7 +172,8 @@ class Rom:
         """Store a 16x16 sprite tile (pixels[y][x] = color index 0-15, 0 = transparent) at tile number index.
         The slot must be blank in the original C ROMs."""
         a, b, at = self._sprite_at(index)
-        if any(self.sprites_orig[a][at:at + 64]) or any(self.sprites_orig[b][at:at + 64]):
+        if index not in getattr(self, "pooled", ()) and (any(self.sprites_orig[a][at:at + 64]) or
+                                                         any(self.sprites_orig[b][at:at + 64])):
             raise SystemExit("sprite tile 0x%X is not blank in the original C ROMs" % index)
         for blk in range(4):
             bx, by = (8 if blk < 2 else 0), (0 if blk % 2 == 0 else 8)
@@ -190,7 +192,12 @@ class Rom:
         """Store a 16x16 sprite tile in the next free slot and return its tile number."""
         n = self.next_sprite_tile
         if n > SPRITE_FREE_END:
-            raise SystemExit("out of free sprite tiles (0x%X-0x%X)" % (SPRITE_FREE_START, SPRITE_FREE_END))
+            if not self.tile_pool:
+                raise SystemExit("out of free sprite tiles (0x%X-0x%X, and the tile pool)" % (SPRITE_FREE_START,
+                                                                                              SPRITE_FREE_END))
+            n = self.tile_pool.pop(0)
+            self.put_sprite_tile(n, pixels, why)
+            return n
         self.put_sprite_tile(n, pixels, why)
         self.next_sprite_tile = n + 1
         return n
@@ -221,18 +228,21 @@ class Rom:
     def frame_tiles(self, frame):
         """(tiles[row][col] or None, palette) of an original frame whose definition uses one palette and no flips."""
         p = self.u32(FRAME_TABLE + frame)
-        cols, rows, mode, attr, hi = self.orig[p:p + 5]
+        cols, rows, mode, attr, hi = self.data[p:p + 5]
         cols, rows = cols + 1, rows + 1
         tiles = [[None] * cols for _ in range(rows)]
         q = p + 5
         for c in range(cols):
             for r in range(rows):
-                b = self.orig[q]
+                b = self.data[q]
                 q += 1
                 if b == 0:
                     continue
-                if b == 1:
-                    raise SystemExit("frame_tiles: frame 0x%X uses per-tile attributes" % frame)
+                if b == 1:                   # 1, attribute, high byte, low byte: a new high byte (plain only)
+                    if self.data[q] != 0x20:
+                        raise SystemExit("frame_tiles: frame 0x%X uses per-tile attributes" % frame)
+                    hi, b = self.data[q + 1], self.data[q + 2]
+                    q += 3
                 tiles[r][c] = (hi << 8) | b
         return tiles, attr
 
