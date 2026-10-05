@@ -116,6 +116,12 @@ STRINGS = [
     (0x2E42E, ["BLUE DOESN'T HAVE A TORCH."]),                              # BLUE DID NOT HAVE THE TORCH / WITH HIM.
     (0x2EDA8, ["WITH THIS CHARM, NEROS'S", "SPELL WON'T FREEZE YOU."]),     # THIS SPELL PROTECTS YOU FROM / ...
     (0x2DF16, ["BLUE COULDN'T ANSWER,", "SO HE RAN AWAY."]),                 # (time-up) ... SO HE RUN AWAY.
+    # the shop: anything she won't sell for a reason other than its price (but the magic wand's YOU'RE NOT CURSED)
+    (0x20372, ["SORRY,", "SOLD OUT!"]),                                    # YOUR STAMINA / IS FULL. (nectar)
+    (0x20442, ["SORRY,", "SOLD OUT!"]),                                    # YOU ALREADY / HAVE IT.
+    # the shop: the 2nd and 3rd can't-afford lines (the 1st and 4th: MOVED)
+    (0x201C0, ["STILL BROKE,", "HONEY?"]),                                 # CHECK YOUR / POCKET MONEY
+    (0x201FC, ["A DISCOUNT?", "NO WAY!"]),                                 # A DISCOUNT? / NO KIDDING!
     # Lower Earth Empire: Red's duel for the torch
     (0x27E9A, ["WHAT?! YOU BEAT ME IN THE", "CONTEST! NOW FIGHT ME!"]),          # WHAT?! / YOU BEAT ME IN THE CONTEST, / ...
     (0x27F38, ["YOU BEAT ME IN THE CONTEST,", "BUT I'VE BEEN TRAINING.", "NOW FIGHT ME!"]),   # I'VE BEEN TRAINIG SINCE THEN,
@@ -210,6 +216,13 @@ def whole_string(rom, addr, lines, width=None):
 # Strings too long for their space, written elsewhere: (where the game loads the string's address, old address,
 # new lines). The card game's answers to DO YOU WANT THE RULES? (TELL ME / NO: the first explains them, as YES did).
 MOVED = [
+    # the shop: buying what you can't afford - her lines, one per try (the 4th sends you off; 0x2012A + 4 * n)
+    (0x2012A, 0x20198, ["NICE TRY.", "YOU CAN'T", "AFFORD IT."]),      # (was   YOU CAN'T /   BUY IT.)
+    (0x2012E, 0x20198, ["NICE TRY.", "YOU CAN'T", "AFFORD IT."]),
+    (0x2013A, 0x20230, ["COME BACK", "WHEN YOU'RE", "RICH!"]),          # (was I WON'T TALK / TO POOR.)
+    # the ocarina's two prices (was IT'S TOY.; it gets the lottery's 1st prize for a song: ocarina-song)
+    (0x20F50, 0x21006, ["OCARINA", "5 FLOWERS", "  LUCKY", "  MELODIES"]),
+    (0x20F70, 0x21022, ["OCARINA", "10 FLOWERS", "  LUCKY", "  MELODIES"]),
     (0x2C852, 0x2C89C, ["  TELL ME", "  NO"]),        # (was   YES /   NO; the first explains the rules)
     # the final boss's question's answers: the first fights, the second gives in (the Daruma tribe ending) - was
     # I CAN'T FORGIVE / NO WAY! (which read as refusing; Japanese: probably とんでもない, "of course not")
