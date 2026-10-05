@@ -29,12 +29,39 @@ def decode(rom, p):
             q += 1
             if v == 0:
                 continue
-            if v == 1:
-                if rom.orig[q] != 0x20:
+            if v == 1:                # 1, attribute, [palette,] [high byte,] low byte (bits 6 / 5 of the attribute)
+                a = rom.orig[q]
+                q += 1
+                if a != 0x20:
                     plain = False
-                hi, v = rom.orig[q + 1], rom.orig[q + 2]
-                q += 3
+                if a & 0x80:          # (unknown: the frame is left alone, its tiles kept)
+                    return cols, rows, mode, attr, tiles, False, q
+                if a & 0x40:
+                    q += 1
+                if a & 0x20:
+                    hi, q = rom.orig[q], q + 1
+                v, q = rom.orig[q], q + 1
             tiles[r][c] = (hi << 8) | v
+    while rom.orig[q] != 0xFF:        # extra one-column pieces (see 0xAF1C): kept as they are, so never rewritten
+        plain = False
+        n, hi = rom.orig[q], rom.orig[q + 4]
+        q += 5
+        for r in range(n + 1):
+            v = rom.orig[q]
+            q += 1
+            if v == 0:
+                continue
+            if v == 1:
+                a = rom.orig[q]
+                q += 1
+                if a & 0x80:
+                    return cols, rows, mode, attr, tiles, False, q
+                if a & 0x40:
+                    q += 1
+                if a & 0x20:
+                    hi, q = rom.orig[q], q + 1
+                v, q = rom.orig[q], q + 1
+            tiles.append([None] * c + [(hi << 8) | v])   # (counted as used: a row of its own)
     return cols, rows, mode, attr, tiles, plain, q
 
 

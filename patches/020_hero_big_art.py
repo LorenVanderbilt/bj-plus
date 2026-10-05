@@ -44,7 +44,8 @@ NORMAL_FRAMES = 0x190             # the normal hero's frames are 0-0x18C (0x134-
 #   0x2D, the idle fidget (after standing still a while he bends down, picks something up and looks at it):
 #     the big form has no such art (its 0x2D is the standing pose), so he stands and breathes - the big
 #     standing pair 0x364 / 0x368 alternating with each fidget frame;
-#   0x2B (frames 0x184-0x18C, sparkles rather than the hero) is left as it is.
+#   0x2B (frames 0x184-0x18C), playing the ocarina (standing still with one): the big form has no such art,
+#     so its frames are drawn as 1.5x copies of the small ones (OCARINA_FRAMES).
 #   0x18, swimming: the big version's fourth frame (0x33C) is a walking pose, so the swim cycle flashed upright
 #     every fourth frame; like the normal cycle (0x6C 0x70 0x74 0x70) it repeats its second pose instead.
 ROW_OVERRIDES = {0x2D: "breathe", 0x2B: "none", 0x18: [0x330, 0x334, 0x338, 0x334]}
@@ -85,6 +86,7 @@ FRAME_SUBSTITUTES = {0xB0: BIG_WINDUP, 0xB4: BIG_RELEASE, 0xB8: BIG_WINDUP, 0xBC
                      # with the big crawling poses
                      0x8C: BIG_WINDUP, 0x90: BIG_RELEASE, 0x94: 0x330, 0x98: 0x334, 0x9C: 0x338}
 HERO_UP_PX = 15
+OCARINA_FRAMES = [0x184, 0x188, 0x18C]
 # Burning in lava (hero state 33) he flails in charred art: animation 0x31, frames 0x11C-0x128 in palette 0x5C,
 # which the lava stage makes charred (elsewhere 0x31 is the landing from some jumps and keeps the big art). The big
 # form has no charred version: in state 33 those frames are drawn as copies scaled up 1.5x from the small ones (new
@@ -243,38 +245,49 @@ def big_frame_tables(rom):
 def frame_pixels(rom, frame):
     """({(x, y): colour} of an original frame - its main block and the extra one-column pieces after it (see
     0xAF1C: tiles-1, x and y-up in 2px units, palette, high byte, the tiles) - from the main block's top left;
-    and its palette)."""
+    and its palette). An entry 1, attribute, [palette,] [high byte,] low byte changes the high byte (attribute bit
+    5) and the flips from then on (bits 0 / 1: e.g. the ocarina frames' tiles are stored mirrored)."""
     import hackbuild
     p = rom.u32(hackbuild.FRAME_TABLE + frame)
     d = rom.data
     cols, rows, _, palette, hi = d[p:p + 5]
-    q, px = p + 5, {}
+    q, px, st = p + 5, {}, {"hi": hi, "flip": 0}
 
-    def tile(q, hi):
+    def tile(q):
         b = d[q]
+        q += 1
         if b == 1:
-            return d[q + 3], d[q + 2], q + 4
-        return (b or None), hi, q + 1
+            a, q = d[q], q + 1
+            if a & 0x80:
+                raise SystemExit("frame_pixels: frame 0x%X uses an unknown entry" % frame)
+            if a & 0x40:
+                q += 1
+            if a & 0x20:
+                st["hi"], q = d[q], q + 1
+            st["flip"] = a & 3
+            b, q = d[q], q + 1
+        return (st["hi"] << 8 | b if b else None), q
 
     def put(t, x0, y0):
         art = rom.sprite_tile(t)
         for y in range(16):
             for x in range(16):
-                if art[y][x]:
-                    px[x0 + x, y0 + y] = art[y][x]
+                v = art[15 - y if st["flip"] & 2 else y][15 - x if st["flip"] & 1 else x]
+                if v:
+                    px[x0 + x, y0 + y] = v
     for c in range(cols + 1):
         for r in range(rows + 1):
-            b, hi, q = tile(q, hi)
-            if b:
-                put(hi << 8 | b, c * 16, r * 16)
+            t, q = tile(q)
+            if t is not None:
+                put(t, c * 16, r * 16)
     while d[q] != 0xFF:
-        n, x, up, _, hi = d[q:q + 5]
+        n, x, up, _, st["hi"] = d[q:q + 5]
         q += 5
         x, up = (x ^ 0x80) - 0x80, (up ^ 0x80) - 0x80
         for r in range(n + 1):
-            b, hi, q = tile(q, hi)
-            if b:
-                put(hi << 8 | b, x * 2, r * 16 - up * 2)
+            t, q = tile(q)
+            if t is not None:
+                put(t, x * 2, r * 16 - up * 2)
     return px, palette
 
 
@@ -352,6 +365,8 @@ def red_boxes(rom, frame_map):
 def apply(rom):
     rows, frame_map = big_frame_tables(rom)
     red_boxes(rom, frame_map)
+    for f in OCARINA_FRAMES:
+        frame_map[f] = upscaled_frame(rom, f)
     burned = {}
     for n in BURN_ANIMS:
         p = rom.u32(ANIM_TABLE + 4 * n)

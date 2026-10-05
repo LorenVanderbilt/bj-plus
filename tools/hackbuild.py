@@ -247,11 +247,14 @@ class Rom:
                 q += 1
                 if b == 0:
                     continue
-                if b == 1:                   # 1, attribute, high byte, low byte: a new high byte (plain only)
-                    if self.data[q] != 0x20:
+                if b == 1:                   # 1, attribute, [palette,] [high byte,] low byte (bits 6 / 5 of the attribute)
+                    a = self.data[q]
+                    if a & 0xC0 or a & 0x0F not in (0, 1):
                         raise SystemExit("frame_tiles: frame 0x%X uses per-tile attributes" % frame)
-                    hi, b = self.data[q + 1], self.data[q + 2]
-                    q += 3
+                    q += 1
+                    if a & 0x20:
+                        hi, q = self.data[q], q + 1
+                    b, q = self.data[q], q + 1
                 tiles[r][c] = (hi << 8) | b
         return tiles, attr
 
