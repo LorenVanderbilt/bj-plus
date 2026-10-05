@@ -292,7 +292,8 @@ SAD_WAIT, SAD_HOLD = 0x24FD4, 180            # the turned-down, Red-won and draw
 FROZEN_WAIT, FROZEN_HOLD = 0x24002, 180
 # Red's interruption: HOLD IT RIGHT THERE! and his BLUE... I'VE ALWAYS LOVED FA... went by fast (30 frames each once
 # typed), and Blue's answer to his challenge was timed: 127 frames (0x1078BC, set at 0x247E4), then he picked for you
-RED_WAITS = [(0x2406C, 30, 90), (0x246C0, 30, 120), (0x246F8, 30, 120)]   # (move.w #N,d0 ; jsr 0xE858), old, new
+RED_WAITS = [(0x2406C, 30, 90), (0x246C0, 30, 120), (0x246F8, 30, 120),
+             (0x24CDC, 60, 150)]   # (and BLUE... MAKE FA HAPPY, / OKAY? after the duel)   # (move.w #N,d0 ; jsr 0xE858), old, new
 RED_CHOICE_TIME = (0x247E4, 127, 360)       # BUT NEROS'S CURSE / TURNED BLUE TO ICE.: move.w #60,d0 ; jsr 0xE858, then the fade
 CHAIN_WAIT = 0x21832
 
