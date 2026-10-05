@@ -89,7 +89,6 @@ STRINGS = [
     (0x26AEC, ["  SURE!", "  NO THANKS."]),                       # (was I'LL LOOK. / I WON'T LOOK.)
     (0x26ED4, ["YOU MAKE ME HAPPY.", "TAKE THIS NECTAR WITH YOU."]),  # (was ... HONEY ..., as the shop's NECTAR)
     # the boatman, after SEE THE LARGE RIVER AHEAD? - YES (was IT'S GOOD IF YOU KNOW IT.)
-    (0x22596, ["GOOD, YOU ALREADY KNOW.", "YOU CAN RENT MY BOAT."]),
     # ... after NO (the IVY is the swinging vine; Japanese: rope), and his menu
     (0x22664, ["THE BIG RIVER IS POLLUTED.", "FALL IN AND YOU'RE DONE FOR.", "YOU CAN CROSS WITH THE VINE,",
                "BUT MANY HAVE DIED TRYING."]),
@@ -238,6 +237,8 @@ RELOCATED = [   # (name, where its address is (an lea's operand) or None, old ad
     ("end15b", 0x24C12, 0x24C62, ["NEITHER OF THEM EVER", "RECOVERED FROM THE SHOCK."], None),
     ("end16", 0x23704, 0x237BE, ["BLUE COLLAPSED, AND RAGUY", "WAS RUINED BY POLLUTION.", " " * 30,
                                  " " * 12 + "GAME OVER"], None),                         # BLUE IS EXHAUSTED AND ...
+    # the boatman, after SEE THE LARGE RIVER AHEAD? - YES (was IT'S GOOD IF YOU KNOW IT.)
+    ("boat1", 0x223AE, 0x22596, ["IT'S GOOD THAT YOU", "ALREADY KNOW.", "YOU CAN RENT MY BOAT."], None),
     # the frozen princess's house (Mechanical City 3)
     ("lim1", 0x2DDFA, 0x2DFCE, ["A WOMAN STANDS FROZEN IN ICE.", "WHAT WILL YOU DO?"], None),  # A WOMAN FROZE BEFORE. / ...
     ("lim2", 0x2E0D0, 0x2E12E, ["W-WAIT! ISN'T THAT LIM,", "THE PRINCESS OF RAGUY?!"], None),  # ISN'T SHE PRINCESS "LIM" OF / ...
