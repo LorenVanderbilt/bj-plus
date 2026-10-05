@@ -280,6 +280,14 @@ LONGER_WAITS = {0x2CA0E: 123, 0x2C9F2: 123,       # next text (English, Japanese
                 0x2F2B8: 123, 0x2F284: 123}       # (the robot mini boss's first line, before NONE OF YOUR WEAPONS ...)
 # ... and its next line then waits less before the scene moves on: its callback's object counts down from this
 ROBOT_LINE2_HOLD = (0x2F30D, 31)              # (63)
+# The good ending's lines (THE DARUMA TRIBE LEFT ... / ALL WHO FELL ILL ... / BLUE PROPOSED TO HER.) each wait 30
+# frames once typed (their callbacks: move.w #30,d0 ; jsr 0xE858) - rushed: now ENDING_HOLD. And Fa's yes (both
+# happy endings' line, callback 0x2411E) set the scene's done flag at once - it faded out as the line ended: it now
+# holds HAPPY_HOLD frames first.
+ENDING_WAITS = [0x23CE4, 0x23DD6, 0x23E46]
+ENDING_HOLD = 90
+HAPPY_DONE = 0x2411E          # move.b #1,0x7861(a6)
+HAPPY_HOLD = 150
 CHAIN_WAIT = 0x21832
 
 
@@ -315,6 +323,16 @@ def apply(rom):
     wait = rom.place_code(src + "    rts\n", why="text chains: longer waits before some texts")
     rom.write(CHAIN_WAIT, bytes.fromhex("4EB9") + wait.to_bytes(4, "big"), expect=bytes.fromhex("1D7C003F78A8"),
               why="text chains: the wait, longer before some texts")
+    for at in ENDING_WAITS:
+        rom.write(at + 2, ENDING_HOLD.to_bytes(2, "big"), expect=(30).to_bytes(2, "big"),
+                  why="good ending: a line's hold once typed")
+    hold = rom.place_code(
+        "    move.w #%d,%%d0\n"
+        "    jsr 0xE858\n"
+        "    move.b #1,0x7861(%%a6)\n"
+        "    rts\n" % HAPPY_HOLD, why="happy ending: Fa's yes stays before the fade")
+    rom.write(HAPPY_DONE, bytes.fromhex("4EB9") + hold.to_bytes(4, "big"), expect=bytes.fromhex("1D7C00017861"),
+              why="happy ending: hold the last line")
     at, frames = ROBOT_LINE2_HOLD
     rom.write(at, bytes([frames]), expect=bytes([63]), why="robot mini boss: NONE OF YOUR WEAPONS ... a shorter hold")
     placed = {}
