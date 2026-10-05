@@ -81,10 +81,10 @@ FRAME_SUBSTITUTES = {0xB0: BIG_WINDUP, 0xB4: BIG_RELEASE, 0xB8: BIG_WINDUP, 0xBC
                      # with the big crawling poses
                      0x8C: BIG_WINDUP, 0x90: BIG_RELEASE, 0x94: 0x330, 0x98: 0x334, 0x9C: 0x338}
 HERO_UP_PX = 15
-# Burning in lava, the hero lies in it as charred art (animation 0x31, frames 0x11C-0x128, in their own palette)
-# the big form has no version of: these frames get big versions scaled up 1.5x from the small ones (new frames;
-# player 2 draws them too - no copies 0x800 further on, which aren't free). (The hop before it, 0x1D-0x1F, is the
-# ordinary hurt pose - also the landing from some jumps - and keeps the big art.)
+# Burning in lava (hero state 33) he flails in charred art: animation 0x31, frames 0x11C-0x128 in palette 0x5C,
+# which the lava stage makes charred (elsewhere 0x31 is the landing from some jumps and keeps the big art). The big
+# form has no charred version: in state 33 those frames are drawn as copies scaled up 1.5x from the small ones (new
+# frames; player 2 draws them too - no copies 0x800 further on, which aren't free).
 BURN_ANIMS = [0x31]
 # ... per hero state (+104): the big art is lined up by its feet, which is wrong where the hero hangs by his hands:
 #   44, hanging from the balloon (player 2 floating in): the big pose's hands are 2px lower in its frame than the
@@ -276,15 +276,13 @@ def apply(rom):
                 break
             if w not in burned:
                 burned[w] = upscaled_frame(rom, w)
-            if i < len(rows[n]):
-                rows[n][i] = burned[w]
             i += 1
-    frame_map.update(burned)
     offs, off = [], 0
     for row in rows:
         offs.append(off)
         off += len(row)
-    data = ("row_off:\n    .word %s\n" % ",".join(str(o) for o in offs) +
+    data = ("burn_tab:\n    .word %s\n" % ",".join("0x%X" % burned[f] for f in (0x11C, 0x120, 0x124, 0x128)) +
+            "row_off:\n    .word %s\n" % ",".join(str(o) for o in offs) +
             "row_len:\n    .byte %s\n    .even\n" % ",".join(str(min(255, len(r))) for r in rows) +
             "rows:\n" + "".join("    .word %s\n" % ",".join("0x%X" % v for v in row) for row in rows if row) +
             "frame_map:\n    .word %s\n" % ",".join("0x%X" % frame_map.get(f, 0) for f in range(0, NORMAL_FRAMES, 4)))
@@ -404,7 +402,18 @@ PAIR_A0    clr.b 5(%a1)                    | (1 = this draw uses a big frame: th
     lea frame_map(%pc),%a5
     move.w (%a5,%d3.w),%d3
     beq 4f
-5:  move.b #1,5(%a1)
+5:  cmp.b #BURN_STATE,104(%a0)       | burning in lava: the charred frames 0x11C-0x128 drawn as their big copies
+    bne 47f
+    move.w (%sp),%d4
+    and.w #0x7FF,%d4
+    sub.w #0x11C,%d4
+    bcs 47f
+    cmp.w #0x10,%d4
+    bcc 47f
+    lsr.w #1,%d4
+    lea burn_tab(%pc),%a5
+    move.w (%a5,%d4.w),%d3
+47: move.b #1,5(%a1)
     move.w (%sp)+,%d4
     and.w #0x800,%d4
     cmp.w #NEW_FRAMES,%d3           | (frames made here have no player 2 copies)
@@ -579,7 +588,7 @@ DATA
            .replace("HERO_A5", hero_check("a5")).replace("HERO_A0", hero_check("a0"))
            .replace("PAIR_A5", pair("a5", "a2")).replace("PAIR_A0", pair("a0", "a1"))
            .replace("NORMAL_ANIMS", "0x%X" % NORMAL_ANIMS).replace("NORMAL_FRAMES", "0x%X" % NORMAL_FRAMES)
-           .replace("ANIM_TABLE", "0x%X" % ANIM_TABLE).replace("NEW_FRAMES", "0x3F00")
+           .replace("ANIM_TABLE", "0x%X" % ANIM_TABLE).replace("NEW_FRAMES", "0x3F00").replace("BURN_STATE", "33")
            .replace("DRAW_LOOP_RETURN", "0x%X" % DRAW_LOOP_RETURN)
            .replace("ZOOM_SHRINK", str(ZOOM_SHRINK)).replace("ZOOM_GROW", str(ZOOM_GROW)).replace("RESTORES", restores).replace("DATA", data))
     base = rom.place_code(src, why="hero big art: pick and draw the big frame for the normal hero's frame")
