@@ -289,7 +289,11 @@ ENDING_HOLD = 90
 HAPPY_DONE = 0x2411E          # move.b #1,0x7861(a6)
 HAPPY_HOLD = 150
 SAD_WAIT, SAD_HOLD = 0x24FD4, 180            # the turned-down, Red-won and draw endings' last line: move.w #50,d0 ; ...
-FROZEN_WAIT, FROZEN_HOLD = 0x24002, 180       # BUT NEROS'S CURSE / TURNED BLUE TO ICE.: move.w #60,d0 ; jsr 0xE858, then the fade
+FROZEN_WAIT, FROZEN_HOLD = 0x24002, 180
+# Red's interruption: HOLD IT RIGHT THERE! and his BLUE... I'VE ALWAYS LOVED FA... went by fast (30 frames each once
+# typed), and Blue's answer to his challenge was timed: 127 frames (0x1078BC, set at 0x247E4), then he picked for you
+RED_WAITS = [(0x2406C, 30, 90), (0x246C0, 30, 120), (0x246F8, 30, 120)]   # (move.w #N,d0 ; jsr 0xE858), old, new
+RED_CHOICE_TIME = (0x247E4, 127, 360)       # BUT NEROS'S CURSE / TURNED BLUE TO ICE.: move.w #60,d0 ; jsr 0xE858, then the fade
 CHAIN_WAIT = 0x21832
 
 
@@ -330,6 +334,10 @@ def apply(rom):
                   why="good ending: a line's hold once typed")
     rom.write(SAD_WAIT + 2, SAD_HOLD.to_bytes(2, "big"), expect=(50).to_bytes(2, "big"),
               why="sad endings: the last line stays before the fade")
+    for at, old, new in RED_WAITS:
+        rom.write(at + 2, new.to_bytes(2, "big"), expect=old.to_bytes(2, "big"), why="Red's interruption: a line's hold")
+    at, old, new = RED_CHOICE_TIME
+    rom.write(at + 2, new.to_bytes(2, "big"), expect=old.to_bytes(2, "big"), why="Red's challenge: more time to answer")
     rom.write(FROZEN_WAIT + 2, FROZEN_HOLD.to_bytes(2, "big"), expect=(60).to_bytes(2, "big"),
               why="frozen ending: its line stays before the fade")
     hold = rom.place_code(
