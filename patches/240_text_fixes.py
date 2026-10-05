@@ -73,9 +73,6 @@ STRINGS = [
     # his greeting (after his laugh) and its choices, closer to the Japanese (クイズじいさん, "Quiz Grandpa"; わかった / いやだ！)
     (0x25DC0, ["I'M THE QUIZ GRANDPA!", "YOU GET TWO QUESTIONS.", "MISS ONE AND I'LL TAKE", "ALL YOUR FLOWERS!"]),
     (0x25E66, ["  GOT IT!", "  NO WAY!"]),
-    # the happy ending: FA ACCEPTED PROPOSE. / THEY LED A HAPPY LIFE. (ACCEPTED THE PROPOSAL doesn't fit)
-    # (the ending's box takes 32: BLUE, HAVE A HAPPY LIFE WITH FA. at 0x24CB6)
-    (0x24E28, ["FA ACCEPTED.", "THEY LIVED HAPPILY EVER AFTER."], 32),
     # the story cinema (the box takes 33: FA WAS OVERCOME BY THE POLLUTION. at 0x358A2)
     (0x34BA8, ["THE PLANET RAGUY WAS ONCE", "BEAUTIFUL."]),
     (0x34C38, ["BUT..."]),
@@ -209,6 +206,7 @@ MOVED = [
     # the final boss's question's answers: the first fights, the second gives in (the Daruma tribe ending) - was
     # I CAN'T FORGIVE / NO WAY! (which read as refusing; Japanese: probably とんでもない, "of course not")
     (0x363C8, 0x3640E, ["\x11 YOU'RE FINISHED!", "  I SURRENDER..."]),
+    (0x247A4, 0x24810, ["  YOU'RE ON!", "  NO WAY!"]),     # Red's challenge (was YOU HAVE MY WORD. / NO KIDDING!)
     # the princess on the continue screen (was GIVE A HAND / TO RAGUY'S / PEOPLE.; Japanese: a loving hand for
     # Raguy's people...)
     (0x346D0, 0x3495A, ["BLUE, PLEASE", "DON'T GIVE", "UP ON US!"]),
@@ -222,6 +220,24 @@ MOVED = [
 # pointer in the text before (by name: a chain to a string moved here too points at its new place). The robot mini
 # boss in the last level, after his defeat (Japanese: it's not programmed into him - he was only built to fight).
 RELOCATED = [   # (name, where its address is (an lea's operand) or None, old address, new lines, the 0xFB next by name)
+    # the endings (Japanese as a guide)
+    ("end1", 0x23BCA, 0x23CAC, ["THE DARUMA TRIBE LEFT, AND", "NATURE RETURNED TO RAGUY."], None),
+    ("end2", 0x23D04, 0x23D78, ["ALL WHO FELL ILL FROM THE", "POLLUTION WERE CURED,", "INCLUDING PRINCESS FA."], None),
+    ("end4", 0x23F14, 0x240F6, ["OF COURSE, FA SAID YES.", "AND THEY LIVED", "HAPPILY EVER AFTER."], None),
+    ("end4b", 0x24DB6, 0x24E28, ["OF COURSE, FA SAID YES.", "AND THEY LIVED", "HAPPILY EVER AFTER."], None),
+    ("end5", 0x23F8A, 0x23FD8, ["BUT NEROS'S CURSE", "TURNED BLUE TO ICE."], None),        # THEN BLUE WAS FROZEN BY NROS'S ...
+    ("end6", 0x25094, 0x250E4, ["BLUE HADN'T EARNED ENOUGH", "FLOWERS, SO FA TURNED", "HIM DOWN..."], None),  # ... NOT WELL PAID.
+    ("end7", 0x2402A, 0x24058, ["HOLD IT RIGHT THERE!"], None),                           # JUST A MINUTE!
+    ("end8", 0x243B6, 0x2469A, ["BLUE... I'VE ALWAYS", "LOVED FA..."], None),
+    ("end9", 0x24718, 0x2476C, ["LET'S SETTLE THIS, BLUE.", "IF I WIN, YOU STEP ASIDE."], None),  # FIGHT ME! / ...
+    ("end11", 0x2487E, 0x248C6, ["SHUT UP! WE'RE FIGHTING,", "NO MATTER WHAT!"], None),
+    ("end12", 0x24A5A, 0x24CB6, ["BLUE... MAKE FA HAPPY,", "OKAY?"], None),                  # (Blue won the duel)
+    ("end13", 0x24A76, 0x24E96, ["WAHAHA! FA IS MINE!", "SO LONG, BLUE!"], None),            # (Red won)
+    ("end14", 0x24F4C, 0x24FA0, ["BLUE NEVER RECOVERED", "FROM THE SHOCK."], None),
+    ("end15", 0x24B2A, 0x24B7E, ["I'M SORRY... I CAN'T CHOOSE", "BETWEEN YOU."], None),       # (a draw)
+    ("end15b", 0x24C12, 0x24C62, ["NEITHER OF THEM EVER", "RECOVERED FROM THE SHOCK."], None),
+    ("end16", 0x23704, 0x237BE, ["BLUE COLLAPSED, AND RAGUY", "WAS RUINED BY POLLUTION.", " " * 30,
+                                 " " * 12 + "GAME OVER"], None),                         # BLUE IS EXHAUSTED AND ...
     # the frozen princess's house (Mechanical City 3)
     ("lim1", 0x2DDFA, 0x2DFCE, ["A WOMAN STANDS FROZEN IN ICE.", "WHAT WILL YOU DO?"], None),  # A WOMAN FROZE BEFORE. / ...
     ("lim2", 0x2E0D0, 0x2E12E, ["W-WAIT! ISN'T THAT LIM,", "THE PRINCESS OF RAGUY?!"], None),  # ISN'T SHE PRINCESS "LIM" OF / ...
