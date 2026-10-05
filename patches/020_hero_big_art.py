@@ -256,7 +256,11 @@ def upscaled_frame(rom, frame):
             line.append(rom.add_sprite_tile(block, why="big burn frame 0x%X" % frame) if any(any(b) for b in block)
                         else None)
         out.append(line)
-    return rom.add_frame(out, palette, why="big hero: burned frame 0x%X, 1.5x" % frame)
+    n = rom.add_frame(out, palette, why="big hero: burned frame 0x%X, 1.5x" % frame)
+    import hackbuild
+    q = rom.u32(hackbuild.FRAME_TABLE + n)
+    rom.data[q + 2] = rom.data[rom.u32(hackbuild.FRAME_TABLE + frame) + 2]   # (the small frame's drawing mode)
+    return n
 
 
 def apply(rom):
