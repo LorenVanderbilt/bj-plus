@@ -18,7 +18,12 @@ DESCRIPTION = "Lower Earth Empire 2: the hero can't stand inside the brick wall 
 DRAW_FRONT_CALL = 0x11804    # jsr 0xA3A6 - the gameplay loop's front object group
 DRAW_FRONT = 0xA3A6
 HERO_CODE = 0x3BD10
-STAGE, ROW_TOP, ROW_BOTTOM, X_LEFT, X_FACE = 4, 20, 30, 1012, 1063
+STAGE = 4
+ZONES = [   # (level rows top, bottom; x left, the face x)
+    (20, 30, 1012, 1063),    # the tunnel's mouth (cells (65, 23-24))
+    (38, 40, 1250, 1319),    # a second mouth over the water (cells (80-81, 37-38); the face at x 1312;
+]                            # sta/aes/pocket_moss.sta)
+ZONE_SRC = "    move.w (%a0),%d0                 | level with mouth ZI,\n    lsr.w #7,%d0\n    add.w 0x10020A,%d0\n    neg.w %d0\n    lsr.w #4,%d0\n    cmp.w #ROW_TOP,%d0\n    bcs 7ZIf\n    cmp.w #ROW_BOTTOM,%d0\n    bhi 7ZIf\n    move.w 2(%a0),%d0                | and left of the wall's face?\n    sub.w #0x4000,%d0\n    lsr.w #7,%d0\n    add.w 0x100216,%d0\n    cmp.w #X_LEFT,%d0\n    bcs 7ZIf\n    cmp.w #X_FACE,%d0\n    bcc 7ZIf\n    move.w #X_FACE,%d0               | then at the face\n    sub.w 0x100216,%d0\n    lsl.w #7,%d0\n    add.w #0x4000,%d0\n    move.w %d0,2(%a0)\n    rts\n7ZI:\n"
 
 
 def apply(rom):
@@ -40,32 +45,17 @@ clamp:
     bne 8f
     tst.b 1(%a1)                     | not shrunk (form 0 fits the tunnel),
     beq 8f
-    move.w (%a0),%d0                 | level with the mouth,
-    lsr.w #7,%d0
-    add.w 0x10020A,%d0
-    neg.w %d0
-    lsr.w #4,%d0
-    cmp.w #ROW_TOP,%d0
-    bcs 8f
-    cmp.w #ROW_BOTTOM,%d0
-    bhi 8f
-    move.w 2(%a0),%d0                | and left of the wall's face?
-    sub.w #0x4000,%d0
-    lsr.w #7,%d0
-    add.w 0x100216,%d0
-    cmp.w #X_LEFT,%d0
-    bcs 8f
-    cmp.w #X_FACE,%d0
-    bcc 8f
-    move.w #X_FACE,%d0               | then at the face
-    sub.w 0x100216,%d0
-    lsl.w #7,%d0
-    add.w #0x4000,%d0
-    move.w %d0,2(%a0)
+ZONES_CODE
 8:  rts
 """
-    for k, v in (("DRAW_FRONT", "0x%X" % DRAW_FRONT), ("HERO_CODE", "0x%X" % HERO_CODE), ("ROW_BOTTOM", str(ROW_BOTTOM)),
-                 ("ROW_TOP", str(ROW_TOP)), ("X_LEFT", str(X_LEFT)), ("X_FACE", str(X_FACE)), ("STAGE", str(STAGE))):
+    zones = ""
+    for i, (top, bottom, left, face) in enumerate(ZONES):
+        z = ZONE_SRC
+        for k, v in (("ROW_BOTTOM", bottom), ("ROW_TOP", top), ("X_LEFT", left), ("X_FACE", face), ("ZI", i)):
+            z = z.replace(k, str(v))
+        zones += z
+    src = src.replace("ZONES_CODE", zones)
+    for k, v in (("DRAW_FRONT", "0x%X" % DRAW_FRONT), ("HERO_CODE", "0x%X" % HERO_CODE), ("STAGE", str(STAGE))):
         src = src.replace(k, v)
     at = rom.place_code(src, why="Lower Earth Empire 2: keep the hero out of the wall at the tunnel's mouth")
     rom.write(DRAW_FRONT_CALL, bytes.fromhex("4EB9") + at.to_bytes(4, "big"),
