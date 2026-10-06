@@ -54,7 +54,6 @@ FIXES = [
     (0x548E1, "HUNG ON TO IT.", "HANG ON TO THEM"),
     (0x34986, "BAD GUY.", "YOU JERK"),                  # (YOU JERK! doesn't fit)
     # the lottery after each boss
-    (0x295E6, "DREWING.", "DRAWING."),
     (0x2971D, "OKEY,I BET.", "LET'S PLAY!"), (0x2971D, "I'LL PASS.", "NO THANKS."),
     (0x29B02, "FIRST PRIZE!", "1ST PRIZE!"), (0x29BF0, "2ND PRIZE.", "2ND PRIZE!"),
     (0x29CDC, "3RD PRIZE.", "3RD PRIZE!"), (0x29DF0, "4TH PRIZE.", "4TH PRIZE!"),
@@ -149,9 +148,12 @@ STRINGS = [
     (0x2C960, ["YOU WIN IF YOU PICK THE SAME", "CARD AS ME.", "WIN DOUBLE YOUR BET.", "ONE GAME ONLY.",
                "OK. LET'S GO."]),     # (was ... OPEN ... / ODD ARE DOUBLE. / YOU ONLY GET TO PLAY ONCE. / O.K. ...;
                                       # Japanese: the payout is 2x, a one-game match)
-    # the lottery after each boss (its box takes 15: SETTING US FREE at 0x295E6)
+    # the lottery after each boss (its box: 14 letters - a 15th touches its right rim)
     (0x29900, ["OK! MAYBE", "NEXT TIME."]),                        # I SEE. / SEE YOU LATER.
-    (0x29958, ["SORRY! YOU NEED", "10 FLOWERS."], 15),                 # NO. / YOU DON'T HAVE / 10 FLOWERS.
+    (0x29958, ["SORRY! IT'S", "10 FLOWERS."]),                             # NO. / YOU DON'T HAVE / 10 FLOWERS.
+    # the later lotteries' intro (was THIS IS A / REWARD FOR / SETTING US FREE / A LOTTERY / DREWING.: its 15-letter
+    # line touched the box's right rim - 14 at most; lines padded to 13 but the last, as the original's)
+    (0x295E6, [l.ljust(13) for l in ["THIS IS A", "REWARD FOR", "FREEING US,", "A LOTTERY"]] + ["GAME."]),
     (0x29F26, ["SORRY!", "NO PRIZE"]),                             # OH. / SORRY MISS.
     (0x2A036, ["LIFE BALL", "1 MORE HEART."], 15),                     # (+1 maximum heart)
     (0x2A08A, ["SILVER COCOON", "FIVE OF THEM", "FOR A 1UP."]),
@@ -267,7 +269,7 @@ RELOCATED = [   # (name, where its address is (an lea's operand) or None, old ad
     ("boat1", 0x223AE, 0x22596, ["IT'S GOOD THAT YOU", "ALREADY KNOW.", "YOU CAN RENT MY BOAT."], None),
     # the lottery host after each boss: the Japanese opens with "we're a family of travelling merchants", which the
     # English left out (so its THEY CAPTURED US DURING A TRIP. came from nowhere) - a third text chained in front
-    ("lot3", None, 0x295E6, ["THANKS FOR", "FREEING US!", "10 FLOWERS FOR", "A LOTTERY DRAW!"], None),  # THIS IS A REWARD ...
+    ("lot3", None, 0x295E6, ["THANKS FOR", "FREEING US!", "10 FLOWERS FOR", "A LUCKY DRAW!"], None),  # THIS IS A REWARD ...
     ("lot2", None, 0x29588, ["THE DARUMA", "CAUGHT US ON", "THE ROAD."], "lot3"),                  # THEY CAPTURED ...
     ("lot1", 0x2946C, 0x29588, ["WE'RE A FAMILY", "OF TRAVELING", "GNOMES."], "lot2"),
     # the frozen princess's house (Mechanical City 3)
