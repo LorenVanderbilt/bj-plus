@@ -283,9 +283,9 @@ RELOCATED = [   # (name, where its address is (an lea's operand) or None, old ad
     ("lim9", 0x2E4AE, 0x2E4EA, ["...THAT WAS A WASTE OF TIME."], None),    # IT'S JUST A WASTE OF TIME.
     ("lim8", 0x2DEBC, 0x2DF7E, ["I HATE INDECISIVE MEN."], None),           # (time-up) I DATE UNSURE MEN.
     ("robot5", None, 0x2F4D0, ["THIS IS THE END FOR ME...", "FAREWELL, MY ETERNAL RIVAL..."], None),   # IT SEEMS LIKE ...
-    ("robot4", 0x2F420, 0x2F45A, ["...I WAS ONLY BUILT", "TO FIGHT."], "robot5"),                  # I'M NOT HURT.
+    ("robot4", 0x2F420, 0x2F45A, ["...IF ANYONE HAS A CHANCE,", "IT IS YOU."], "robot5"),           # I'M NOT HURT.
     ("robot3", 0x2F376, 0x2F3A6, ["THEN HOW CAN I BEAT HIM?!"], None),                           # WHAT CAN WE DO? (Blue)
-    ("robot1", 0x2F08C, 0x2F228, ["YOU WIN, BLUE... BUT EMPEROR", "DARUMA IS FAR STRONGER.", "HIS WEAPON IS DRIVEN BY",
+    ("robot1", 0x2F08C, 0x2F228, ["YOU WIN, BLUE... BUT EMPEROR", "DARUMA IS FAR STRONGER.", "HIS STRENGTH IS DRIVEN BY",
                                   "HIS EVIL WILL."], None),         # I LOST BUT EMPEROR DARUMA IS STRONGER. / ...
 ]
 

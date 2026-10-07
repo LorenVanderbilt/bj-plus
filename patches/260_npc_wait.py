@@ -7,7 +7,9 @@ DESCRIPTION = "NPC rooms: after the last line, wait for a button press (up to 10
 # the room's own wait, then until a fresh press of A / B / C / D (either player; a button still held from the
 # answer to a question doesn't count), or MAX_WAIT frames.
 SITES = [0x21B72, 0x22948, 0x22F14, 0x2346A, 0x2374A, 0x2394E, 0x25AAE, 0x26838, 0x270CE, 0x27B62, 0x28670,
-         0x2C560, 0x2D3DE, 0x2DE70, 0x2F0F8]   # each `move.w #N,d0`'s immediate; the `jsr 0xE858` follows it
+         0x2C560, 0x2D3DE, 0x2DE70]   # each `move.w #N,d0`'s immediate; the `jsr 0xE858` follows it
+# (0x2F0F8, the last level mini boss's farewell, was here too - but it isn't an NPC room: its last line sends the
+# mantis down out of sight, and waiting there froze him half way; mantis-exit lets him finish instead.)
 WAIT = 0xE858          # d0 = frames to wait
 WAIT_FRAME = 0xE856    # one frame
 MAX_WAIT = 600
