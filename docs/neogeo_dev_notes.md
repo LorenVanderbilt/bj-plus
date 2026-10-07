@@ -72,3 +72,20 @@ disassembly), with replies from other Neo Geo developers. Screenshots were share
 - General references: Rodrigo Copetti's architecture write-up (copetti.org/writings/consoles/neogeo/), the NeoGeo
   Dev Wiki (wiki.neogeodev.org, e.g. "System ROM", "Sprites"), and the arcade-projects.com "Mark of the Wolves"
   reverse-engineering thread.
+
+## arcade-projects.com "Mark of the Wolves reverse engineering" thread (pages 1-2, via the Wayback Machine)
+The live site refuses automated fetches (403); web.archive.org has pages 1-2 (January 2024), later pages weren't
+archived. Mostly about getting Garou onto 161-in-1 multi carts (its NEO-SMA bank-switching chip, its 512 KB S ROM -
+not our concerns). The useful parts:
+- **Finding who writes the screen** (ekorz): watchpoints on the VRAM registers. `wpset 3c0000,2,w,wpdata>7000&&
+  wpdata<7500` stops on every VRAM address set in the fix layer area, showing the writing PC; the data then streams
+  to $3C0002. *For us:* the same thing we do with Lua write taps on 0x3C0000 / 0x3C0002 (tracking the address,
+  logging the PC) - the MAME debugger version for interactive use.
+- **Eyecatcher** (wiki.neogeodev.org "Eyecatcher", "68k program header"): header byte $114 picks who draws the boot
+  logo (0 = the BIOS), $115 is the upper byte of the logo's sprite tiles. *For us:* Blue's Journey has $114 = 0,
+  $115 = 0x5F, so the BIOS logo uses tiles 0x5F00-0x5FFF - not the low tiles (spare-tiles skipped the blank runs at
+  0x26 and 0x5B on that worry; they could be freed too).
+- Tools named: Matt Greer's sprite / tile viewer (neospriteviewer.mattgreer.dev, shows tile numbers), YYCHR (an
+  S ROM fix tile editor), aluzed's MiSTer / DarkSoft ROM set generator (github.com/aluzed/MiSTer-Neogeo-Rom-Decrypter),
+  and Nicole Express's "high-speed coding on the Neo Geo" write-up (nicole.express/2021/high-speed-coding-neo-geo.html).
+- NeoGeoDev wiki pages it leans on: "VRAM", "Sprites", "Fix bankswitching" (only for games with a big S ROM).
