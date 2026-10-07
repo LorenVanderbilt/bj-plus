@@ -1,6 +1,7 @@
 """Minimal PNG read / write (no PIL): an indexed picture out, and any 8-bit PNG back in as palette indices.
 
 write_indexed(path, rows, palette): rows = [[index, ...], ...], palette = [(r, g, b), ...] (index 0 transparent).
+read_rgba(path): the picture's pixels as rows of ((r, g, b), alpha).
 read_indices(path, palette): the picture's pixels as indices into palette - each pixel's colour matched to the
 nearest palette colour (so an editor that reorders the palette or saves RGB(A) still round-trips); fully
 transparent pixels are index 0.
@@ -30,6 +31,13 @@ def _paeth(a, b, c):
 
 
 def read_indices(path, palette):
+    return [[0 if a == 0 else min(range(1, len(palette)), key=lambda i: sum((rgb[k] - palette[i][k]) ** 2
+                                                                           for k in range(3)))
+             for rgb, a in row] for row in read_rgba(path)]
+
+
+def read_rgba(path):
+    """The picture's pixels as rows of ((r, g, b), alpha)."""
     data = open(path, "rb").read()
     if data[:8] != b"\x89PNG\r\n\x1a\n":
         raise SystemExit("%s: not a PNG" % path)
@@ -71,9 +79,18 @@ def read_indices(path, palette):
                 px = line[x * channels:(x + 1) * channels]
                 rgb = tuple(px[:3]) if channels >= 3 else (px[0],) * 3
                 alpha = px[-1] if ctype in (4, 6) else 255
-            if alpha == 0:
-                row.append(0)
-            else:
-                row.append(min(range(1, len(palette)), key=lambda i: sum((rgb[k] - palette[i][k]) ** 2 for k in range(3))))
+            row.append((rgb, alpha))
         out.append(row)
     return out
+
+
+def neo_to_rgb(word):
+    """A Neo Geo colour word as 8-bit (r, g, b) (5 bits each: the low bit in bits 14-12)."""
+    return tuple((((word >> shift) & 15) << 1 | (word >> low) & 1) * 255 // 31
+                 for shift, low in ((8, 14), (4, 13), (0, 12)))
+
+
+def rgb_to_neo(rgb):
+    """The nearest Neo Geo colour word to 8-bit (r, g, b)."""
+    r, g, b = (min(31, (v * 31 + 127) // 255) for v in rgb)
+    return (r & 1) << 14 | (g & 1) << 13 | (b & 1) << 12 | (r >> 1) << 8 | (g >> 1) << 4 | (b >> 1)

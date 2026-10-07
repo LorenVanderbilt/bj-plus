@@ -59,8 +59,8 @@ CLEAR_FIX = 0x9FBE
 HEADER_CALL = 0x35E9E             # screen 2's header call (item-header makes it a jsr to the re-spaced header)
 ICON_OBJECTS = [0x104980, 0x104A00, 0x104A80]
 # (name, row, [description lines], icon) - an icon is a level item's 16x16 tile, drawn 2x as big (2x2 tiles), with
-# its level palette's colors (the palettes are loaded into two slots the attract mode never uses; the bamboo shoot
-# and the flower share one - 14 colors between them).
+# its level palette's colors (the palettes are loaded into slots the item screens don't use - only 0xD5, 0xD6,
+# 0xD8, 0xF2 and 0xF3 are on screen 3; the flower got its own, 0x7D, when redrawn with both currency flowers).
 SCREEN3 = [
     ("BAMBOO", 10, ["INVINCIBLE"], "bamboo"),
     ("CATFISH", 16, ["EARTHQUAKE"], "catfish"),
@@ -68,7 +68,7 @@ SCREEN3 = [
 ]
 ICONS = {   # level tile, its level palette (16 colors), the palette slot it is drawn with
     "bamboo": (0x47C7, "0000 7ffb 2fd2 3eb1 4c91 5b70 2a40 a08f 003f 9e50 8e20 8b00 7ff7 fa93 6872 0000", 0x4B),
-    "flower": (0x47DB, "0000 0000 0777 7ff7 fa93 6872 7f98 6f78 4e56 6ffa 5ec7 01d1 3080 0e00 4b00 7fff", 0x4B),
+    "flower": (0x47DB, "0000 0000 0777 7ff7 fa93 6872 7f98 6f78 4e56 6ffa 5ec7 01d1 3080 0e00 4b00 7fff", 0x7D),
     "catfish": (0x502F, "0000 8000 8777 4fd0 6f90 8c60 dec7 8fa8 ef78 eff0 897f c63d c50a aa40 4720 ffff", 0x7E),
 }
 PALETTE_RAM = 0x400000
@@ -102,28 +102,45 @@ def text_source(lines, tag):
     return src, data
 
 
+ART = "art/item_%s.png"       # (if there) an icon redrawn: 32x32, its own colours (up to 15 a palette slot, shared
+                             # slots included; fully transparent = clear). tools/export_item_icons.py writes the
+                             # starting one (the level tile drawn 2x).
+
+
+def icon_art(rom, name):
+    """The icon's 32x32 picture as colour words (None = clear): its ART if there, else its level tile drawn 2x."""
+    import os
+    import sys
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(root, ART % name)
+    tile, colors, slot = ICONS[name]
+    if os.path.exists(path):
+        sys.path.insert(0, os.path.join(root, "tools"))
+        from png_tiles import neo_to_rgb, read_rgba, rgb_to_neo
+        art = read_rgba(path)
+        if len(art) != 32 or len(art[0]) != 32:
+            raise SystemExit("item-text: %s must be 32x32" % (ART % name))
+        known = {neo_to_rgb(int(c, 16)): int(c, 16) for c in colors.split()[1:]}   # (the level colours exactly,
+        return [[None if a == 0 else known.get(rgb, rgb_to_neo(rgb)) for rgb, a in row] for row in art]  # dark bit too)
+    cols = [int(c, 16) for c in colors.split()]
+    src = rom.sprite_tile(tile)
+    return [[None if src[y // 2][x // 2] == 0 else cols[src[y // 2][x // 2]] for x in range(32)] for y in range(32)]
+
+
 def build_icons(rom):
     """{icon: (frame number, palette slot)} and {palette slot: 16 colors} for screen 3's icons."""
-    slots = {}
+    slots, arts = {}, {}
     for name, (tile, colors, slot) in ICONS.items():    # merge each slot's colors: the icons' used ones
-        used = sorted({v for row in rom.sprite_tile(tile) for v in row} - {0})
+        arts[name] = icon_art(rom, name)
         pal = slots.setdefault(slot, [0x0000])
-        for i in used:
-            c = int(colors.split()[i], 16)
+        for c in sorted({c for row in arts[name] for c in row if c is not None}):
             if c not in pal[1:]:
                 pal.append(c)
         if len(pal) > 16:
-            raise SystemExit("item-text: too many colors for palette 0x%X" % slot)
+            raise SystemExit("item-text: too many colors for palette 0x%X (%d, 15 at most)" % (slot, len(pal) - 1))
     frames = {}
     for name, (tile, colors, slot) in ICONS.items():
-        cols = colors.split()
-        remap = {0: 0}
-        for i in range(1, 16):
-            c = int(cols[i], 16)
-            if c in slots[slot][1:]:
-                remap[i] = slots[slot].index(c, 1)
-        src = rom.sprite_tile(tile)
-        big = [[remap.get(src[y // 2][x // 2], 0) for x in range(32)] for y in range(32)]
+        big = [[0 if c is None else slots[slot].index(c, 1) for c in row] for row in arts[name]]
         tiles = [[rom.add_sprite_tile([r[tx * 16:tx * 16 + 16] for r in big[ty * 16:ty * 16 + 16]],
                                       why="item screen icon: %s" % name) for tx in range(2)] for ty in range(2)]
         frames[name] = (rom.add_frame(tiles, slot, why="item screen icon: %s" % name), slot)
