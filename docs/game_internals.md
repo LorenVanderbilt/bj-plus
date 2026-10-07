@@ -23,3 +23,11 @@ Found from `recordings/powerup.inp` (powerup at frames ~5683-6219); see also pat
 - The game has two gameplay loops depending on BIOS mode but both use the main loop at 0x11ABC, which
   runs the per-frame update (0x11720) then checks for the pause button. The attract-mode demo uses a
   separate loop at 0x10740.
+
+## The travel agency's ride scene (sta/aes/travel_ticket.sta: press A)
+A pseudo-3D flight built from hardware shrinking: Blue's creature is a sprite chain whose shrink (SCB2) steps down
+each frame (0xFFF, 0xCD5, 0xAAD, 0x785, 0x55D ... 0x22E over ~4 s) while it moves toward the horizon at the screen's
+centre. Its columns alternate neighbouring horizontal shrinks (0xCD5 / 0xDD5) for in-between widths - finer than
+the 16 horizontal steps. The pink bubbles (tiles 0x55D0-0x55D2) are drawn several times at different shrinks, small
+ones slow near the centre, big ones fast toward the edges (depth by speed). The blue perspective grid's horizontal
+lines move toward the camera (the user, 2026-10-07; how - scrolling strips or palette cycling - not yet looked at).
