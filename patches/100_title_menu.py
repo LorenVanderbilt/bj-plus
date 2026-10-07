@@ -143,8 +143,10 @@ LINE_BUF = 0x10E980          # a line of text being put together (32 bytes)
 SAVE_LABEL_NAME = "BLUE'S J.+  "   # the first 12 characters of the hack's save label (the original's: BLUE'S J.)
 PAL = 15                     # fix palette for the options screens' text
 TITLE_PAL = 5                # the title's PUSH START palette
-MENU_COL, MENU_LAST_ROW = 16, 22   # title menu: fix column, and the row of its last line (a line every other row)
-PUSH_START_ADDR = 0x71D5     # where the title's PUSH START is (column 14, row 21: " PUSH START", 11 characters)
+MENU_COL, MENU_LAST_ROW = 16, 21   # title menu: fix column, and the row of its last line (a line every other row;
+                                  # was 22 - title-logo-up moved the ALPHA logo and PUSH START a row up)
+PUSH_START_ADDR = 0x71D4     # where the title's PUSH START is (column 14, row 20: " PUSH START", 11 characters;
+                             # row 21 in the original - title-logo-up)
 TITLE_ROW, LIST_ROW, COL = 3, 6, 8
 BLINK_ON, BLINK_OFF = 20, 10                 # frames the selected line is shown / hidden
 REPEAT_DELAY, REPEAT_RATE = 20, 6            # holding a direction: first repeat after, then every, N frames
