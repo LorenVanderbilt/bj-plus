@@ -15,3 +15,5 @@ sta/
 # Personal run.sh settings
 local.cfg
 dist/
+art/title_sky_preview.png
+art/title_sky_try*.png
