@@ -90,3 +90,27 @@ not our concerns). The useful parts:
   S ROM fix tile editor), aluzed's MiSTer / DarkSoft ROM set generator (github.com/aluzed/MiSTer-Neogeo-Rom-Decrypter),
   and Nicole Express's "high-speed coding on the Neo Geo" write-up (nicole.express/2021/high-speed-coding-neo-geo.html).
 - NeoGeoDev wiki pages it leans on: "VRAM", "Sprites", "Fix bankswitching" (only for games with a big S ROM).
+
+## Beginner references (2026-10-07): freem's guide, ChibiAkumas, freemlib, Nicole Express
+ajworld.net/neogeodev/beginner/ (freem), chibiakumas.com/68000/neogeo.php, github.com/freem/freemlib-neogeo,
+nicole.express/2021/high-speed-coding-neo-geo.html - written for new homebrew, mostly what we know. New to us:
+- **Two palette banks**: all 256 palettes exist twice; writing to $3A000F selects bank 1, $3A001F bank 0. *For us:*
+  switched mid-frame (timer interrupt at the water line) everything below the surface could use tinted copies -
+  a whole-screen underwater tint (see the "Underwater effect" TODO); needs the copies kept in step with the game's
+  palette changes (cycling, fades) and a real-console check.
+- **LSPC registers**: $3C0004 the VRAM address step (signed); $3C0006 mode (auto-animation speed, timer); $3C0008 /
+  $3C000A the timer; $3C000C IRQ acknowledge - a *byte*: 4 = vblank, 2 = timer (HBlank) IRQ, 1 = IRQ3.
+- **Vblank duties** for a game's own handler: if bit 7 of $10FD80 is clear jump to the BIOS's SYSTEM_INT1
+  ($C00438); acknowledge, kick the watchdog (a write to $300001 - every ~0.13 s or it resets), do the VRAM work,
+  call SYSTEM_IO ($C0044A) once a frame.
+- **BIOS RAM**: $10FE88 the BIOS's frame counter (long); $10FD96 / $10FD9C each player's buttons now, $10FD97 /
+  $10FD9D just pressed (edges), $10FD9A / $10FDA0 repeat; $10FDAF the user mode (0 init, 1 title, 2 game).
+- **Header**: $114 eyecatch flag, $115 its sprite bank (ours: 0x5F00 tiles), $116 / $11A / $11E soft-DIP tables
+  (JP / US / EU), $122-$134 the JMPs to USER / PLAYER_START / DEMO_END / COIN_SOUND, $182 the security code.
+- **Shrinking**: only down; shrunk sprites can show black dots in transparent areas - fill unused tiles with
+  transparent pixels. Horizontal shrink drops pixel columns (Nicole Express used it for a window-blind effect).
+- **Tools**: YY-CHR(.NET) with freem's NeoFixFormat plugin edits fix (S ROM) tiles - for the font / HUD TODOs;
+  ROMwak (byteswap / pad), ADPCM-A / ADPCM-B encoders (new sound effects), MakeNeoGeoHash (MAME hash XML),
+  AkuSprite (ChibiAkumas's editor, exports fix and sprite formats). freemlib has a full Z80 sound driver (FM, SSG,
+  both ADPCMs) and docs - a reference if we ever touch sound.
+- **vasm gotcha**: its optimiser turns the header's hard-coded JMPs into branches - not ours (we patch with gas).
