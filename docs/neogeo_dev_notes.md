@@ -74,8 +74,9 @@ disassembly), with replies from other Neo Geo developers. Screenshots were share
   reverse-engineering thread.
 
 ## arcade-projects.com "Mark of the Wolves reverse engineering" thread (pages 1-2, via the Wayback Machine)
-The live site refuses automated fetches (403); web.archive.org has pages 1-2 (January 2024), later pages weren't
-archived. Mostly about getting Garou onto 161-in-1 multi carts (its NEO-SMA bank-switching chip, its 512 KB S ROM -
+The live site refuses automated fetches (403); web.archive.org has pages 1-2 (January 2024); pages 3-4 (pasted by
+the user, 2025-2026) are only collectors' talk - Garou's final version still can't be reproduced on its own cart
+(the NEO-SMA bank switching), flash carts run it - nothing technical. Mostly about getting Garou onto 161-in-1 multi carts (its NEO-SMA bank-switching chip, its 512 KB S ROM -
 not our concerns). The useful parts:
 - **Finding who writes the screen** (ekorz): watchpoints on the VRAM registers. `wpset 3c0000,2,w,wpdata>7000&&
   wpdata<7500` stops on every VRAM address set in the fix layer area, showing the writing PC; the data then streams
