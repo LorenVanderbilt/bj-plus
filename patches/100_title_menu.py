@@ -264,6 +264,23 @@ def string_table(label, names):
     return ("%s:\n%s%s_s:\n%s    .even\n" % (label, "".join("    .word %d\n" % o for o in offs), label, data))
 
 
+PUSH_START_END = 0x1B096      # (its rts at 0x1B094)
+
+
+def push_start_copy(rom):
+    """The title's own copy of the PUSH START routine (0x1B034, shared with the other attract screens), its three
+    records' fix address PUSH_START_ADDR (title-logo-up moved the title's a row up; elsewhere - TODAY'S BEST's 4th
+    line is on row 20 - it stays on row 21)."""
+    body = bytearray(rom.data[PUSH_START:PUSH_START_END])
+    for at in (0x1B04C, 0x1B064, 0x1B084):
+        if body[at - PUSH_START:at - PUSH_START + 2] != b"\x71\xd5":
+            raise SystemExit("title-menu: the PUSH START routine isn't as expected")
+        body[at - PUSH_START:at - PUSH_START + 2] = PUSH_START_ADDR.to_bytes(2, "big")
+    addr = rom.alloc(len(body))
+    rom.data[addr:addr + len(body)] = body
+    return addr
+
+
 def fix_pixels(rom, index):
     """An original S ROM fix tile as pixels[y][x] (put_fix_tile's layout, read back)."""
     at = index * 32
@@ -1680,7 +1697,7 @@ TABLES
         "ST_TYPE_ADDR": "0x%X" % fix_addr(COL, 9), "ST_HELP_ADDR": "0x%X" % fix_addr(COL, 13),
         "STAGE_IDS": ",".join(str(i) for i, n in STAGES), "TABLES": tables,
         "TITLE_TIMEOUT": "0x%X" % TITLE_TIMEOUT, "SYSTEM_MODE": "0x%X" % SYSTEM_MODE,
-        "START_FLAGS": "0x%X" % START_FLAGS, "FRAME": "0x%X" % FRAME, "PUSH_START": "0x%X" % PUSH_START,
+        "START_FLAGS": "0x%X" % START_FLAGS, "FRAME": "0x%X" % FRAME, "PUSH_START": "0x%X" % push_start_copy(rom),
         "PLAYER_START": "0x%X" % PLAYER_START, "LOAD": "0x%X" % LOAD, "HOW_TO_PLAY": "0x%X" % HOW_TO_PLAY,
         "ATTRACT_TOGGLE": "0x%X" % ATTRACT_TOGGLE, "CLEAR_FIX": "0x%X" % CLEAR_FIX,
         "CLEAR_SPRITES": "0x%X" % CLEAR_SPRITES, "WAIT_FRAME": "0x%X" % WAIT_FRAME,
