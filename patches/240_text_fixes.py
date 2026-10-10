@@ -150,7 +150,10 @@ STRINGS = [
                                       # Japanese: the payout is 2x, a one-game match)
     # the lottery after each boss (its box: 14 letters - a 15th touches its right rim)
     (0x29900, ["OK! MAYBE", "NEXT TIME."]),                        # I SEE. / SEE YOU LATER.
-    (0x29958, ["SORRY! IT'S", "10 FLOWERS."]),                             # NO. / YOU DON'T HAVE / 10 FLOWERS.
+    (0x29958, ["SORRY! IT'S", "10 FLOWERS."]),
+    # the lottery's super safe prize (was SUPER SAFE. / THIS PROTECTS / ITEMS FOR 3 / STAGES FROM / THE NEXT STAGE.):
+    # item-keep made it last the whole game
+    (0x2A246, ["SUPER SAFE!", "YOUR ITEMS ARE", "SAFE FOR THE", "WHOLE GAME."]),                             # NO. / YOU DON'T HAVE / 10 FLOWERS.
     # the later lotteries' intro (was THIS IS A / REWARD FOR / SETTING US FREE / A LOTTERY / DREWING.: its 15-letter
     # line touched the box's right rim - 14 at most; lines padded to 13 but the last, as the original's)
     (0x295E6, [l.ljust(13) for l in ["THIS IS A", "REWARD FOR", "FREEING US,", "A LOTTERY"]] + ["GAME."]),
@@ -176,6 +179,28 @@ SHOP = [
     ([0x2123A, 0x21438], "MAGIC WAND", ["  DISPELS", "  CURSE"], False),
     ([0x21268, 0x21288, 0x21466, 0x21486], "FERN", [" SPEED UP"], False),
 ]
+
+
+# The safes' shop texts (item-keep changed what they do): longer than their space, so new strings - the price line
+# kept - and the shops' description tables (DESC_TABLES: 4 shops x normal / doubled x 8 cells) pointed at them.
+SAFE_TEXTS = [   # (the original texts - each price variant -, name, description lines)
+    ([0x211B0, 0x211DA, 0x213AE, 0x213D8], "LIGHT SAFE", ["KEEPS ITEMS", "FOR 1 CONTINUE"]),
+    ([0x21204, 0x21402], "SUPER SAFE", ["KEEPS ITEMS", "ALL GAME LONG"]),
+]
+DESC_TABLES = (0x20EF4, 0x20FF4)
+
+
+def safe_texts(rom):
+    for addrs, name, desc in SAFE_TEXTS:
+        for old in addrs:
+            price = bytes(rom.data[old:old + 64]).split(b"\xfe")[1]
+            text = b"\xfe".join([name.encode(), price] + [l.encode() for l in desc]) + b"\xff"
+            new = rom.alloc(len(text))
+            rom.data[new:new + len(text)] = text
+            for at in range(DESC_TABLES[0], DESC_TABLES[1], 4):
+                if rom.u32(at) == old:
+                    rom.write(at, new.to_bytes(4, "big"), expect=old.to_bytes(4, "big"),
+                              why="shop text: %s %s" % (name, price.decode().strip()))
 
 
 def shop_text(rom, addr, name, desc, orphan):
@@ -351,6 +376,7 @@ def apply(rom):
             continue
         text = new.ljust(room).encode().replace(b"?", b"\x0a")
         rom.write(at, text, expect=bytes(rom.data[at:at + room]), why="text: %s -> %s" % (old, new))
+    safe_texts(rom)
     for addrs, name, desc, orphan in SHOP:
         for addr in addrs:
             text, room = shop_text(rom, addr, name, desc, orphan)
