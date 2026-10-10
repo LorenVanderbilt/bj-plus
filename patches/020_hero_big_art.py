@@ -48,7 +48,13 @@ NORMAL_FRAMES = 0x190             # the normal hero's frames are 0-0x18C (0x134-
 #     so its frames are drawn as 1.5x copies of the small ones (OCARINA_FRAMES).
 #   0x18, swimming: the big version's fourth frame (0x33C) is a walking pose, so the swim cycle flashed upright
 #     every fourth frame; like the normal cycle (0x6C 0x70 0x74 0x70) it repeats its second pose instead.
-ROW_OVERRIDES = {0x2D: "none", 0x2B: "none", 0x18: [0x330, 0x334, 0x338, 0x334]}
+#   0x2C (frames 0x178-0x180), swimming with the flippers (sta/aes/swim_flippers.sta): the big form's 0xAC
+#     (0x3C8 / 0x3CC / 0x3D0) switches to the flippers' palette (0x5F) at the top of the third column with an entry
+#     (1, 0x40, 0x5F, 0x00) meant as a blank cell - but the game draws its tile, 0x3A00, there: a stray chunk of
+#     flipper above Blue. Each such entry is now a blank (0) followed by the switch on the next tile, the same
+#     bytes reordered (SWIM_FIXES, player 2's copies too). The third frame's lower tiles are the wrong ones in the
+#     original (a jumble of boxes), so the third swim frame uses the first's (SWIM_BIG).
+ROW_OVERRIDES = {0x2D: "none", 0x2B: "none", 0x2C: "none", 0x18: [0x330, 0x334, 0x338, 0x334]}
 BREATHE = (0x364, 0x368)
 # Standing still (animation 0), the small art's antennas are spread (one leaning out); the big standing pair
 # 0x364 / 0x368 has them straight up side by side. They're drawn with spread_antennas copies (new frames: the walk,
@@ -91,6 +97,8 @@ FRAME_SUBSTITUTES = {0xB0: BIG_WINDUP, 0xB4: BIG_RELEASE, 0xB8: BIG_WINDUP, 0xBC
                      0x8C: BIG_WINDUP, 0x90: BIG_RELEASE, 0x94: 0x330, 0x98: 0x334, 0x9C: 0x338}
 HERO_UP_PX = 15
 OCARINA_FRAMES = [0x184, 0x188, 0x18C]
+SWIM_BIG = {0x178: 0x3C8, 0x17C: 0x3CC, 0x180: 0x3C8}   # small flipper swim frame -> the big frame it gets
+SWIM_FIXES = [0x3C8, 0x3CC, 0xBC8, 0xBCC]                # (player 1's, player 2's)
 FIDGET_ANIM = 0x2D
 P2_FRAMES = 0x800                 # player 2's copies of the hero frames (the same art in player 2's palette)
 P2_COPIES = {}                    # frames made here -> their player 2 copy (when the palette differs)
@@ -441,6 +449,13 @@ def apply(rom):
         if w < 0x8000 and (w & 0x3FFC) < NORMAL_FRAMES and (w & 0x3FFC) not in fidget:
             fidget.append(w & 0x3FFC)
         q += 4 if w >= 0x8000 else 2
+    for frame in SWIM_FIXES:
+        at = rom.u32(__import__("hackbuild").FRAME_TABLE + frame)
+        k = bytes(rom.data[at:at + 32]).index(b"\x01\x40\x5f\x00")
+        rom.write(at + k, b"\x00\x01\x40\x5f", expect=b"\x01\x40\x5f\x00",
+                  why="big flipper swim frame 0x%X: its palette switch on a tile, not a stray one" % frame)
+    for small, big in SWIM_BIG.items():
+        frame_map[small] = big
     for f in OCARINA_FRAMES + fidget:
         frame_map[f] = upscaled_frame(rom, f)
     burned = {}

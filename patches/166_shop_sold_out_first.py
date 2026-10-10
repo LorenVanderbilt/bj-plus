@@ -14,7 +14,7 @@ SHOP = 0x78F6                # (a6) word: which shop's table
 CELL = 0x4040                # (a5) byte: the cell under the cursor
 SOLD_OUT, NOT_CURSED = 0x203FC, 0x2063E
 BLOCKED = [   # (the item's routines, player byte, "no" when: "set" = nonzero, "two" = 2, "clear" = 0, answer)
-    ((0x20390, 0x20396), 0x15, "set", SOLD_OUT),      # flippers
+    ((0x2038A, 0x20390, 0x20396), 0x15, "set", SOLD_OUT),   # flippers
     ((0x20458, 0x2045E), 0x13, "set", SOLD_OUT),      # ice shoes (spike)
     ((0x204C8,), 0x18, "set", SOLD_OUT),              # light safe (either safe)
     ((0x20550,), 0x18, "two", SOLD_OUT),              # super safe
