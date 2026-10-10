@@ -67,7 +67,7 @@ CHOICE_NEW_GAME, CHOICE_OPTIONS, CHOICE_CONTINUE = 0, 1, 2
 MENU = [("NEW GAME", CHOICE_NEW_GAME), ("OPTIONS", CHOICE_OPTIONS)]       # title menu, no save on the card
 MENU_SAVE = [("CONTINUE", CHOICE_CONTINUE)] + MENU                        # ... with a save to continue
 LEVEL_WIDTH = 15             # the LEVEL: line's name field (SHORT_NAMES padded to it)
-OPTIONS = ["LEVEL: " + " " * LEVEL_WIDTH, "SOUND TEST", "DIFFICULTY: 4", "AUTO SAVE  OFF", "MEMORY CARD",
+OPTIONS = ["LEVEL: " + " " * LEVEL_WIDTH, "SOUND TEST", "DIFFICULTY: 4", "AUTO SAVE: OFF", "MEMORY CARD",
            "BACK TO TITLE"]
 # The LEVEL: and DIFFICULTY: lines are set with Left / Right (no wrapping); A on LEVEL: starts that stage. The
 # stage names in the user's approved short forms.
@@ -126,7 +126,32 @@ ATTRACT_TOGGLE = 0x1033CA   # bit 0: which attract cycle runs next (0x106A0: 0 =
 FIRST_SOUND, LAST_SOUND, FIRST_EFFECT = 0x04, 0xEF, 0x24
 # spare RAM: 0x10E700-0x10EFFF (see 030_pause_start.py)
 CURSOR = 0x10E900            # the level select's last choice
-SOUND_NO = 0x10E901          # the sound test's last number
+SOUND_NO = 0x10E901          # the sound test's last number (its SOUND FX: line)
+MUSIC_NO = 0x10E931          # its MUSIC: line's
+# The SOUND FX: line steps through the sound effects the user kept (docs/sfx_labels.csv, a grid exported from their
+# sheet: row = the code's high digit, column = its low digit; "E" = not used - blank or a synthesiser sample;
+# "?" / "??" = unnamed): each shown as its code and name. SOUND_NO holds the line's place in that list.
+SFX_LABELS = "docs/sfx_labels.csv"
+
+
+def sfx_list():
+    """[(code, label)] the user kept, in code order (labels upper case, '?' for unnamed)."""
+    import csv
+    import os
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), SFX_LABELS)
+    rows = list(csv.reader(open(path, encoding="utf-8")))
+    cols = [int(c, 16) for c in rows[0][1:]]
+    out = []
+    for row in rows[1:]:
+        hi = int(row[0], 16)
+        for lo, cell in zip(cols, row[1:]):
+            label = cell.strip().replace("\u2019", "'").upper()
+            if label in ("", "E"):
+                continue
+            if set(label) <= {"?"}:
+                label = "?"
+            out.append((hi << 4 | lo, label))
+    return sorted(out)
 MENU_OPEN = 0x10E902
 MENU_CURSOR = 0x10E903
 MENU_PREV = 0x10E904         # (word) the menu's last frame's buttons
@@ -166,7 +191,43 @@ TITLE_ROW, LIST_ROW, COL = 3, 6, 8
 # does), the title centred at the top, the entries left aligned three rows apart. BIG_FONT makes list / print use it.
 BIG_FONT = 0x10E930
 BIG_TITLE = "OPTIONS"
-BIG_TITLE_AT, BIG_LIST_AT, BIG_STEP = (None, 4), (5, 9), 3   # (column - the title is centred -, row)s
+BIG_TITLE_AT, BIG_LIST_AT, BIG_STEP = (None, 2), (5, 8), 3   # (column - the title is centred -, row)s; the font
+                             # draws 2 rows below the row it's given (0x5F0EA adds 0x7002): the title is on rows 4-5
+# The selected entry has an arrow left of it (the font's style: two new fix tiles), instead of blinking.
+ARROW_ROWS = [0, 7, 6, 5, 4, 3, 2, 1, 1, 2, 3, 4, 5, 6, 7, 8]   # each pixel row's shade (as the font's letters)
+SHADOW = 0xA                 # the letters' dark edge
+FONT_SPACE = 0x680           # the font's space (its top tile; the bottom one 0x10 on)
+
+
+def arrow_tiles():
+    rows = []
+    for r in range(16):
+        d = abs(r - 8)
+        row = [0] * 8
+        if d <= 6 and r > 0:
+            w = 7 - d
+            for x in range(w):
+                row[x] = ARROW_ROWS[r]
+            if w < 8:
+                row[w] = SHADOW
+        rows.append(row)
+    return rows[:8], rows[8:]
+
+
+QUESTION = [".XXXXX.", "XXXXXXX", "XX...XX", "XX...XX", ".....XX", "....XX.", "...XX..", "..XX...", "..XX...",
+            "..XX...", ".......", ".......", "..XX...", "..XX...", "..XX..."]   # pixel rows 1-15 (the font has none)
+
+
+def question_tiles():
+    """A question mark in the font's style: each row's shade, its dark edge right of each run."""
+    rows = [[0] * 8]
+    for r, line in enumerate(QUESTION, 1):
+        row = [ARROW_ROWS[r] if c == "X" else 0 for c in line] + [0]
+        for x in range(7):
+            if line[x] == "X" and (x == 6 or line[x + 1] != "X"):
+                row[x + 1] = SHADOW
+        rows.append(row)
+    return rows[:8], rows[8:]
 FONT_TABLE, FONT_DRAW = 0x4DBF4, 0x5F0EA
 FONT_PAL, FONT_COLOURS = 5, [0x8000, 0xFFFF, 0xFEEE, 0xFDDD, 0xFCCC, 0xFBBB, 0xFAAA, 0xF999, 0xF888, 0xF777, 0xF666,
                              0xF555, 0xF444, 0xF333, 0xF222, 0xF111]
@@ -215,6 +276,14 @@ def apply(rom):
     stop = rom.u16(FONT_TABLE + (ord(".") - 0x20) * 2)
     colon = rom.add_fix_tile(fix_pixels(rom, ((stop >> 8) & 0xF) << 8 | ((stop + 0x10) & 0xFF)),
                              why="options font: a colon's dot")
+    arrow = [rom.add_fix_tile(t, why="options font: the selection arrow") for t in arrow_tiles()]
+    question = [rom.add_fix_tile(t, why="options font: a question mark") for t in question_tiles()]
+    sfx = sfx_list()
+    sfx_width = max(len(label) for code, label in sfx)
+    for code, label in sfx:
+        bad = [c for c in label if not ("A" <= c <= "Z" or "0" <= c <= "9" or c in " !'(),-.?/")]
+        if bad:
+            raise SystemExit("title-menu: %s's label %r has characters the font lacks: %r" % (hex(code), label, bad))
     n = len(OPTIONS)
     strings = "".join(o + "\0" for o in OPTIONS)
     opt_len = 2 * n + len(strings) + (len(strings) & 1)
@@ -1064,16 +1133,28 @@ l_line:
     add.w #LIST_ADDR,%d1
     tst.b BIG_FLAG
     beq 0f
-    move.w %d3,%d1                   | (the big font: BIG_STEP rows a line)
-    mulu #BIG_STEP_ROWS,%d1
+    move.w %d3,%d1                   | (the big font: BIG_STEP rows a line; the last line - BACK TO TITLE - a row
+    mulu #BIG_STEP_ROWS,%d1          | lower, set apart)
     add.w #BIG_LIST_POS,%d1
+    move.w 4(%sp),%d0
+    subq.w #1,%d0
+    cmp.w %d0,%d3
+    bne 0f
+    addq.w #1,%d1
 0:  moveq #0,%d2
     cmp.w %d6,%d3
     bne 1f
     cmp.w #BLINK_ON,%d7
     bcs 1f
     moveq #1,%d2
-1:  bsr print_or_blank
+1:  tst.b BIG_FLAG                   | (the big font: no blinking - an arrow at the selected entry)
+    beq 16f
+    moveq #0,%d2
+16: bsr print_or_blank
+    tst.b BIG_FLAG
+    beq 17f
+    bsr big_arrow
+17:
     addq.w #1,%d3
     cmp.w 4(%sp),%d3
     bne l_line
@@ -1119,74 +1200,176 @@ l_line:
     rts
 
 | ---- sound test: d6 = number, d5 = last frame's buttons, d4 = direction hold time
+| ---- sound test (the framed look): MUSIC: and SOUND FX: lines (Left / Right step their number, round their
+| range), EXIT; Up / Down pick the line (the arrow), A plays (or, on EXIT, goes back), B stops everything, Start
+| does nothing. d6 = the line, d5 / d4 = buttons' state.
 sound_test:
-    bsr screen_setup
-    lea st_title(%pc),%a0
-    move.w #TITLE_ADDR,%d1
-    bsr print
-    lea st_number(%pc),%a0
-    move.w #ST_NUMBER_ADDR,%d1
-    bsr print
-    lea st_help(%pc),%a0
-    move.w #ST_HELP_ADDR,%d3
-14: move.w %d3,%d1
-    bsr print                        | a0 ends up just past this line's terminator
-    addq.w #1,%d3
-    tst.b (%a0)
-    bne 14b
-    moveq #0,%d6
-    move.b SOUND_NO,%d6
-    cmp.w #FIRST_SOUND,%d6
-    bcs 15f
-    cmp.w #LAST_SOUND,%d6
-    bls 16f
-15: move.w #FIRST_EFFECT,%d6
-16: move.w #0xFFFF,%d5
+    bsr framed_setup
+    move.b #1,BIG_FLAG
+    lea st2_title(%pc),%a0
+    move.w #ST2_TITLE_POS,%d1
+    moveq #0,%d2
+    bsr big_print
+    moveq #0,%d0                     | (RAM is random at power-on: each number into its range)
+    move.b MUSIC_NO_RAM,%d0
+    cmp.w #FIRST_SOUND,%d0
+    bcs 1f
+    cmp.w #FIRST_EFFECT,%d0
+    bcs 2f
+1:  move.b #FIRST_SOUND,MUSIC_NO_RAM
+2:  move.b SOUND_NO,%d0
+    cmp.w #SFX_COUNT,%d0
+    bcs 4f
+    clr.b SOUND_NO
+4:  moveq #0,%d6
+    move.w #0xFFFF,%d5
     moveq #0,%d4
-st_loop:
-    move.w %d6,%d0
-    move.w #ST_HEX_ADDR,%d1
-    bsr print_hex
-    lea st_music(%pc),%a0
-    cmp.w #FIRST_EFFECT,%d6
-    bcs 17f
-    lea st_effect(%pc),%a0
-17: move.w #ST_TYPE_ADDR,%d1
-    bsr print
+st2_loop:
+    lea st2_music(%pc),%a0           | MUSIC: nn
+    move.b MUSIC_NO_RAM,%d0
+    move.w #ST2_LINE0,%d1
+    moveq #0,%d3
+    sub.l %a2,%a2
+    bsr st2_line
+    bsr st2_sfx                      | SOUND FX: nn NAME (d0 = its code, a2 = its name)
+    lea st2_effect(%pc),%a0
+    move.w #ST2_LINE1,%d1
+    moveq #1,%d3
+    bsr st2_line
+    lea st2_exit(%pc),%a0            | EXIT
+    move.w #ST2_LINE2,%d1
+    moveq #0,%d2
+    bsr big_print
+    moveq #2,%d3
+    bsr big_arrow
     jsr WAIT_FRAME
     bsr buttons                      | d0 = held, d1 = new (repeats included for the directions)
-    btst #8,%d1                      | Start: back
-    beq 18f
-    move.b %d6,SOUND_NO
-    move.w #0xFF,%d0
-    bra queue                        | stop everything on the way out (queue returns to our caller)
-18: btst #4,%d1                      | A: play
-    beq 19f
-    move.w %d6,%d0
-    bsr queue
-19: btst #5,%d1                      | B: stop all
-    beq 20f
-    move.w #0xFF,%d0
-    bsr queue
-20: btst #3,%d1                      | right +1
-    beq 21f
-    addq.w #1,%d6
-21: btst #2,%d1                      | left -1
-    beq 22f
+    btst #0,%d1                      | Up / Down: the line
+    beq 5f
     subq.w #1,%d6
-22: btst #0,%d1                      | up +16
-    beq 23f
-    add.w #16,%d6
-23: btst #1,%d1                      | down -16
-    beq 24f
-    sub.w #16,%d6
-24: cmp.w #FIRST_SOUND,%d6           | wrap around the ends
-    bge 25f
-    add.w #LAST_SOUND-FIRST_SOUND+1,%d6
-25: cmp.w #LAST_SOUND,%d6
-    ble st_loop
-    sub.w #LAST_SOUND-FIRST_SOUND+1,%d6
-    bra st_loop
+    bpl 5f
+    moveq #2,%d6
+5:  btst #1,%d1
+    beq 6f
+    addq.w #1,%d6
+    cmp.w #3,%d6
+    bcs 6f
+    moveq #0,%d6
+6:  moveq #0,%d2                     | Left / Right: d2 = the step
+    btst #2,%d1
+    beq 7f
+    moveq #-1,%d2
+7:  btst #3,%d1
+    beq 8f
+    moveq #1,%d2
+8:  tst.w %d2
+    beq 12f
+    tst.w %d6
+    bne 10f
+    moveq #0,%d0                     | MUSIC: round FIRST_SOUND .. FIRST_EFFECT-1
+    move.b MUSIC_NO_RAM,%d0
+    add.w %d2,%d0
+    cmp.w #FIRST_SOUND,%d0
+    bge 9f
+    move.w #FIRST_EFFECT-1,%d0
+9:  cmp.w #FIRST_EFFECT,%d0
+    blt 91f
+    move.w #FIRST_SOUND,%d0
+91: move.b %d0,MUSIC_NO_RAM
+    bra 12f
+10: cmp.w #1,%d6
+    bne 12f
+    moveq #0,%d0                     | SOUND FX: the next / last in the list, round
+    move.b SOUND_NO,%d0
+    add.w %d2,%d0
+    bpl 11f
+    move.w #SFX_COUNT-1,%d0
+11: cmp.w #SFX_COUNT,%d0
+    blt 111f
+    moveq #0,%d0
+111: move.b %d0,SOUND_NO
+12: btst #4,%d1                      | A: play / EXIT
+    beq 14f
+    moveq #0,%d0
+    move.b MUSIC_NO_RAM,%d0
+    tst.w %d6
+    beq 13f
+    bsr st2_sfx
+    cmp.w #1,%d6
+    beq 13f
+    clr.b BIG_FLAG                   | EXIT: stop everything, back to the options
+    bsr frame_hide
+    move.w #0xFF,%d0
+    bra queue                        | (queue returns to our caller)
+13: bsr queue
+14: btst #5,%d1                      | B: stop all
+    beq st2_loop
+    move.w #0xFF,%d0
+    bsr queue
+    bra st2_loop
+
+| a sound test line: a0 = its label, d0 = its number (shown in hex after it), d1 = fix address, d3 = its line
+st2_line:
+    movem.l %d0-%d2/%a0-%a1,-(%sp)
+    lea LINE_BUF,%a1
+1:  move.b (%a0)+,(%a1)+
+    bne 1b
+    subq.l #1,%a1
+    and.w #0xFF,%d0
+    move.w %d0,%d2
+    lsr.w #4,%d2
+    bsr st2_digit
+    move.w %d0,%d2
+    and.w #15,%d2
+    bsr st2_digit
+    cmpa.l #0,%a2                    | a2: a name after it (0: none)
+    beq 2f
+    move.b #0x20,(%a1)+
+3:  move.b (%a2)+,(%a1)+
+    bne 3b
+    subq.l #1,%a1
+2:  clr.b (%a1)
+    lea LINE_BUF,%a0
+    moveq #0,%d2
+    bsr big_print
+    bsr big_arrow
+    movem.l (%sp)+,%d0-%d2/%a0-%a1
+    rts
+st2_digit:
+    add.b #0x30,%d2
+    cmp.b #0x3A,%d2
+    bcs 1f
+    addq.b #7,%d2
+1:  move.b %d2,(%a1)+
+    rts
+
+| the SOUND FX: line's sound (SOUND_NO = its place): d0 = its code, a2 = its name (padded)
+st2_sfx:
+    moveq #0,%d0
+    move.b SOUND_NO,%d0
+    mulu #SFX_ENTRY,%d0
+    lea sfx_table(%pc),%a2
+    add.w %d0,%a2
+    moveq #0,%d0
+    move.b (%a2)+,%d0
+    rts
+sfx_table:
+    .byte SFX_TABLE_BYTES
+    .even
+
+st2_title:
+    .ascii "SOUND TEST"
+    .byte 0
+st2_music:
+    .ascii "MUSIC: "
+    .byte 0
+st2_effect:
+    .ascii "SOUND FX: "
+    .byte 0
+st2_exit:
+    .ascii "EXIT"
+    .byte 0
+    .even
 
 | d0 = command -> the game's sound queue, all registers kept
 queue:
@@ -1294,16 +1477,24 @@ big_print:
     tst.w %d3
     beq 2f
     moveq #0x20,%d1
-2:  cmp.b #0x3A,%d1                  | ':' (the font has none: two of its full stop's dot tile, made here)
+2:  cmp.b #0x3F,%d1                  | '?' (the font has none: two tiles made here)
+    bne 21f
+    move.w #QUESTION_TOP_WORD,%d2
+    move.w #QUESTION_BOTTOM_WORD,%d4
+    bra 22f
+21: cmp.b #0x3A,%d1                  | ':' (the font has none: two of its full stop's dot tile, made here)
     bne 3f
+    move.w #COLON_TOP_WORD,%d2
+    move.w #COLON_BOTTOM_WORD,%d4
+22:
     move.w %sr,-(%sp)
     or.w #0x0700,%sr
     move.w #1,0x3C0004
     move.w %d0,%d1
     add.w #0x7002,%d1
     move.w %d1,0x3C0000
-    move.w #COLON_TOP_WORD,0x3C0002
-    move.w #COLON_BOTTOM_WORD,0x3C0002
+    move.w %d2,0x3C0002
+    move.w %d4,0x3C0002
     move.w (%sp)+,%sr
     add.w #0x20,%d0
     bra 1b
@@ -1317,6 +1508,25 @@ big_print:
     add.w #0x20,%d0
     bra 1b
 9:  movem.l (%sp)+,%d0-%d7/%a0-%a6
+    rts
+
+| list's line d3 (at fix address d1) in the big font: the arrow left of it if it's the selected one (d6), else blank
+big_arrow:
+    movem.l %d0-%d1,-(%sp)
+    move.w %sr,-(%sp)
+    or.w #0x0700,%sr
+    move.w #1,0x3C0004
+    add.w #2-64,%d1                  | (the font draws 2 rows down; two columns to the left: a gap)
+    move.w %d1,0x3C0000
+    cmp.w %d6,%d3
+    bne 1f
+    move.w #ARROW_TOP_WORD,0x3C0002
+    move.w #ARROW_BOTTOM_WORD,0x3C0002
+    bra 2f
+1:  move.w #SPACE_TOP_WORD,0x3C0002
+    move.w #SPACE_BOTTOM_WORD,0x3C0002
+2:  move.w (%sp)+,%sr
+    movem.l (%sp)+,%d0-%d1
     rts
 
 | the framed look (OPTIONS): screen_setup, then the font's shades, the frame's palette and the frame
@@ -1481,6 +1691,18 @@ TABLES
         "START_BITS": "0x%X" % START_BITS, "CHOICE": "0x%X" % CHOICE, "STAGE_PICK": "0x%X" % STAGE_PICK,
         "SELECT_REQ": "0x%X" % SELECT_REQ, "TITLE_PHASE": "0x%X" % TITLE_PHASE, "OPT_CURSOR": "0x%X" % OPT_CURSOR, "PAL": str(PAL),
         "BLINK_ON": str(BLINK_ON), "BLINK_OFF": str(BLINK_OFF), "BIG_FLAG": "0x%X" % BIG_FONT,
+        "ARROW_TOP_WORD": "0x%X" % (FONT_PAL << 12 | arrow[0]), "ARROW_BOTTOM_WORD": "0x%X" % (FONT_PAL << 12 | arrow[1]),
+        "SPACE_TOP_WORD": "0x%X" % (FONT_PAL << 12 | FONT_SPACE),
+        "SPACE_BOTTOM_WORD": "0x%X" % (FONT_PAL << 12 | FONT_SPACE + 0x10),
+        "ST2_TITLE_POS": "0x%X" % fix_addr((40 - len("SOUND TEST")) // 2, BIG_TITLE_AT[1]),
+        "ST2_LINE0": "0x%X" % fix_addr(BIG_LIST_AT[0], BIG_LIST_AT[1]),
+        "ST2_LINE1": "0x%X" % fix_addr(BIG_LIST_AT[0], BIG_LIST_AT[1] + BIG_STEP),
+        "ST2_LINE2": "0x%X" % fix_addr(BIG_LIST_AT[0], BIG_LIST_AT[1] + BIG_STEP * (len(OPTIONS) - 1) + 1),
+        "MUSIC_NO_RAM": "0x%X" % MUSIC_NO, "SFX_COUNT": str(len(sfx)), "SFX_ENTRY": str(sfx_width + 2),
+        "SFX_TABLE_BYTES": ",".join("0x%02X" % b for code, label in sfx
+                                    for b in [code] + [ord(c) for c in label.ljust(sfx_width)] + [0]),
+        "QUESTION_TOP_WORD": "0x%X" % (FONT_PAL << 12 | question[0]),
+        "QUESTION_BOTTOM_WORD": "0x%X" % (FONT_PAL << 12 | question[1]),
         "COLON_TOP_WORD": "0x%X" % (FONT_PAL << 12 | colon), "COLON_BOTTOM_WORD": "0x%X" % (FONT_PAL << 12 | colon),
         "BIG_TITLE_POS": "0x%X" % fix_addr((40 - len(BIG_TITLE)) // 2, BIG_TITLE_AT[1]),
         "BIG_LIST_POS": "0x%X" % fix_addr(*BIG_LIST_AT), "BIG_STEP_ROWS": str(BIG_STEP),
