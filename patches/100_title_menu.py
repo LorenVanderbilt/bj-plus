@@ -66,7 +66,18 @@ STAGES = [
 CHOICE_NEW_GAME, CHOICE_OPTIONS, CHOICE_CONTINUE = 0, 1, 2
 MENU = [("NEW GAME", CHOICE_NEW_GAME), ("OPTIONS", CHOICE_OPTIONS)]       # title menu, no save on the card
 MENU_SAVE = [("CONTINUE", CHOICE_CONTINUE)] + MENU                        # ... with a save to continue
-OPTIONS = ["LEVEL SELECT", "SOUND TEST", "DIFFICULTY  LEVEL 4", "AUTO SAVE  OFF", "MEMORY CARD", "BACK TO TITLE"]
+LEVEL_WIDTH = 15             # the LEVEL: line's name field (SHORT_NAMES padded to it)
+OPTIONS = ["LEVEL: " + " " * LEVEL_WIDTH, "SOUND TEST", "DIFFICULTY: 4", "AUTO SAVE  OFF", "MEMORY CARD",
+           "BACK TO TITLE"]
+# The LEVEL: and DIFFICULTY: lines are set with Left / Right (no wrapping); A on LEVEL: starts that stage. The
+# stage names in the user's approved short forms.
+SHORT_NAMES = {"JUNGLE ZONE": "JUNGLE", "THE LOWER EARTH EMPIRE": "LOW EARTH EMP", "EMPIRE MARSH": "EMP MARSH",
+               "MECHANICAL CITY": "MECH CITY", "STRANGE SPACE": "STRANGE SP", "DARUMA EMPIRE": "DARUMA EMP"}
+
+
+def short_name(name):
+    head, num = name.rsplit(" ", 1)
+    return (SHORT_NAMES[head] + " " + num).ljust(LEVEL_WIDTH)
 OPT_DIFFICULTY, OPT_AUTO_SAVE = 2, 3         # (their values are filled in when the screen is drawn)
 CARD_ACTIONS = ["DELETE SAVE", "FORMAT CARD", "BACK"]
 CONFIRM = ["NO", "YES"]
@@ -148,6 +159,32 @@ MENU_COL, MENU_LAST_ROW = 16, 21   # title menu: fix column, and the row of its 
 PUSH_START_ADDR = 0x71D4     # where the title's PUSH START is (column 14, row 20: " PUSH START", 11 characters;
                              # row 21 in the original - title-logo-up)
 TITLE_ROW, LIST_ROW, COL = 3, 6, 8
+# The OPTIONS menu's framed look: the whole screen framed with the story cinema's text box (sprite tiles 0x56E8-0x56EB:
+# corner, top edge, left edge, inside - the right column and bottom row mirrored; 20 x 14 tiles), its inside colour
+# (15) the blue of the BLUE'S ITEMS description boxes; its text in that screen's 2-row font (0x4DBF4's table of tile
+# words, fix palette 5 - loaded with that screen's shades - drawn a character at a time by 0x5F0EA, as 0x4DBB8
+# does), the title centred at the top, the entries left aligned three rows apart. BIG_FONT makes list / print use it.
+BIG_FONT = 0x10E930
+BIG_TITLE = "OPTIONS"
+BIG_TITLE_AT, BIG_LIST_AT, BIG_STEP = (None, 4), (5, 9), 3   # (column - the title is centred -, row)s
+FONT_TABLE, FONT_DRAW = 0x4DBF4, 0x5F0EA
+FONT_PAL, FONT_COLOURS = 5, [0x8000, 0xFFFF, 0xFEEE, 0xFDDD, 0xFCCC, 0xFBBB, 0xFAAA, 0xF999, 0xF888, 0xF777, 0xF666,
+                             0xF555, 0xF444, 0xF333, 0xF222, 0xF111]
+FRAME_SPR, FRAME_PAL_NO = 1, 0x84
+FRAME_TILES = (0x56E8, 0x56E9, 0x56EA, 0x56EB)
+FRAME_COLOURS = [0x0000, 0x7FFF, 0x1029, 0x7FF8, 0xEFE3, 0x0FD1, 0x2C90, 0x2960, 0x52BF, 0x518F, 0x204C, 0xDB90,
+                 0xA850, 0x0015, 0x5EC0, 0x0025]   # the story box's palette 0x84, inside (15) the items screens' blue
+
+
+def frame_words():
+    corner, top, left, inside = FRAME_TILES
+    out = []
+    for k in range(20):
+        for r in range(14):
+            edge_col = k in (0, 19)
+            t = (corner if edge_col else top) if r in (0, 13) else (left if edge_col else inside)
+            out += [t, FRAME_PAL_NO << 8 | (1 if k == 19 else 0) | (2 if r == 13 else 0)]
+    return out
 BLINK_ON, BLINK_OFF = 20, 10                 # frames the selected line is shown / hidden
 REPEAT_DELAY, REPEAT_RATE = 20, 6            # holding a direction: first repeat after, then every, N frames
 
@@ -166,12 +203,24 @@ def string_table(label, names):
     return ("%s:\n%s%s_s:\n%s    .even\n" % (label, "".join("    .word %d\n" % o for o in offs), label, data))
 
 
+def fix_pixels(rom, index):
+    """An original S ROM fix tile as pixels[y][x] (put_fix_tile's layout, read back)."""
+    at = index * 32
+    return [[(rom.fix_orig[at + rom.FIX_COLUMN_BYTE[x] + y] >> (0 if x % 2 == 0 else 4)) & 15 for x in range(8)]
+            for y in range(8)]
+
+
 def apply(rom):
+    # the big font's colon: its full stop's lower tile (the dot at its foot) twice, one above the other
+    stop = rom.u16(FONT_TABLE + (ord(".") - 0x20) * 2)
+    colon = rom.add_fix_tile(fix_pixels(rom, ((stop >> 8) & 0xF) << 8 | ((stop + 0x10) & 0xFF)),
+                             why="options font: a colon's dot")
     n = len(OPTIONS)
     strings = "".join(o + "\0" for o in OPTIONS)
     opt_len = 2 * n + len(strings) + (len(strings) & 1)
     assert opt_len <= 128
-    opt_digit = 2 * n + strings.index("LEVEL 4") + 6
+    opt_digit = 2 * n + strings.index("DIFFICULTY: 4") + 12
+    opt_level = 2 * n + strings.index("LEVEL: ") + 7
     opt_onoff = 2 * n + strings.index("OFF")
     width = max(len(m) for m, c in MENU_SAVE)
     src = r"""
@@ -660,36 +709,44 @@ mode3_end:
 
 | ================= the options screen: returns d0 = 0 to start the game (a stage picked), 1 = back to the title
 options:
-    bsr screen_setup
+    bsr framed_setup
+options_list:
     lea opt_title(%pc),%a0
     bsr opt_build
     moveq #0,%d6
     move.b OPT_CURSOR,%d6
     moveq #OPT_COUNT,%d7
+    st BIG_FLAG
     bsr list
     move.b %d6,OPT_CURSOR
+    cmp.w #2,%d0
+    bcs 20f
+    bsr opt_left_right               | Left / Right: a setting changed, the list again
+    bra options_list
+20: tst.w %d6
+    bne 21f
     tst.w %d0
-    bne options                      | B: stay here
-    tst.w %d6
-    bne 1f
-    bsr level_select                 | LEVEL SELECT
-    tst.b STAGE_PICK
-    beq options
+    bne options_list                 | (B: stay here)
+    lea stage_ids(%pc),%a0           | LEVEL: start the chosen stage
+    moveq #0,%d0
+    move.b CURSOR,%d0
+    move.b (%a0,%d0.w),STAGE_PICK
+    clr.b BIG_FLAG
+    bsr frame_hide
     jsr CLEAR_FIX
     moveq #0,%d0
     rts
-1:  cmp.w #1,%d6
+21: cmp.w #OPT_DIFFICULTY,%d6
+    beq options_list                 | (DIFFICULTY: set with Left / Right)
+    clr.b BIG_FLAG
+    bsr frame_hide
+    tst.w %d0
+    bne options                      | B: stay here
+    cmp.w #1,%d6
     bne 2f
     bsr sound_test                   | SOUND TEST
     bra options
-2:  cmp.w #OPT_DIFFICULTY,%d6
-    bne 6f
-    bsr diff_level                   | DIFFICULTY: the next level (8 -> 1)
-    addq.w #1,%d0
-    bsr diff_set
-    bsr store_setting
-    bra options
-6:  cmp.w #OPT_AUTO_SAVE,%d6
+2:  cmp.w #OPT_AUTO_SAVE,%d6
     bne 5f
     cmp.w #AUTO_ON,AUTO_WORD         | AUTO SAVE: switch it
     seq %d0
@@ -706,6 +763,45 @@ options:
 3:  moveq #1,%d0                     | BACK TO TITLE
     rts
 
+| Left (d0 = 2) / Right (3) on line d6: LEVEL: the stage, DIFFICULTY: the level - a step, no wrapping
+opt_left_right:
+    move.w %d0,%d1
+    tst.w %d6
+    bne 2f
+    moveq #0,%d0
+    move.b CURSOR,%d0
+    cmp.w #2,%d1
+    bne 1f
+    tst.w %d0
+    beq 9f
+    subq.b #1,CURSOR
+    rts
+1:  cmp.w #STAGE_COUNT-1,%d0
+    bcc 9f
+    addq.b #1,CURSOR
+    rts
+2:  cmp.w #OPT_DIFFICULTY,%d6
+    bne 9f
+    move.w %d1,-(%sp)
+    bsr diff_level
+    move.w (%sp)+,%d1
+    cmp.w #2,%d1
+    bne 3f
+    tst.w %d0
+    beq 9f
+    subq.w #1,%d0
+    bra 4f
+3:  cmp.w #7,%d0
+    bcc 9f
+    addq.w #1,%d0
+4:  bsr diff_set
+    bsr store_setting
+9:  rts
+
+short_names:
+    .byte SHORT_STAGE_NAMES
+    .even
+
 | a1 = the options' string table, copied to RAM with the settings filled in (the difficulty's digit, ON / OFF)
 opt_build:
     move.l %a0,-(%sp)
@@ -714,6 +810,20 @@ opt_build:
     move.w #OPT_T_LEN-1,%d0
 1:  move.b (%a0)+,(%a1)+
     dbf %d0,1b
+    lea OPT_BUF,%a1
+    moveq #0,%d0                     | LEVEL: the chosen stage's name
+    move.b CURSOR,%d0
+    cmp.w #STAGE_COUNT,%d0           | (RAM is random at power-on: the first stage)
+    bcs 4f
+    moveq #0,%d0
+    move.b %d0,CURSOR
+4:  mulu #LEVEL_WIDTH,%d0
+    lea short_names(%pc),%a0
+    add.w %d0,%a0
+    moveq #LEVEL_WIDTH-1,%d0
+3:  move.b (%a0)+,OPT_LEVEL_AT(%a1)
+    addq.l #1,%a1
+    dbf %d0,3b
     lea OPT_BUF,%a1
     bsr diff_level
     add.b #0x31,%d0
@@ -932,7 +1042,10 @@ list:
     move.w %d7,-(%sp)
     move.l %a1,-(%sp)
     move.w #TITLE_ADDR,%d1
-    bsr print
+    tst.b BIG_FLAG
+    beq 0f
+    move.w #BIG_TITLE_POS,%d1
+0:  bsr print
     moveq #0,%d7                     | blink counter
     move.w #0xFFFF,%d5
     moveq #0,%d4
@@ -949,7 +1062,12 @@ l_line:
     add.w %d0,%a0
     move.w %d3,%d1
     add.w #LIST_ADDR,%d1
-    moveq #0,%d2
+    tst.b BIG_FLAG
+    beq 0f
+    move.w %d3,%d1                   | (the big font: BIG_STEP rows a line)
+    mulu #BIG_STEP_ROWS,%d1
+    add.w #BIG_LIST_POS,%d1
+0:  moveq #0,%d2
     cmp.w %d6,%d3
     bne 1f
     cmp.w #BLINK_ON,%d7
@@ -974,7 +1092,15 @@ l_line:
     beq 4f
     moveq #1,%d0
     bra 9f
-4:  btst #0,%d1
+4:  tst.b BIG_FLAG                   | (OPTIONS: Left / Right return 2 / 3)
+    beq 41f
+    moveq #2,%d0
+    btst #2,%d1
+    bne 9f
+    moveq #3,%d0
+    btst #3,%d1
+    bne 9f
+41: btst #0,%d1
     beq 5f
     moveq #0,%d7
     subq.w #1,%d6
@@ -1137,6 +1263,8 @@ print_or_blank:
     move.w (%sp)+,%d7
     rts
 print_attr:
+    tst.b BIG_FLAG
+    bne big_print
     move.w %sr,-(%sp)
     or.w #0x0700,%sr
     move.w #32,0x3C0004              | next column
@@ -1153,6 +1281,99 @@ print_attr:
 11: move.w #1,0x3C0004
     move.w (%sp)+,%sr
     rts
+
+| print_attr in the big font (BIG_FLAG): a0 = string (0-ended), d1 = fix address, d2 = 1: blanks instead
+big_print:
+    movem.l %d0-%d7/%a0-%a6,-(%sp)
+    move.w %d1,%d0
+    sub.w #0x7000,%d0
+    move.w %d2,%d3
+1:  moveq #0,%d1
+    move.b (%a0)+,%d1
+    beq 9f
+    tst.w %d3
+    beq 2f
+    moveq #0x20,%d1
+2:  cmp.b #0x3A,%d1                  | ':' (the font has none: two of its full stop's dot tile, made here)
+    bne 3f
+    move.w %sr,-(%sp)
+    or.w #0x0700,%sr
+    move.w #1,0x3C0004
+    move.w %d0,%d1
+    add.w #0x7002,%d1
+    move.w %d1,0x3C0000
+    move.w #COLON_TOP_WORD,0x3C0002
+    move.w #COLON_BOTTOM_WORD,0x3C0002
+    move.w (%sp)+,%sr
+    add.w #0x20,%d0
+    bra 1b
+3:  sub.w #0x20,%d1
+    add.w %d1,%d1
+    lea FONT_TABLE_ADDR,%a1
+    move.w (%a1,%d1.w),%d1
+    movem.l %d0/%d3/%a0,-(%sp)
+    jsr FONT_DRAW_ADDR
+    movem.l (%sp)+,%d0/%d3/%a0
+    add.w #0x20,%d0
+    bra 1b
+9:  movem.l (%sp)+,%d0-%d7/%a0-%a6
+    rts
+
+| the framed look (OPTIONS): screen_setup, then the font's shades, the frame's palette and the frame
+framed_setup:
+    bsr screen_setup
+    movem.l %d0-%d2/%a0-%a1,-(%sp)
+    lea font_colours(%pc),%a0
+    lea 0x400000+FONT_PAL_NO*32,%a1
+    moveq #15,%d0
+1:  move.w (%a0)+,(%a1)+
+    dbf %d0,1b
+    lea frame_colours(%pc),%a0
+    lea FRAME_PAL_ADDR,%a1
+    moveq #15,%d0
+2:  move.w (%a0)+,(%a1)+
+    dbf %d0,2b
+    move.w %sr,-(%sp)
+    or.w #0x0700,%sr
+    move.w #1,0x3C0004
+    lea frame_words(%pc),%a0
+    move.w #FRAME_SPR_NO*64,%d1
+    moveq #19,%d2
+3:  move.w %d1,0x3C0000
+    moveq #27,%d0
+4:  move.w (%a0)+,0x3C0002
+    dbf %d0,4b
+    add.w #64,%d1
+    dbf %d2,3b
+    move.w #0x8000+FRAME_SPR_NO,0x3C0000
+    moveq #19,%d0
+5:  move.w #0x0FFF,0x3C0002
+    dbf %d0,5b
+    move.w #0x8200+FRAME_SPR_NO,0x3C0000
+    move.w #0xF80E,0x3C0002          | (y 0, 14 tiles tall)
+    moveq #18,%d0
+6:  move.w #0x40,0x3C0002
+    dbf %d0,6b
+    move.w #0x8400+FRAME_SPR_NO,0x3C0000
+    move.w #0,0x3C0002
+    move.w (%sp)+,%sr
+    movem.l (%sp)+,%d0-%d2/%a0-%a1
+    rts
+
+frame_hide:
+    move.w %sr,-(%sp)
+    or.w #0x0700,%sr
+    move.w #0x8200+FRAME_SPR_NO,0x3C0000
+    move.w #0,0x3C0002
+    move.w (%sp)+,%sr
+    rts
+
+font_colours:
+    .word FONT_COLOUR_WORDS
+frame_colours:
+    .word FRAME_COLOUR_WORDS
+frame_words:
+    .word FRAME_WORD_LIST
 
 blank:
     .ascii "BLANK_TEXT"
@@ -1231,7 +1452,8 @@ TABLES
         "CHOICE_OPTIONS": str(CHOICE_OPTIONS), "CHOICE_CONTINUE": str(CHOICE_CONTINUE),
         "PROBED": "0x%X" % PROBED, "TO_MENU_WORD": "0x%X" % TO_MENU, "FROM_ATTRACT_BYTE": "0x%X" % FROM_ATTRACT, "DIFF_WORD": "0x%X" % DIFF, "DIFF_SET": "0x%X" % DIFF_SET,
         "DIFF_HEARTS": "0x%X" % DIFF_HEARTS, "OPT_BUF": "0x%X" % OPT_BUF, "OPT_T_LEN": str(opt_len),
-        "OPT_DIGIT": str(opt_digit), "OPT_ONOFF": str(opt_onoff), "OPT_DIFFICULTY": str(OPT_DIFFICULTY),
+        "OPT_DIGIT": str(opt_digit), "OPT_LEVEL_AT": str(opt_level), "LEVEL_WIDTH": str(LEVEL_WIDTH),
+        "SHORT_STAGE_NAMES": ",".join("0x%02X" % ord(c) for i, nm in STAGES for c in short_name(nm)), "OPT_ONOFF": str(opt_onoff), "OPT_DIFFICULTY": str(OPT_DIFFICULTY),
         "OPT_AUTO_SAVE": str(OPT_AUTO_SAVE), "OPT_MEMORY_CARD": str(OPTIONS.index("MEMORY CARD")), "AUTO_ON": "0x%X" % AUTO_ON, "AUTO_WORD": "0x%X" % AUTO,
         "GAME_SAVE_PREP": "0x%X" % GAME_SAVE_PREP, "RAM_CLEAR_REST": "0x%X" % RAM_CLEAR_REST, "BEST_SUB": "0x%X" % BEST_SUB,
         "SAVE_BUF": "0x%X" % SAVE_BUF, "HACK_SLOT": str(HACK_CARD_SUB), "LINE_BUF": "0x%X" % LINE_BUF,
@@ -1258,7 +1480,15 @@ TABLES
         "MENU_CURSOR": "0x%X" % MENU_CURSOR, "MENU_PREV": "0x%X" % MENU_PREV, "ON_TITLE": "0x%X" % ON_TITLE,
         "START_BITS": "0x%X" % START_BITS, "CHOICE": "0x%X" % CHOICE, "STAGE_PICK": "0x%X" % STAGE_PICK,
         "SELECT_REQ": "0x%X" % SELECT_REQ, "TITLE_PHASE": "0x%X" % TITLE_PHASE, "OPT_CURSOR": "0x%X" % OPT_CURSOR, "PAL": str(PAL),
-        "BLINK_ON": str(BLINK_ON), "BLINK_OFF": str(BLINK_OFF),
+        "BLINK_ON": str(BLINK_ON), "BLINK_OFF": str(BLINK_OFF), "BIG_FLAG": "0x%X" % BIG_FONT,
+        "COLON_TOP_WORD": "0x%X" % (FONT_PAL << 12 | colon), "COLON_BOTTOM_WORD": "0x%X" % (FONT_PAL << 12 | colon),
+        "BIG_TITLE_POS": "0x%X" % fix_addr((40 - len(BIG_TITLE)) // 2, BIG_TITLE_AT[1]),
+        "BIG_LIST_POS": "0x%X" % fix_addr(*BIG_LIST_AT), "BIG_STEP_ROWS": str(BIG_STEP),
+        "FONT_TABLE_ADDR": "0x%X" % FONT_TABLE, "FONT_DRAW_ADDR": "0x%X" % FONT_DRAW, "FONT_PAL_NO": str(FONT_PAL),
+        "FONT_COLOUR_WORDS": ",".join("0x%04X" % c for c in FONT_COLOURS),
+        "FRAME_COLOUR_WORDS": ",".join("0x%04X" % c for c in FRAME_COLOURS),
+        "FRAME_WORD_LIST": ",".join("0x%04X" % w for w in frame_words()),
+        "FRAME_PAL_ADDR": "0x%X" % (0x400000 + FRAME_PAL_NO * 32), "FRAME_SPR_NO": str(FRAME_SPR),
         "REPEAT_DELAY": str(REPEAT_DELAY), "REPEAT_RATE": str(REPEAT_RATE),
     }
     for k in sorted(consts, key=len, reverse=True):
