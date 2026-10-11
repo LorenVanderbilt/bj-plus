@@ -1,52 +1,59 @@
-NAME = "quiz-room-exit"
-DESCRIPTION = "Quiz grandpa's house: turning his quiz down a third time leaves at once; after the quiz, a moment before the fade"
+NAME = "turn-down-exit"
+DESCRIPTION = "NPC rooms: turning down the quiz grandpa's quiz or Red's duel leaves at once; after the quiz, a moment before the fade"
 
-# Turned down a third time, the quiz grandpa lets you go: the choice's action (0x25ABE, from the choice table at
-# 0x266B6) ends the talk, and the room loop (0x25A5E) goes on to its wait before the fade out - which npc-wait made
-# a wait for a button (for reading a last line). Here the last thing was an answer just chosen, so it looked stuck.
-# Now that choice goes through `refused` (the original action, then SKIP set), and the room's wait (0x25AAC:
-# move.w #30,d0 ; jsr npc-wait's routine) through `room_wait`: SKIP set - cleared, a frame; else the room's own 30
-# frames and LINGER more - but not npc-wait's wait for a press: here the last line is already closed by a press (that
-# press ends the talk), so it waited for a second one, up to 10 s (the quiz lost or won: his line stays a moment).
-REFUSE_ENTRY = 0x266B6       # the choice table's first entry (I'M SURE.): 0x25ABE
+# Turning the quiz grandpa down a third time, or Red's duel ("I GUESS I'M A COWARD."), ends the talk with 0x25ABE
+# (from each choice table) and the room loop goes on to its wait before the fade out - which npc-wait made a wait for
+# a button (for reading a last line). Here the last thing was an answer just chosen, so it looked stuck. Now those
+# choices go through `refused` (the original action, then SKIP set), and each room's wait (`move.w #30,d0 ; jsr
+# <npc-wait's routine>`) through its own: SKIP set - cleared, a frame; else as before - except the quiz grandpa's,
+# where the last line is already closed by a press (that press ends the talk), so npc-wait waited for a second one, up
+# to 10 s: there, the room's 30 frames and LINGER more instead (the quiz lost or won: his line stays a moment).
+# SKIP is cleared as each room starts (in its set-up: the 8 bytes at START, run as they were, then the clear).
+ROOMS = [   # (name, the choice table entry (0x25ABE), START, the wait (move.w #N,d0 ; jsr npc-wait), npc-wait kept?)
+    ("quiz", 0x266B6, 0x25A4A, 0x25AAC, False),     # (START: clr.l 0x786A(a6) ; clr.b 0x7861(a6))
+    ("red", 0x28304, 0x27AF0, 0x27B60, True),       # (START: clr.b 0x7861(a6) ; clr.b 0x786F(a6))
+]
 REFUSE_ACTION = 0x25ABE
-ROOM_WAIT = 0x25AAC          # move.w #30,d0 ; jsr <npc-wait's routine>
-SKIP = 0x10E9FC              # a byte (spare RAM: may hold anything at first - cleared as the room starts, ROOM_START)
-ROOM_START = 0x25A4A         # clr.l 0x786A(a6) ; clr.b 0x7861(a6) - the room loop's set-up
+SKIP = 0x10E9FC              # a byte (spare RAM: may hold anything at first - cleared as a room starts)
 WAIT_FRAME = 0xE856
 WAIT = 0xE858                # d0 = frames
 LINGER = 60
 
 
 def apply(rom):
-    assert rom.u16(ROOM_WAIT) == 0x303C and rom.u16(ROOM_WAIT + 4) == 0x4EB9, "expected npc-wait's call"
-    frames = rom.u16(ROOM_WAIT + 2)
-    code = rom.place_code(r"""
-    bra.w refused
-    bra.w room_wait
-    bra.w room_start
-room_wait:
+    table, rooms = "", ""
+    for name, _, start, wait, keep in ROOMS:
+        assert rom.u16(wait) == 0x303C and rom.u16(wait + 4) == 0x4EB9, "expected npc-wait's call"
+        frames, npc_wait = rom.u16(wait + 2), rom.u32(wait + 6)
+        set_up = ", ".join("0x%02X" % b for b in rom.data[start:start + 8])
+        after = ("    move.w #%d,%%d0\n    jmp 0x%X\n" % (frames, npc_wait)) if keep else \
+                ("    move.w #%d+%d,%%d0\n    jmp 0x%X\n" % (frames, LINGER, WAIT))
+        table += "    bra.w %s_start\n    bra.w %s_wait\n" % (name, name)
+        rooms += r"""
+%(name)s_start:
+    .byte %(set_up)s
+    clr.b 0x%(skip)X
+    rts
+%(name)s_wait:
     tst.b 0x%(skip)X
     beq 1f
     clr.b 0x%(skip)X
     jmp 0x%(frame)X
-1:  move.w #%(frames)d+%(linger)d,%%d0
-    jmp 0x%(frames_wait)X
+1:
+%(after)s""" % {"name": name, "set_up": set_up, "skip": SKIP, "frame": WAIT_FRAME, "after": after}
+    code = rom.place_code(r"""
+    bra.w refused
+%s%s
 refused:
-    jsr 0x%(action)X
-    st 0x%(skip)X
+    jsr 0x%X
+    st 0x%X
     rts
-room_start:
-    clr.l 0x786A(%%a6)
-    clr.b 0x7861(%%a6)
-    clr.b 0x%(skip)X
-    rts
-""" % {"skip": SKIP, "frame": WAIT_FRAME, "frames": frames, "action": REFUSE_ACTION,
-       "linger": LINGER, "frames_wait": WAIT},
-        why="quiz grandpa's house: turned down, out at once")
-    rom.write(REFUSE_ENTRY, code.to_bytes(4, "big"), expect=REFUSE_ACTION.to_bytes(4, "big"),
-              why="quiz grandpa: turned down a third time - noted, so the house is left at once")
-    rom.write(ROOM_START, bytes.fromhex("4EB9") + (code + 8).to_bytes(4, "big") + bytes.fromhex("4E71"),
-              expect=bytes.fromhex("42AE786A422E7861"), why="quiz grandpa's house: its leave-at-once note cleared")
-    rom.write(ROOM_WAIT, bytes.fromhex("4EB9") + (code + 4).to_bytes(4, "big") + bytes.fromhex("4E714E71"),
-              why="quiz grandpa's house: its wait before leaving (none after turning him down)")
+""" % (table, rooms, REFUSE_ACTION, SKIP), why="NPC rooms: turned down, out at once")
+    for n, (name, entry, start, wait, keep) in enumerate(ROOMS):
+        start_at, wait_at = code + 4 + 8 * n, code + 8 + 8 * n      # (the table: bra.w each)
+        rom.write(entry, code.to_bytes(4, "big"), expect=REFUSE_ACTION.to_bytes(4, "big"),
+                  why="%s: turned down - noted, so the room is left at once" % name)
+        rom.write(start, bytes.fromhex("4EB9") + start_at.to_bytes(4, "big") + bytes.fromhex("4E71"),
+                  why="%s's room: its leave-at-once note cleared" % name)
+        rom.write(wait, bytes.fromhex("4EB9") + wait_at.to_bytes(4, "big") + bytes.fromhex("4E714E71"),
+                  why="%s's room: its wait before leaving (none after turning down)" % name)

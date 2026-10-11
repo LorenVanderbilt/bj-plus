@@ -288,6 +288,7 @@ RELOCATED = [   # (name, where its address is (an lea's operand) or None, old ad
     ("quiz_sure", 0x25EE2, 0x26472, ["ARE YOU SURE YOU DON'T", "WANT TO TRY MY QUIZ?"], None),
     # Red's duel for the torch: his greeting (was ... A LONG TIME TO SEE YOU.)
     ("red1", 0x27ADE, 0x27C92, ["BLUE, I'VE BEEN WAITING", "A LONG TIME TO SEE YOU AGAIN.", "DON'T TELL ME YOU FORGOT ME!"], None),
+    ("red_challenge", 0x27D9E, 0x27E24, ["I CHALLENGE YOU TO A", "LEAF DUMP DUEL!"], None),   # (was FIGHT ME.)
     ("end1", 0x23BCA, 0x23CAC, ["THE DARUMA TRIBE LEFT, AND", "NATURE RETURNED TO RAGUY."], None),
     ("end2", 0x23D04, 0x23D78, ["ALL WHO FELL ILL FROM THE", "POLLUTION WERE CURED,", " ", "INCLUDING PRINCESS FA."], None),
     ("end4", 0x23F14, 0x240F6, ["OF COURSE, FA SAID YES.", "AND THEY LIVED", "HAPPILY EVER AFTER."], None),
