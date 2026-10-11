@@ -1,6 +1,7 @@
 NAME = "weapon-switch"
 DESCRIPTION = "D button: switch between the weapons collected (leaf, acorn bomb, boomerang), each keeping its own level"
 
+# (NB the names below are swapped: +0x2B is the boomerang and +0x2C the acorn bomb - checked in play 2026-10-11.)
 # The game holds one weapon at a time, in the player block (0x107000 / 0x107400): the leaf's level +0x12 (0-2; the
 # basic leaf is always there), the bomb's +0x2B and the boomerang's +0x2C (0 = not held, 1-3). Picking one up made it
 # the weapon and carried the level over (a level 2 leaf picked up as a bomb gave a level 2 bomb); the item bar shows
