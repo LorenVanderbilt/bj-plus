@@ -7,7 +7,7 @@ DESCRIPTION = "Boomerang: level 2 reaches further; level 3 keeps level 2's size 
 # point LOOP[level] out, the loop's radius that + 0x800 (so its reach ~ 2 x LOOP + 0x800); its look is animation
 # 197 + level (LOOK_SITES; level 3's is the biggest). Level 3 just reached further and was bigger.
 #   * level 2 reaches ~15% further (LOOP_LEVEL2), level 3 a little further still (LOOP_LEVEL3) - and looks like
-#     level 2;
+#     level 2; both drawn a little smaller (ZOOM);
 #   * level 3: with the player's own slot taken, a second one goes in a free slot of the game's general pool
 #     (POOL, as enemies' shots use) - only one there per player (a boomerang of theirs already in the pool: no).
 LOOP = 0x4793E               # words, levels 0-3: 0, 0x0C00, 0x1000, 0x1400
@@ -23,6 +23,7 @@ LEVEL = 0x2B
 POOL = (0x4480, 0x5B00)      # (first slot, last)
 BOOMERANG_CODE = (0x4770A, 0x47946)   # its routines: an object running one of them (+4) is a boomerang
 OWNER = 0x7E
+ZOOM = 0xE0                  # levels 2 / 3 drawn a little smaller (object +38 / +39: across / down, 0xFF = full size)
 
 def apply(rom):
     rom.write(LOOP + 4, LOOP_LEVEL2.to_bytes(2, "big") + LOOP_LEVEL3.to_bytes(2, "big"),
@@ -105,18 +106,22 @@ pool2:
     moveq #0,%%d0
     rts
 
-| its look: 197 + level, level 3 as 2
+| its look: 197 + level, level 3 as 2 - and from level 2, a little smaller (a5 = the boomerang)
 look:
     moveq #0,%%d0
     move.b %(level)d(%%a4),%%d0
     cmpi.b #3,%%d0
     bne 9f
     moveq #2,%%d0
-9:  add.w #197,%%d0
+9:  cmpi.b #2,%%d0
+    bne 10f
+    move.b #%(zoom)d,38(%%a5)
+    move.b #%(zoom)d,39(%%a5)
+10: add.w #197,%%d0
     rts
 """ % {"owner": OWNER, "own1": OWN_SLOT[0], "own2": OWN_SLOT[1], "block1": BLOCK[0], "block2": BLOCK[1],
        "level": LEVEL, "p1": SPAWN_P1, "p2": SPAWN_P2, "first": first, "last": last, "fail": SPAWN_FAIL,
-       "code_lo": BOOMERANG_CODE[0], "code_hi": BOOMERANG_CODE[1], "block_p1": blocks[0], "block_p2": blocks[1]},
+       "zoom": ZOOM, "code_lo": BOOMERANG_CODE[0], "code_hi": BOOMERANG_CODE[1], "block_p1": blocks[0], "block_p2": blocks[1]},
         why="boomerang: level 3's second one, levels 2 / 3 look the same")
     rom.write(SPAWN, bytes.fromhex("4EF9") + code.to_bytes(4, "big"), expect=bytes.fromhex("102D007E664E"),
               why="boomerang: the throw - level 3 can have a second one out")
