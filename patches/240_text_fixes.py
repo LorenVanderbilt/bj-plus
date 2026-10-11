@@ -14,7 +14,6 @@ FIXES = [
     (0x22F86, "CUT THAT TREE", "CUT THAT TREE?"),
     (0x2323C, "MY HATCHET,", "MY HATCHET!"),
     (0x235B0, "BELIEVE IT", "BELIEVE IT?"),
-    (0x25F28, "HAVE YOU ANSWERED", "HAVE YOU ANSWERED?"),
     (0x260E0, "TAKE THE FLOWERS.", "TAKE YOUR FLOWERS"),
     (0x2613C, "WHAT IS MY NAME", "WHAT IS MY NAME?"),
     (0x262AF, "YOUR DREAM COME", "YOUR DREAMS COME"),
@@ -69,9 +68,19 @@ STRINGS = [
     # his name, as the quiz's answers: HOHOPPEY / PECULU / PUCAMONMME, romanized again from the Japanese
     # (ポポッペー, ピッキュル, プカモンメ)
     (0x261CA, ["  POPOPPE", "  PIKKYURU", "  PUKAMONME"]),
-    # his greeting (after his laugh) and its choices, closer to the Japanese (クイズじいさん, "Quiz Grandpa"; わかった / いやだ！)
-    (0x25DC0, ["I'M THE QUIZ GRANDPA!", "YOU GET TWO QUESTIONS.", "MISS ONE AND I'LL TAKE", "ALL YOUR FLOWERS!"]),
+    # his greeting's choices (the greeting itself is in RELOCATED: quiz_greeting), closer to the Japanese (クイズじいさん, "Quiz Grandpa"; わかった / いやだ！)
     (0x25E66, ["  GOT IT!", "  NO WAY!"]),
+    # his first question: a giveaway (he's asked just the one) - was FIRST QUESTION IS, HOW MANY / QUESTIONS HAVE
+    # YOU ANSWERED (zero, as worded; the Japanese is the old "question 1: which question is this?" joke) - and its
+    # answers (was ONE QUESTION. / TWO QUESTIONS. / SEVENTY QUESTIONS; the first is right; the box takes 14)
+    (0x25F28, ["HOW MANY QUESTIONS HAVE I", "ASKED YOU SO FAR?"]),
+    (0x25FAE, ["  JUST ONE", "  TWO", "  WAIT...WHAT?"]),
+    # turning him down: he asks three times, each with these choices (was NO, I WON'T. / YES, I WILL.; turned down a
+    # third time, he lets you go): his second plea (was WHAT DO YOU WANT TO KNOW?, a mistranslation), his third (was
+    # I'M PERSISTENT, LET'S PLAY.); his first is in RELOCATED (quiz_sure)
+    (0x264D8, ["  I'M SURE.", "  OK, I'LL TRY"]),      # (the box takes 14)
+    (0x26556, ["COME ON, JUST ONE QUIZ?"]),
+    (0x26632, ["PRETTY PLEASE? JUST ONE?"]),
     # the story cinema (the box takes 33: FA WAS OVERCOME BY THE POLLUTION. at 0x358A2)
     (0x34BA8, ["THE PLANET RAGUY WAS ONCE", "BEAUTIFUL."]),
     (0x34C38, ["BUT..."]),
@@ -271,6 +280,12 @@ RELOCATED = [   # (name, where its address is (an lea's operand) or None, old ad
     # the endings (Japanese as a guide)
     # the quiz man's house: answering that you're not Blue (was I THOUGHT IT WAS SOMEONE ELSE - 31 wide on one line)
     ("quiz_not_blue", 0x22A5A, 0x22A8A, ["SORRY, I THOUGHT YOU WERE", "SOMEONE ELSE"], None),
+    # his greeting, after his laugh (was I'M THE QUIZ MAN. / YOU GET TWO QUESTIONS. / YOU'LL LOSE ALL YOU FLOWERS /
+    # IF YOU CAN'T ANSWER ONE.; クイズじいさん, "Quiz Grandpa")
+    ("quiz_greeting", 0x25C6A, 0x25DC0, ["I'M THE QUIZ GRANDPA!", "ANSWER MY TWO QUESTIONS", "TO WIN. MISS ONE AND I'LL",
+                                          "GET ALL YOUR FLOWERS!"], None),
+    # ... and turning down his quiz (was ARE YOU SURE / YOU'LL LET ME QUIZ YOU?)
+    ("quiz_sure", 0x25EE2, 0x26472, ["ARE YOU SURE YOU DON'T", "WANT TO TRY MY QUIZ?"], None),
     # Red's duel for the torch: his greeting (was ... A LONG TIME TO SEE YOU.)
     ("red1", 0x27ADE, 0x27C92, ["BLUE, I'VE BEEN WAITING", "A LONG TIME TO SEE YOU AGAIN.", "DON'T TELL ME YOU FORGOT ME!"], None),
     ("end1", 0x23BCA, 0x23CAC, ["THE DARUMA TRIBE LEFT, AND", "NATURE RETURNED TO RAGUY."], None),
