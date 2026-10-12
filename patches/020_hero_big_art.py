@@ -72,6 +72,7 @@ PAIR_RAM = [0x10EA20, 0x10EA30]   # spare RAM per player: +0 normal frame, +2 th
 ZOOM_SHRINK = 35
 ZOOM_GROW = 22
 DRAW_LOOP_RETURN = 0xA3FE         # the object drawing loop calls the drawing routine with this return address
+COPY_START, COPY_END = 0xA430, 0xA7F4   # the drawing routine after DRAW_FRAME, to its last rts (copied: see apply)
 FLIP_OFFSET = 0xA4FC              # computes object+34 from the drawn frame's width: move.b 33(a0),d6 ; andi.b #12,d6
 HEIGHT_OFFSET = 0xA55A            # and object+36 from its height (zoomed drawing): move.b 33(a0),d6 ; andi.b #3,d6
 HERO_OBJECTS = [0x104000, 0x104080]   # the objects for player 1 and player 2
@@ -80,6 +81,9 @@ HERO_OBJECTS = [0x104000, 0x104080]   # the objects for player 1 and player 2
 # and treats it as a third hero, with its own pair RAM - so he is drawn with the big art too.
 RED_PAIR = 0x10EA40
 RED_OBJ = 0x10EA50
+BIG_NOW = 0x10EA58   # a byte (spare RAM): the object being drawn is drawn big (or carried by a hero): the drawing hooks
+                     # run for every object - without it they only do what they replaced (they slowed every draw
+                     # down enough that the sprites' update ran into the top of the picture: torn sprites)
 RED_CODE = (0x23000, 0x25400)   # ... running the ending's code (its scenes and the duel: 0x234xx-0x2530x)
 RED_DUEL_CODE = (0x28400, 0x28680)
 BOXES = 0x64772                   # hit boxes: a pointer per frame number (as the frame table)
@@ -255,6 +259,58 @@ def hook(rom, site, expect_hex, source, why):
     cave = rom.place_code(source, why=why)
     rom.write(site, bytes.fromhex("4EB9") + cave.to_bytes(4, "big") + bytes.fromhex("4E71") * ((len(expect) - 6) // 2),
               expect=expect, why="now goes through the new code above")
+
+
+def relocated(code, start, end):
+    """68000 source for `code` (the bytes at start-end) to run anywhere: branches and pc-relative calls inside go to
+    labels, outside to absolute addresses (a conditional branch out through a jmp); everything else as it is."""
+    import re
+    import subprocess
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".bin") as f:
+        f.write(code)
+        f.flush()
+        dis = subprocess.run(["m68k-neogeo-elf-objdump", "-D", "-b", "binary", "-m", "m68k",
+                              "--adjust-vma=0x%X" % start, f.name], capture_output=True, text=True, check=True).stdout
+    insns = []
+    for line in dis.splitlines():
+        m = re.match(r"\s+([0-9a-f]+):\t((?:[0-9a-f]{4} ?)+)\s*(?:\t(.*))?$", line)
+        if not m:
+            continue
+        at, words, text = int(m.group(1), 16), m.group(2).split(), (m.group(3) or "").strip()
+        if text:
+            insns.append([at, words, text])
+        else:
+            insns[-1][1] += words                   # (a long instruction's further words)
+    out, outside = [], {}
+    for at, words, text in insns:
+        out.append("L%X:" % at)
+        mn, _, ops = text.partition(" ")
+        ops = ops.strip()
+        b = re.match(r"^(b(?:ra|sr|hi|ls|cc|cs|ne|eq|vc|vs|pl|mi|ge|lt|gt|le))[swl]?$", mn)
+        target = re.search(r"0x([0-9a-f]+)$", ops)
+        if b and target and "%" not in ops:
+            t, cc = int(target.group(1), 16), b.group(1)
+            if start <= t < end:
+                out.append("    %s L%X" % (cc, t))
+            elif cc in ("bra", "bsr"):
+                out.append("    %s 0x%X" % ("jmp" if cc == "bra" else "jsr", t))
+            else:
+                outside[t] = "X%X" % t
+                out.append("    %s X%X" % (cc, t))
+        elif mn.startswith("db") and target:
+            t = int(target.group(1), 16)
+            assert start <= t < end, text
+            out.append("    %s %s,L%X" % (mn, ops.split(",")[0], t))
+        elif mn in ("jsr", "jmp") and "%pc@" in ops:
+            t = int(re.search(r"%pc@\(0x([0-9a-f]+)\)", ops).group(1), 16)
+            out.append("    %s %s" % (mn, ("L%X" % t) if start <= t < end else "0x%X" % t))
+        else:
+            assert "%pc" not in ops, text
+            out.append("    .word " + ",".join("0x" + w for w in words))
+    for t, label in sorted(outside.items()):
+        out.append("%s: jmp 0x%X" % (label, t))
+    return "\n".join(out) + "\n"
 
 
 def big_frame_tables(rom):
@@ -473,6 +529,8 @@ def red_boxes(rom, frame_map):
 
 
 def apply(rom):
+    original = bytes(rom.data[COPY_START:COPY_END])   # (the drawing routine before the hooks below)
+    stub = rom.place_code("    jmp 0x%X\n" % 0xFFFFF0, why="hero big art: into the drawing routine's copy")
     ROW_OVERRIDES[STANDING_ANIM] = [spread_antennas(rom, f) for f in BREATHE]
     rows, frame_map = big_frame_tables(rom)
     hook(rom, ROPE_IDLE, "4A2E78CB66000052",
@@ -606,6 +664,23 @@ PAIR_A5    tst.w 98(%a5)                   | normal-size hero only (other forms:
 | ---- drawing: in place of `move.w 8(a0),d3 ; move.l (a3,d3.w),a5` (d3 is already clear)
 draw:
     move.w 8(%a0),%d3
+    cmpa.l #HERO_END,%a0              | (quickly past for most objects: not a hero, not Red - his frames are
+    bcs 15f
+    cmpa.l RED_OBJ_RAM,%a0            | player 2's copies, 0x800-0xFFF - and not carried)
+    beq 15f
+    cmp.w #0x800,%d3
+    bcs 16f
+    cmp.w #0x1000,%d3
+    bcs 15f
+16: cmpi.l #CARRIED_CODE_ADDR,4(%a0)
+    beq 18f
+    move.l (%a3,%d3.w),%a5
+    rts
+18: st BIG_NOW_RAM                   | (a carried enemy: on in the drawing routine's copy, with the hooks)
+    move.l (%a3,%d3.w),%a5
+    move.l #COPY_STUB,(%sp)
+    rts
+15: clr.b BIG_NOW_RAM                 | (set below if this object is drawn big)
     move.l %d4,-(%sp)
     move.w %d3,%d4                  | Red (an object drawing player 2's copies, not a player's hero): noted
     and.w #0xF800,%d4
@@ -664,6 +739,7 @@ PAIR_A0    clr.b 5(%a1)                    | (1 = this draw uses a big frame: th
     lea burn_tab(%pc),%a5
     move.w (%a5,%d4.w),%d3
 47: move.b #1,5(%a1)
+    st BIG_NOW_RAM
     move.w (%sp)+,%d4
     and.w #0x800,%d4
     cmp.w #NEW_FRAMES,%d3           | (frames made here: player 2's copy from p2_tab, if it has one)
@@ -708,7 +784,10 @@ PAIR_A0    clr.b 5(%a1)                    | (1 = this draw uses a big frame: th
     move.l #restore,8(%sp)
 7:  move.l (%sp)+,%a1
 9:  move.l (%a3,%d3.w),%a5
-    rts
+    tst.b BIG_NOW_RAM                 | drawn big: on in the drawing routine's copy, with the hooks (the
+    beq 10f                           | original, for every other object, has none: they slowed every draw
+    move.l #COPY_STUB,(%sp)           | down enough that the sprites' update ran into the top of the picture)
+10: rts
 
 | d0 = a zoom byte (0xFF = full size) -> 0xFF - (0xFF - d0) * d2 / 16, at least 0x0F
 zoom:
@@ -842,7 +921,8 @@ RESTORES    movem.l (%sp)+,%a0-%a1
 DATA
 """
     src = src.replace("HERO_ONLY_A0", "".join("    cmpa.l #0x%X,%%a0\n    beq 12f\n" % obj for obj in HERO_OBJECTS))
-    src = src.replace("RED_OBJ_RAM", "0x%X" % RED_OBJ)
+    src = src.replace("RED_OBJ_RAM", "0x%X" % RED_OBJ).replace("BIG_NOW_RAM", "0x%X" % BIG_NOW)
+    src = src.replace("CARRIED_CODE_ADDR", "0x%X" % CARRIED_CODE).replace("COPY_STUB", "0x%X" % stub).replace("HERO_END", "0x%X" % (max(HERO_OBJECTS) + 0x80))
     src = src.replace("RED_CODE_LO", "0x%X" % RED_CODE[0]).replace("RED_CODE_HI", "0x%X" % RED_CODE[1])
     src = src.replace("RED_DUEL_LO", "0x%X" % RED_DUEL_CODE[0]).replace("RED_DUEL_HI", "0x%X" % RED_DUEL_CODE[1])
     src = (src.replace("HERO_A0F", hero_check("a0")).replace("PAIR_A0F", pair("a0", "a1"))
@@ -907,3 +987,12 @@ DATA
     hook(rom, RIGHT_Y_ZOOMED, "0445B7FF7C01",
          "    sub.w #-18433,%d5\n" + hero_only("a0", y_shift("d5"), "rzy") + carried_shift("d5", "rzy") + "    moveq #1,%d6\n    rts\n",
          "sprite Y (facing right, zoomed)")
+
+    # The drawing routine with all the hooks above, as a copy only the big hero (and a carried enemy) is drawn by:
+    # the original, for every other object, is as it was.
+    copy = rom.place_code(relocated(bytes(rom.data[COPY_START:COPY_END]), COPY_START, COPY_END),
+                          why="hero big art: the drawing routine's copy with the hooks")
+    rom.write(stub + 2, copy.to_bytes(4, "big"), why="hero big art: into the drawing routine's copy")
+    rom.data[COPY_START:COPY_END] = original
+    rom.log.append("  0x%06X  %d byte(s)  the drawing routine as it was (its hooks only in the copy)" %
+                   (COPY_START, COPY_END - COPY_START))

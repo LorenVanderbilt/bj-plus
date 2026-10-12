@@ -138,20 +138,22 @@ class Rom:
         self.fix[at:at + 32] = tile
         self.log.append("  fix 0x%03X  tile  %s" % (index, why))
 
-    def add_fix_tile(self, pixels, why=""):
-        """Store an 8x8 fix tile in the next free slot and return its tile number - or the number of one added
-        before with the same pixels (they're never changed after: the free slots are few)."""
+    def add_fix_tile(self, pixels, why="", share=False):
+        """Store an 8x8 fix tile in the next free slot and return its tile number. share: if one added before with
+        share has the same pixels, its number instead (only for callers that keep each number they're given - some
+        patches add runs and count on them being consecutive)."""
         key = tuple(tuple(r) for r in pixels)
         shared = getattr(self, "_fix_shared", None)
         if shared is None:
             shared = self._fix_shared = {}
-        if key in shared:
+        if share and key in shared:
             return shared[key]
         if not self.free_fix_tiles:
             raise SystemExit("out of free fix tiles (%s)" % ", ".join("0x%X-0x%X" % r for r in FIX_FREE_RANGES))
         n = self.free_fix_tiles.pop(0)
         self.put_fix_tile(n, pixels, why)
-        shared[key] = n
+        if share:
+            shared[key] = n
         return n
 
     # A 16x16 sprite tile is 128 bytes, 64 in each ROM of its pair (c1/c2 for tiles 0-0x3FFF, c3/c4 above), in four
