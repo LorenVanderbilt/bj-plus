@@ -40,7 +40,9 @@ FIX_FREE_START, FIX_FREE_END = 0x2FC, 0x3FF
 # ... except that the game's inline text routine (0x9FE6) draws character c as tile 0x300 + c until a string sets
 # another base, so those "blank" tiles are drawn: 0x320 (a space) clears the continue screen's speech bubble.
 # 0x320-0x35F (space, punctuation, digits, capitals at that base) stay untouched; new tiles use the rest.
-FIX_FREE_RANGES = [(0x2FC, 0x31F), (0x360, 0x3FF)]
+FIX_FREE_RANGES = [(0x2FC, 0x31F), (0x360, 0x3FF), (0x321, 0x35F)]
+# (0x321-0x35F last: the census above saw the game draw only 0x320 at that base, so they're used when the rest has
+# run out - 2026-10-12, the HUD's shifted glyphs)
 # Sprite tiles 0x2F9C-0x2FFF are blank in the C ROMs (the end of a bank), no frame definition uses them, and the
 # game never writes them to the sprite tables (checked through the attract cycle and several levels).
 SPRITE_FREE_START, SPRITE_FREE_END = 0x2F9C, 0x2FFF
@@ -137,11 +139,19 @@ class Rom:
         self.log.append("  fix 0x%03X  tile  %s" % (index, why))
 
     def add_fix_tile(self, pixels, why=""):
-        """Store an 8x8 fix tile in the next free slot and return its tile number."""
+        """Store an 8x8 fix tile in the next free slot and return its tile number - or the number of one added
+        before with the same pixels (they're never changed after: the free slots are few)."""
+        key = tuple(tuple(r) for r in pixels)
+        shared = getattr(self, "_fix_shared", None)
+        if shared is None:
+            shared = self._fix_shared = {}
+        if key in shared:
+            return shared[key]
         if not self.free_fix_tiles:
             raise SystemExit("out of free fix tiles (%s)" % ", ".join("0x%X-0x%X" % r for r in FIX_FREE_RANGES))
         n = self.free_fix_tiles.pop(0)
         self.put_fix_tile(n, pixels, why)
+        shared[key] = n
         return n
 
     # A 16x16 sprite tile is 128 bytes, 64 in each ROM of its pair (c1/c2 for tiles 0-0x3FFF, c3/c4 above), in four

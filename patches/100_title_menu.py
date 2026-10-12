@@ -426,6 +426,11 @@ menu_frame:
     tst.b PROBED                     | the first frame: is there a save to continue?
     bne 10f
     move.b #1,PROBED
+    lea push_blank(%pc),%a0          | (and the game's own PUSH START a row lower, where it draws it - left on
+    move.w #PUSH_START_ADDR+1,%d1    | screen by some ways to the title: its P and T showed round OPTIONS)
+    moveq #0,%d2
+    move.w #TITLE_ATTR,%d7
+    bsr print_attr
     bsr probe
 10: bsr menu_entries                 | a1 = the entries' strings, d5 = how many, d4 = the first line's address
     moveq #0,%d0
