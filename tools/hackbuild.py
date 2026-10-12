@@ -20,7 +20,7 @@ rom.add_fix_tile() adds an 8x8 tile to the fix-layer ROM (022-s1.s1) in the next
 blank in the original and never drawn by the game (0x2FC-0x31F, 0x360-0x3FF) and returns its tile number.
 rom.add_sprite_tile() does the same for a 16x16 sprite tile in the sprite (C) ROMs (free run 0x2F9C-0x2FFF), and
 rom.add_frame() adds a sprite frame (the definition the game draws an object's +8 frame number from) built
-from such tiles, in a free frame number (0x3F00-0x3FFC), and returns that frame number.
+from such tiles, in a free frame number (0x3C00-0x3FFC), and returns that frame number.
 """
 import argparse, glob, hashlib, importlib.util, os, shutil, subprocess, sys, tempfile, zipfile, zlib
 
@@ -47,7 +47,7 @@ SPRITE_FREE_START, SPRITE_FREE_END = 0x2F9C, 0x2FFF
 # The sprite frame table (frame number / 4 -> definition address) ends in filler: frames 0x34D0-0x3FFC all point at
 # one definition and nothing uses them. New frames go at the very end.
 FRAME_TABLE = 0x60772
-FRAME_FREE_START, FRAME_FREE_END = 0x3F00, 0x3FFC
+FRAME_FREE_START, FRAME_FREE_END = 0x3C00, 0x3FFC   # (0x34D0-0x3FFC all point at the same empty definition)
 AS, LD, OBJCOPY = "m68k-neogeo-elf-as", "m68k-neogeo-elf-ld", "m68k-neogeo-elf-objcopy"
 
 

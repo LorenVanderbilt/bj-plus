@@ -95,6 +95,15 @@ FRAME_SUBSTITUTES = {0xB0: BIG_WINDUP, 0xB4: BIG_RELEASE, 0xB8: BIG_WINDUP, 0xBC
                      # throwing a carried enemy (animation 0x20), and the lying-down throws (0x21 / 0x22)
                      # with the big crawling poses
                      0x8C: BIG_WINDUP, 0x90: BIG_RELEASE, 0x94: 0x330, 0x98: 0x334, 0x9C: 0x338}
+# ... stand-ins until redrawn. Redrawn, the throws are four drawings (THROW_ART: the frames differ only at the feet),
+# each used once its ART (below) is there: the wind-up, the release, lying down and its release. And with the
+# in-between's ART there too (THROW_MID: a frame number no animation uses), the four throws (THROW_ANIMS: wind-up,
+# then the release three steps) get it as their second step - wind-up, in-between, release, release (no longer).
+THROW_ART = {0xB0: 0xB0, 0xB8: 0xB0, 0xC0: 0xB0, 0xC8: 0xB0, 0x8C: 0xB0,
+             0xB4: 0xB4, 0xBC: 0xB4, 0xC4: 0xB4, 0xCC: 0xB4, 0x90: 0xB4,
+             0x94: 0x94, 0x98: 0x94, 0x9C: 0x9C}
+THROW_MID = 0xAC
+THROW_ANIMS = [0x23, 0x24, 0x25, 0x26]
 HERO_UP_PX = 15
 OCARINA_FRAMES = [0x184, 0x188, 0x18C]
 SWIM_BIG = {0x178: 0x3C8, 0x17C: 0x3CC, 0x180: 0x3C8}   # small flipper swim frame -> the big frame it gets
@@ -485,6 +494,20 @@ def apply(rom):
         frame_map[small] = big
     for f in OCARINA_FRAMES + fidget:
         frame_map[f] = upscaled_frame(rom, f)
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    drawn = {}                                # (the throws: the redrawn ones)
+    for f, art in THROW_ART.items():
+        if os.path.exists(os.path.join(root, ART % art)):
+            if art not in drawn:
+                drawn[art] = upscaled_frame(rom, art)
+            frame_map[f] = drawn[art]
+    if os.path.exists(os.path.join(root, ART % THROW_MID)):
+        frame_map[THROW_MID] = upscaled_frame(rom, THROW_MID)
+        for n in THROW_ANIMS:
+            at = rom.u32(ANIM_TABLE + 4 * n) + 2
+            w = rom.u16(at)
+            rom.write(at, (THROW_MID | w & 3).to_bytes(2, "big"),
+                      why="throw animation 0x%X: its second step the in-between (was its release)" % n)
     burned = {}
     for n in BURN_ANIMS:
         p = rom.u32(ANIM_TABLE + 4 * n)
@@ -500,8 +523,9 @@ def apply(rom):
     for row in rows:
         offs.append(off)
         off += len(row)
-    p2_end = max(list(P2_COPIES) + [0x3EFC]) + 4
-    data = ("p2_tab:\n    .word %s\n" % ",".join("0x%X" % P2_COPIES.get(f, f) for f in range(0x3F00, p2_end, 4)) +
+    first_new = __import__("hackbuild").FRAME_FREE_START
+    p2_end = max(list(P2_COPIES) + [first_new - 4]) + 4
+    data = ("p2_tab:\n    .word %s\n" % ",".join("0x%X" % P2_COPIES.get(f, f) for f in range(first_new, p2_end, 4)) +
             "burn_tab:\n    .word %s\n" % ",".join("0x%X" % burned[f] for f in (0x11C, 0x120, 0x124, 0x128)) +
             "row_off:\n    .word %s\n" % ",".join(str(o) for o in offs) +
             "row_len:\n    .byte %s\n    .even\n" % ",".join(str(min(255, len(r))) for r in rows) +
@@ -826,7 +850,7 @@ DATA
            .replace("HERO_A5", hero_check("a5")).replace("HERO_A0", hero_check("a0"))
            .replace("PAIR_A5", pair("a5", "a2")).replace("PAIR_A0", pair("a0", "a1"))
            .replace("NORMAL_ANIMS", "0x%X" % NORMAL_ANIMS).replace("NORMAL_FRAMES", "0x%X" % NORMAL_FRAMES)
-           .replace("ANIM_TABLE", "0x%X" % ANIM_TABLE).replace("NEW_FRAMES", "0x3F00").replace("P2_TAB_END", "0x%X" % p2_end).replace("BURN_STATE", "33")
+           .replace("ANIM_TABLE", "0x%X" % ANIM_TABLE).replace("NEW_FRAMES", "0x%X" % first_new).replace("P2_TAB_END", "0x%X" % p2_end).replace("BURN_STATE", "33")
            .replace("DRAW_LOOP_RETURN", "0x%X" % DRAW_LOOP_RETURN)
            .replace("ZOOM_SHRINK", str(ZOOM_SHRINK)).replace("ZOOM_GROW", str(ZOOM_GROW)).replace("RESTORES", restores).replace("DATA", data))
     base = rom.place_code(src, why="hero big art: pick and draw the big frame for the normal hero's frame")
