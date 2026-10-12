@@ -107,6 +107,16 @@ P2_COPIES = {}                    # frames made here -> their player 2 copy (whe
 # form has no charred version: in state 33 those frames are drawn as copies scaled up 1.5x from the small ones (new
 # frames; player 2 draws them too - no copies 0x800 further on, which aren't free).
 BURN_ANIMS = [0x31]
+# Those 1.5x copies (idle fidget, ocarina, burning) can be redrawn: ART (by the small frame's number) if there is used
+# instead - the frame's main block (its tiles across x down, 1.5x the small one's) with MARGIN pixels round it for
+# what sticks out, in its palette's colours (PALETTE_COLOURS: as in play; tools/export_hero_frames.py writes the
+# 1.5x copies as a start). Transparent = clear.
+ART = "art/hero_big/%03X.png"
+MARGIN = 16
+PALETTE_COLOURS = {
+    0x10: "4071 8222 FF96 FE74 7C52 B08F F04F 201E FA00 DB51 6830 CFB0 CF60 0E00 1B06 FFFF",   # (player 1)
+    0x5C: "3060 0222 9C82 9B71 9A60 8950 9840 E620 8900 D520 3400 2C80 DD10 7AAA 7CCC FFFF",   # (charred, in lava)
+}
 BURN_MODE = 0         # (their definitions' mode byte, as the big art's frames)
 # ... per hero state (+104): the big art is lined up by its feet, which is wrong where the hero hangs by his hands:
 #   44, hanging from the balloon (player 2 floating in): the big pose's hands are 2px lower in its frame than the
@@ -329,9 +339,9 @@ def frame_pixels(rom, frame):
     return px, palette
 
 
-def upscaled_frame(rom, frame):
-    """A new frame: `frame` (with its pieces) drawn 1.5x as big (each pixel to 1 or 2 rows / columns, nearest).
-    The main block grows from its top left; whatever lies outside it becomes pieces again."""
+def upscaled_pixels(rom, frame):
+    """`frame` (with its pieces) 1.5x as big (each pixel to 1 or 2 rows / columns, nearest): ({(x, y): colour} from
+    the main block's top left, palette, main block's tiles across, down)."""
     src, palette = frame_pixels(rom, frame)
     big = {}
     xs, ys = [x for x, _ in src], [y for _, y in src]
@@ -341,8 +351,25 @@ def upscaled_frame(rom, frame):
             if v:
                 big[x, y] = v
     p = rom.u32(__import__("hackbuild").FRAME_TABLE + frame)
-    return frame_from_pixels(rom, big, palette, (rom.data[p] + 1) * 3 // 2, (rom.data[p + 1] + 1) * 3 // 2, frame,
-                             "1.5x")
+    return big, palette, (rom.data[p] + 1) * 3 // 2, (rom.data[p + 1] + 1) * 3 // 2
+
+
+def upscaled_frame(rom, frame):
+    """A new frame: `frame` drawn 1.5x as big - its ART if redrawn, else the 1.5x copy. The main block grows from its
+    top left; whatever lies outside it becomes pieces again."""
+    big, palette, cols, rows = upscaled_pixels(rom, frame)
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ART % frame)
+    what = "1.5x"
+    if os.path.exists(path):
+        from png_tiles import read_indices, neo_to_rgb
+        colours = [neo_to_rgb(int(w, 16)) for w in PALETTE_COLOURS[palette].split()]
+        px = read_indices(path, colours)
+        if (len(px[0]), len(px)) != (cols * 16 + 2 * MARGIN, rows * 16 + 2 * MARGIN):
+            raise SystemExit("hero-big-art: %s must be %dx%d" % (ART % frame, cols * 16 + 2 * MARGIN,
+                                                                 rows * 16 + 2 * MARGIN))
+        big = {(x - MARGIN, y - MARGIN): v for y, row in enumerate(px) for x, v in enumerate(row) if v}
+        what = "redrawn"
+    return frame_from_pixels(rom, big, palette, cols, rows, frame, what)
 
 
 def frame_from_pixels(rom, big, palette, main_cols, main_rows, frame, what, keep=None):
