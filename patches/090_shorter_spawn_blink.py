@@ -4,7 +4,8 @@ DESCRIPTION = "The hero blinks (can't be hurt) for 2 s after appearing at a stag
 # Appearing (a stage's start, a restart after a death) sets the hero's invincibility timer, +9 of the player's
 # data (0x107009 / 0x107409, counted down a frame at a time; the hero blinks meanwhile), to 160 frames - in three
 # places: the general set-up (9(a4)) and player 1's and player 2's. Now SPAWN_BLINK - and none in a boss room
-# (stages 33-40: you walk in from the cave, the boss isn't upon you).
+# (stages 33-40: you walk in from the cave, the boss isn't upon you). After a title card stage-wipe clears it: the
+# blink is only after a death.
 SPAWN_BLINK = 120
 BOSS_STAGES = (33, 40)
 STAGE = 0x103005
