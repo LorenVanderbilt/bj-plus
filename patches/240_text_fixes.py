@@ -16,7 +16,6 @@ FIXES = [
     (0x235B0, "BELIEVE IT", "BELIEVE IT?"),
     (0x260E0, "TAKE THE FLOWERS.", "TAKE YOUR FLOWERS"),
     (0x2613C, "WHAT IS MY NAME", "WHAT IS MY NAME?"),
-    (0x262AF, "YOUR DREAM COME", "YOUR DREAMS COME"),
     (0x2630C, "WHAT DO YOU PREFER", "WHAT DO YOU PREFER?"),
     (0x26556, "WANT TO KNOW", "WANT TO KNOW?"),
     (0x26926, "ARE YOU INTERESTED", "ARE YOU INTERESTED?"),
@@ -28,7 +27,6 @@ FIXES = [
     (0x2724A, "THE TRAVEL AGENT", "THE TRAVEL AGENT?"),
     (0x27392, "WHERE ARE YOU GOING", "WHERE ARE YOU GOING?"),
     (0x27620, "GRAB A RIDE", "GRAB A RIDE?"),
-    (0x27F38, "TRAINIG", "TRAINING"),
     (0x280C2, "LOSTER.", "LOSER."),
     (0x28168, "AWAY FROM ME", "AWAY FROM ME?"),
     (0x281E0, "CHOICE.I'LL FIGHT.", "CHOICE. I'LL FIGHT"),
@@ -43,7 +41,6 @@ FIXES = [
     (0x2E970, "ON YOUR HAND.", "ON YOUR HAND?"),
     (0x2F3A6, "WHAT CAN WE DO", "WHAT CAN WE DO?"),
     (0x32D70, "CAN YOU BEAT ME", "CAN YOU BEAT ME?"),
-    (0x33B20, "MISSIN", "MISSION"),
     (0x54551, "JUMP !", "JUMP! "),
     (0x54799, "THE DUMP WILL", "THE LEAF TO"),
     (0x547BD, "OVER RUN THE", "STUN YOUR"),
@@ -79,6 +76,12 @@ STRINGS = [
     # third time, he lets you go): his second plea (was WHAT DO YOU WANT TO KNOW?, a mistranslation), his third (was
     # I'M PERSISTENT, LET'S PLAY.); his first is in RELOCATED (quiz_sure)
     (0x264D8, ["  I'M SURE.", "  OK, I'LL TRY"]),      # (the box takes 14)
+    # his prizes: the second now keeps the flowers through a game over (losing a life no longer takes any:
+    # keep-flowers-on-death) - was FLOWERS WILL REMAIN EVEN AFTER DIE.
+    (0x263A2, ["  YOU'LL GET UP TO 255 FLOWERS.", "  NEVER LOSE FLOWERS.", "  I WANT NOTHING."]),
+    # winning: was GREAT! YOU'RE A GENIUS. / I'LL MAKE YOUR DREAM COME TRUE. - DREAMS, the first line's full stop
+    # giving it room (his box takes the prizes' 37)
+    (0x262B0, ["GREAT! YOU'RE A GENIUS", "I'LL MAKE YOUR DREAMS COME TRUE."], 37),
     (0x26556, ["COME ON, JUST ONE QUIZ?"]),
     (0x26632, ["PRETTY PLEASE? JUST ONE?"]),
     # the story cinema (the box takes 33: FA WAS OVERCOME BY THE POLLUTION. at 0x358A2)
@@ -387,6 +390,11 @@ def apply(rom):
         room = len(old)
         while room < len(new) and rom.data[at + room] == 0x20:   # trailing spaces ending the line
             room += 1
+        end = at + room
+        while rom.data[end] == 0x20:
+            end += 1
+        if room > len(old) and rom.data[end] not in (0xFE, 0xFF, 0xFB, 0xFC):   # (a space between words isn't spare)
+            room = len(old)
         if len(new) > room:
             skipped.append("0x%X %r -> %r (%d more characters than fit)" % (addr, old, new, len(new) - room))
             continue
