@@ -6,13 +6,17 @@ import math
 # A stage starts (after its title card, or after losing a life) by building the level over a few frames (from
 # SETUPS: jsr 0x5AED2), clearing the fix layer (CLEARS: jsr 0x9FBE) and setting MODE 1 (STARTS). Now SETUPS first
 # cover the screen (the fix layer, above everything) with BLACK_PIXEL tiles, CLEARS fill it with them again, and
-# STARTS start the wipe: after START_DELAY frames, the cells are cleared in ORDER (the centre first) over DURATION
-# frames. It runs at the HUD's start each frame (HUD_ENTRY, before the hud patch's routine), and the HUD isn't drawn
+# STARTS start the wipe: after START_DELAY frames, over DURATION frames, each frame writing the cells that change
+# (worked out here: whole cells cleared in order, or - SMOOTH - the iris's edge drawn with partly black tiles). It
+# runs at the HUD's start each frame (HUD_ENTRY, before the hud patch's routine), and the HUD isn't drawn
 # from the cover to the wipe's end - then it's drawn whole (TIMER_HIDDEN set with the cover: the hud patch draws
 # every part when that changes).
 #   SHAPE "iris": a ring growing from the centre; "spiral": a wiper blade pinned at the centre sweeps round TURNS
 #   times, growing from nothing to the corners - each cell cleared the first time the blade reaches it.
 SHAPE = "iris"
+SMOOTH = True                 # the iris's edge drawn with EDGE_TILES (partly black cells) instead of whole cells
+EDGE_DIRECTIONS = 8           # (the fix layer can't flip a tile: each way the edge faces needs its own)
+EDGE_COVERS = (0.25, 0.5, 0.75)   # how much of an edge tile is clear - 8 x 3 = 24 new fix tiles
 TURNS = 2
 CLOCKWISE = False
 START_DELAY = 0               # frames of black after the title card, before the wipe
@@ -40,7 +44,7 @@ TIMER_HIDDEN = 0x10E9FE       # (the hud patch's)
 BLACK_PALETTE, BLACK_PIXEL = 7, 1   # (fix palette 7, entry 1: black - the hud patch keeps it so)
 BLANK = 0x0520
 COLUMNS, ROWS = range(40), range(2, 30)   # the visible fix cells
-WIPE_ON, WIPE_T, WIPE_I = 0x10EA60, 0x10EA62, 0x10EA64   # (spare RAM: byte 1 = covered / 2 = running; frame; cells)
+WIPE_ON, WIPE_T = 0x10EA60, 0x10EA62   # (spare RAM: byte 1 = covered / 2 = running; the frame)
 MUSIC_DUE = 0x10EA66          # a byte: the stage's music still to start
 BLINKS = [0x107009, 0x107409] # each hero's blink (can't be hurt) timer: none as a stage starts, only after a death
 
@@ -65,12 +69,73 @@ def order():
     return [0x7000 + c * 32 + r for c, r in cells], counts
 
 
+def edge_tiles():
+    """{(direction, cover): 8x8 pixels} - clear (0) on the side toward the centre, black outward."""
+    tiles = {}
+    for k in range(EDGE_DIRECTIONS):
+        a = 2 * math.pi * k / EDGE_DIRECTIONS
+        out = sorted(((x - 3.5) * math.cos(a) + (y - 3.5) * math.sin(a), x, y) for y in range(8) for x in range(8))
+        for cover in EDGE_COVERS:
+            px = [[BLACK_PIXEL] * 8 for _ in range(8)]
+            for _, x, y in out[:round(64 * cover)]:
+                px[y][x] = 0
+            tiles[k, cover] = px
+    return tiles
+
+
+def smooth_frames():
+    """Per frame, the cells that change: [(fix address, None for clear / "black" / an edge tile's key)] - each cell
+    the closest of black, clear and the edge tiles to the circle's own pixels there."""
+    tiles = edge_tiles()
+    cx, cy = len(COLUMNS) * 4, (ROWS[0] + ROWS[-1] + 1) * 4      # (the visible area's centre, in pixels)
+    far = math.hypot(cx, cy - ROWS[0] * 8)
+    now = {(c, r): "black" for c in COLUMNS for r in ROWS}
+    frames = []
+    for f in range(DURATION):
+        radius, changes = far * (f + 1) / DURATION, []
+        for (c, r), was in now.items():
+            if was is None:
+                continue
+            mask = [[0 if math.hypot(c * 8 + x + 0.5 - cx, r * 8 + y + 0.5 - cy) <= radius else BLACK_PIXEL
+                     for x in range(8)] for y in range(8)]
+            flat = sum(mask, [])
+            if not any(flat):
+                best = None
+            elif all(flat):
+                best = "black"
+            else:
+                facing = round(math.atan2(r * 8 + 4 - cy, c * 8 + 4 - cx) / (2 * math.pi) * EDGE_DIRECTIONS) \
+                    % EDGE_DIRECTIONS
+                options = [None, "black"] + [(facing, cover) for cover in EDGE_COVERS]
+                def miss(o):
+                    px = [[0] * 8] * 8 if o is None else [[BLACK_PIXEL] * 8] * 8 if o == "black" else tiles[o]
+                    return sum(1 for y in range(8) for x in range(8) if px[y][x] != mask[y][x])
+                best = min(options, key=miss)
+            if best != was:
+                now[c, r] = best
+                changes.append((0x7000 + c * 32 + r, best))
+        frames.append(changes)
+    return frames, tiles
+
+
 def apply(rom):
     assert rom.u16(HUD_ENTRY) == 0x4EB9, "expected the hud patch's call"
     hud = rom.u32(HUD_ENTRY + 2)
     black = BLACK_PALETTE << 12 | rom.add_fix_tile([[BLACK_PIXEL] * 8 for _ in range(8)], why="stage wipe: black",
                                                    share=True)
-    cells, counts = order()
+    if SHAPE == "iris" and SMOOTH:
+        frames, tiles = smooth_frames()
+        words = {None: BLANK, "black": black}
+        for key in sorted({k for fr in frames for _, k in fr if k not in (None, "black")}):
+            words[key] = BLACK_PALETTE << 12 | rom.add_fix_tile(tiles[key], why="stage wipe: an edge, facing %d, %d%% clear"
+                                                                % (key[0], key[1] * 100), share=True)
+        writes = [[(a, words[k]) for a, k in fr] for fr in frames]
+    else:
+        cells, counts = order()
+        writes = [[(a, BLANK) for a in cells[(counts[f - 1] if f else 0):counts[f]]] for f in range(DURATION)]
+    offsets = [0]
+    for fr in writes:
+        offsets.append(offsets[-1] + len(fr))
     code = rom.place_code(r"""
     bra.w start
     bra.w frame
@@ -141,23 +206,22 @@ frame:
     movem.l (%%sp)+,%%d4-%%d7/%%a1-%%a6
 3:  move.w 0x%(t)X,%%d0
     bmi 9f                              | (the delay)
-    add.w %%d0,%%d0                      | cells to have cleared by now
-    lea counts(%%pc),%%a0
-    move.w (%%a0,%%d0.w),%%d0
-    cmp.w #%(count)d,%%d0
+    cmpi.w #%(frames)d-1,%%d0
     bcs 5f
     clr.b 0x%(on)X                      | (the last frame: the HUD from the next)
-5:  move.w 0x%(i)X,%%d1
-    lea cells(%%pc),%%a0
-    add.w %%d1,%%a0
-    add.w %%d1,%%a0
-6:  cmp.w %%d0,%%d1
-    bcc 7f
-    move.w (%%a0)+,0x3C0000
-    move.w #0x%(blank)X,0x3C0002
-    addq.w #1,%%d1
-    bra 6b
-7:  move.w %%d1,0x%(i)X
+5:  add.w %%d0,%%d0                      | this frame's writes: changes[offsets[t]] .. changes[offsets[t + 1]]
+    lea offsets(%%pc),%%a0
+    move.w 2(%%a0,%%d0.w),%%d1
+    move.w (%%a0,%%d0.w),%%d0
+    sub.w %%d0,%%d1
+    beq 9f
+    subq.w #1,%%d1
+    lsl.w #2,%%d0
+    lea changes(%%pc),%%a0
+    add.w %%d0,%%a0
+6:  move.w (%%a0)+,0x3C0000
+    move.w (%%a0)+,0x3C0002
+    dbf %%d1,6b
 9:  movem.l (%%sp)+,%%d0-%%d3/%%a0
 10: addq.l #4,%%sp                      | (the HUD's routine left, as its own no-HUD case does)
     rts
@@ -170,21 +234,21 @@ start:
     move.b #1,0x%(mode)X
     move.b #2,0x%(on)X
     move.w #-%(delay)d-1,0x%(t)X
-    clr.w 0x%(i)X
     tst.b 0x%(due)X                     | (after the title card: the heroes don't blink - after a death they do)
     beq 1f
     clr.b 0x%(blink1)X
     clr.b 0x%(blink2)X
 1:  rts
-counts:
-    .word %(counts)s
-cells:
-    .word %(cells)s
-""" % {"on": WIPE_ON, "t": WIPE_T, "i": WIPE_I, "hud": hud, "no_hud": NO_HUD, "hidden": TIMER_HIDDEN,
-       "black": black, "count": len(cells), "duration": DURATION, "blank": BLANK, "mode": MODE, "delay": START_DELAY,
+offsets:
+    .word %(offsets)s
+changes:
+    .word %(changes)s
+""" % {"on": WIPE_ON, "t": WIPE_T, "hud": hud, "no_hud": NO_HUD, "hidden": TIMER_HIDDEN,
+       "black": black, "duration": DURATION, "blank": BLANK, "mode": MODE, "delay": START_DELAY,
        "setup": SETUP, "due": MUSIC_DUE, "music_at": min(MUSIC_AT, START_DELAY + DURATION - 1) - START_DELAY,
        "stage_music": STAGE_MUSIC, "blink1": BLINKS[0], "blink2": BLINKS[1],
-       "counts": ",".join(str(n) for n in counts), "cells": ",".join("0x%X" % a for a in cells)}, why="stage wipe: %s over %d frames" % (SHAPE, DURATION))
+       "frames": DURATION, "offsets": ",".join(str(n) for n in offsets),
+       "changes": ",".join("0x%X,0x%X" % aw for fr in writes for aw in fr)}, why="stage wipe: %s over %d frames" % (SHAPE, DURATION))
     rom.write(HUD_ENTRY + 2, (code + 4).to_bytes(4, "big"), expect=hud.to_bytes(4, "big"),
               why="the HUD each frame: the stage wipe first")
     rom.write(MUSIC, bytes.fromhex("4EB9") + (code + 12).to_bytes(4, "big"),
