@@ -86,7 +86,7 @@ STRINGS = [
     (0x26632, ["PRETTY PLEASE? JUST ONE?"]),
     # the story cinema (the box takes 33: FA WAS OVERCOME BY THE POLLUTION. at 0x358A2)
     (0x34BA8, ["THE PLANET RAGUY WAS ONCE", "BEAUTIFUL."]),
-    (0x34C38, ["BUT..."]),
+    # (BUT... - was BUT......: text-pause, its dots one at a time)
     (0x34DCA, ["THEN THE DARUMA TRIBE", "INVADED,"]),
     (0x34E6E, ["AND THEIR POLLUTION GETS", "WORSE EVERY DAY."]),
     (0x35710, ["THIS IS BLUE,", "A MASTER OF THE", "LEAF DUMP."]),      # (LEAF DUMP kept: a fan favourite)

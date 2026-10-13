@@ -86,6 +86,8 @@ class Rom:
         if expect is not None and bytes(self.data[addr:addr + len(expect)]) != bytes(expect):
             raise SystemExit("patch mismatch at 0x%X: expected %s, found %s" % (
                 addr, bytes(expect).hex(), bytes(self.data[addr:addr + len(expect)]).hex()))
+        if expect is not None and len(new) > len(expect):
+            raise SystemExit("patch at 0x%X writes %d bytes over the %d expected (%s)" % (addr, len(new), len(expect), why))
         self.data[addr:addr + len(new)] = new
         self.log.append("  0x%06X  %d byte(s)  %s" % (addr, len(new), why))
 

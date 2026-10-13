@@ -32,7 +32,7 @@ def apply(rom):
         "    addi.w #32,%%d0\n"            # one column on, not two
         "    jmp 0x%X\n" % (APOSTROPHE_GLYPH, DRAW_2X2, PRINTER),
         why="big-font apostrophe takes half a cell")
-    rom.write(APOSTROPHE, bytes.fromhex("4EF9") + half.to_bytes(4, "big"), expect=bytes.fromhex("48E78080"),
+    rom.write(APOSTROPHE, bytes.fromhex("4EF9") + half.to_bytes(4, "big"), expect=bytes.fromhex("48E780800640"),
               why="big-font printer: apostrophe goes through the half-cell version")
     setup = rom.place_code(
         "    lea text(%%pc),%%a0\n"
