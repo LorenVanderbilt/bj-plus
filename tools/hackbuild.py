@@ -30,6 +30,7 @@ OUT_DIR = os.path.join(ROOT, "build", "roms")
 AES_DIR = os.path.join(ROOT, "build", "aes")
 P1_NAME = "022-p1.p1"
 S1_NAME = "022-s1.s1"
+M1_NAME = "022-m1.m1"   # the sound driver's Z80 ROM (its 0x0000-0xFFFF as the Z80 sees it, banks aside)
 C_NAMES = ["022-c1.c1", "022-c2.c2", "022-c3.c3", "022-c4.c4"]
 # The program ROM ends in ~300KB of unused 0xFF bytes starting at 0xB69A0; new code goes here.
 FREE_START = 0xB6A00
@@ -61,8 +62,10 @@ def swap_pairs(b):
 
 
 class Rom:
-    def __init__(self, data, fix=b"", sprites=None):
+    def __init__(self, data, fix=b"", sprites=None, sound=b""):
         self.data = bytearray(data)
+        self.sound = bytearray(sound)      # the M1 ROM (Z80): write_sound() changes it
+        self.sound_orig = bytes(sound)
         self.orig = bytes(data)
         self.fix = bytearray(fix)          # the fix-layer ROM (S ROM): 32 bytes per 8x8 tile, 4 bits per pixel
         self.fix_orig = bytes(fix)
@@ -90,6 +93,17 @@ class Rom:
             raise SystemExit("patch at 0x%X writes %d bytes over the %d expected (%s)" % (addr, len(new), len(expect), why))
         self.data[addr:addr + len(new)] = new
         self.log.append("  0x%06X  %d byte(s)  %s" % (addr, len(new), why))
+
+    def write_sound(self, addr, new, expect=None, why=""):
+        """Overwrite bytes of the M1 (sound) ROM at file offset addr, as write() does for the program ROM."""
+        new = bytes(new)
+        if expect is not None and bytes(self.sound[addr:addr + len(expect)]) != bytes(expect):
+            raise SystemExit("sound patch mismatch at 0x%X: expected %s, found %s" % (
+                addr, bytes(expect).hex(), bytes(self.sound[addr:addr + len(expect)]).hex()))
+        if expect is not None and len(new) > len(expect):
+            raise SystemExit("sound patch at 0x%X writes %d bytes over the %d expected (%s)" % (addr, len(new), len(expect), why))
+        self.sound[addr:addr + len(new)] = new
+        self.log.append("  m1 0x%05X  %d byte(s)  %s" % (addr, len(new), why))
 
     def alloc(self, size, align=2):
         addr = (self.next_free + align - 1) & ~(align - 1)
@@ -310,6 +324,8 @@ class Rom:
         files = {P1_NAME: self.patched_p1_file()}
         if bytes(self.fix) != self.fix_orig:
             files[S1_NAME] = bytes(self.fix)
+        if bytes(self.sound) != self.sound_orig:
+            files[M1_NAME] = bytes(self.sound)
         for name, d in self.sprites.items():
             if bytes(d) != self.sprites_orig[name]:
                 files[name] = bytes(d)
@@ -411,7 +427,8 @@ def main():
         entries = [(i, z.read(i)) for i in z.infolist()]
     p1 = next(d for i, d in entries if i.filename == P1_NAME)
     s1 = next(d for i, d in entries if i.filename == S1_NAME)
-    rom = Rom(swap_pairs(p1), s1, {i.filename: d for i, d in entries if i.filename in C_NAMES})
+    m1 = next(d for i, d in entries if i.filename == M1_NAME)
+    rom = Rom(swap_pairs(p1), s1, {i.filename: d for i, d in entries if i.filename in C_NAMES}, m1)
 
     print("Applying %d patch(es): %s" % (len(chosen), ", ".join(chosen) or "(none)"))
     for n in chosen:
