@@ -100,7 +100,6 @@ STRINGS = [
     (0x26ED4, ["YOU MAKE ME HAPPY.", "TAKE THIS NECTAR WITH YOU."]),  # (was ... HONEY ..., as the shop's NECTAR)
     # the boatman's menu (his question, YES and NO: RELOCATED, boat_ask / boat1 / boat_warn)
     (0x22462, ["  A LEAF BOAT, PLEASE.", "  A MUD BOAT, PLEASE.", "  NO THANKS."]),   # ASK FOR LEAF MADE BOAT ...
-    (0x2280C, ["NO FLOWERS, NO BOAT, LAD!"]),                          # (was YOU HAVE RUN OUT OF MONEY.)
     # the Daruma Empire 1 mini boss's offer (was IF YOU BECOME / ONE OF US / I WON'T TAKE / YOUR LIFE.) and Blue's
     # answers (was YES I WILL. / NO KIDDING. - read as agreeing; Japanese: はい喜んで。 / 馬鹿言うな！)
     (0x32DE4, ["JOIN ME, AND", "I'LL SPARE", "YOUR LIFE."]),
@@ -328,6 +327,7 @@ RELOCATED = [   # (name, where its address is (an lea's operand) or None, old ad
     ("boat_pitch", None, 0x22718, ["SO SAVE YOURSELF THE TROUBLE.", "RENT ONE OF MY BOATS!"], None),
     ("boat_warn", 0x223EA, 0x22664, ["THEN LISTEN UP, LAD! THAT", "RIVER IS POLLUTED. ONE DIP", "AND YOU'RE DONE FOR. SOME",
                                      "SWING ACROSS ON THE VINE...", "MOST DON'T MAKE IT."], "boat_pitch"),
+    ("boat_broke", 0x22528, 0x2280C, ["NO FLOWERS, NO BOAT, GET OUT!"], None),   # (was YOU HAVE RUN OUT OF MONEY.)
     ("boat_ask", 0x21AFC, 0x21C12, ["AHOY THERE, LAD! HEARD ABOUT", "THE GREAT RIVER UP AHEAD?"], None),
     # the lottery host after each boss: the Japanese opens with "we're a family of travelling merchants", which the
     # English left out (so its THEY CAPTURED US DURING A TRIP. came from nowhere) - a third text chained in front
