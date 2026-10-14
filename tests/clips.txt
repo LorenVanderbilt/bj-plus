@@ -1,0 +1,4 @@
+# Recorded tests, replayed by tools/regress.py - one a line: name, the save it starts from, what it shows (what was
+# checked when it was made). The clip is recordings/<name>.inp (local, like the saves), recorded with
+#   ./run.sh -- -state <save> -record <name>.inp
+round_clear  goal_bell  ROUND CLEAR and its bonus lines centred, after the goal (2026-10-14)

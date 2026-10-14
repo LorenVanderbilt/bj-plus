@@ -89,7 +89,8 @@ HUD_ENTRY = 0x4E4B8          # tst.b 0x309B(a6) ; bne <rts> (the HUD each frame)
 TIMER_COUNT, TIMER_DRAW = 0x106904, 0x4E560   # (the timer's count; its drawing, d0 = the count)
 LATCH, LAST_MODE = 0x10EA01, 0x10EA02   # (bytes; spare RAM: LATCH set while hidden, the mode last frame)
 MODE_SET = 0x29EB4           # move.b #2,MODE(a6): the stage's end (after the goal or a boss)
-ROUND_CLEARS = [0x54CD0, 0x54FD8]   # ROUND CLEAR's routines (the goal's; a boss's): move.w #0x104,d0 ; move.w #0x6944,d1
+ROUND_CLEARS = [0x54CD0, 0x54FD8]   # ROUND CLEAR's routines (the goal's; a boss's): move.w #<first letter>,d0 ;
+                                    # move.w #<its tile>,d1 (its place as `round-clear-centred` left it)
 BAR_PRINTS = {0x9FE2: [0x4E5E8, 0x4E5F6, 0x4E606, 0x4E614],   # the item bar's frame and markers: inline prints
               0x9FE6: [0x4E62C, 0x4E63A, 0x4E650, 0x4E65E, 0x4E674, 0x4E686, 0x4E6A0, 0x4E6B2]}
 BAR_ROWS = (27, 28)          # (its boxes: 2x2 blocks there)
@@ -631,6 +632,10 @@ tiles:
     # Hidden or not is worked out at the HUD's start each frame (HUD_ENTRY), before any part draws; when it changes,
     # every part is drawn (or cleared) at once - each normally takes its turn (one group every 4 frames, the timer
     # every 16), so they went one by one, the time last.
+    first_letter = {bytes(rom.data[at:at + 8]) for at in ROUND_CLEARS}
+    assert len(first_letter) == 1, "ROUND CLEAR's routines don't start alike"
+    first_letter = first_letter.pop()
+    assert first_letter[0:2] == b"\x30\x3C" and first_letter[4:6] == b"\x32\x3C", first_letter.hex()
     frame = rom.place_code(r"""
     bra.w main
     bra.w stage_end
@@ -709,7 +714,8 @@ stage_end:
     rts
 """ % {"hidden": TIMER_HIDDEN, "mode": MODE, "stage": STAGE, "goal": GOAL_STATE,
        "hero1": HEROES[0], "hero2": HEROES[1], "timer": TIMER_COUNT, "timer_draw": TIMER_DRAW,
-       "latch": LATCH, "last": LAST_MODE, "rc_d0": 0x104, "rc_d1": 0x6944},
+       "latch": LATCH, "last": LAST_MODE, "rc_d0": int.from_bytes(first_letter[2:4], "big"),
+       "rc_d1": int.from_bytes(first_letter[6:8], "big")},
         why="HUD: hidden or not, worked out first each frame - all of it at once when that changes")
     rom.write(HUD_ENTRY, bytes.fromhex("4EB9") + frame.to_bytes(4, "big") + bytes.fromhex("4E71"),
               expect=bytes.fromhex("4A2E309B66000682"), why="HUD: hidden or not, first each frame")
@@ -717,7 +723,7 @@ stage_end:
               expect=bytes.fromhex("1D7C00023004"), why="HUD: hidden as the stage's end starts (after a boss too)")
     for at in ROUND_CLEARS:
         rom.write(at, bytes.fromhex("4EB9") + (frame + 8).to_bytes(4, "big") + bytes.fromhex("4E71"),
-                  expect=bytes.fromhex("303C0104323C6944"), why="HUD: hidden as ROUND CLEAR starts")
+                  expect=first_letter, why="HUD: hidden as ROUND CLEAR starts")
     clear = rom.place_code("""
     cmpi.b #0xA5,0x%X
     beq 1f
