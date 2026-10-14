@@ -33,7 +33,7 @@ from png_tiles import read_rgba, write_rgb  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 SAVES = ROOT / "sta" / "aes"
-CLIPS, RECORDINGS = ROOT / "tests" / "clips.txt", ROOT / "recordings"
+CLIPS, RECORDINGS = ROOT / "tests" / "clips.txt", ROOT / "tests" / "clips"
 OUT = ROOT / "build" / "regress"
 FRAMES = 300                     # (a save alone: as tools/regress.lua plays it)
 TIMEOUT = 300                    # seconds a run may take (a save alone ~10, a clip about its length / 10)
@@ -65,7 +65,7 @@ def play(name, save, clip, now):
     shutil.rmtree(out, ignore_errors=True)
     out.mkdir(parents=True)
     if clip and not (RECORDINGS / (clip + ".inp")).exists():
-        return name, ["no recording (recordings/%s.inp)" % clip]
+        return name, ["no recording (tests/clips/%s.inp)" % clip]
     env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy", REGRESS_REPORT=str(out / "report.txt"),
                REGRESS_CLIP="1" if clip else "0")
     cmd = ["mame", "aes", "-hash", "build/aes", "-rompath", "build/aes", "-cart", "bjourney", "-state", save,
@@ -113,7 +113,7 @@ def compare(name, now, base, diffs):
         return None
     changed = []
     for snap in sorted(set(snapshots(base / name)) | set(snapshots(now / name))):
-        a, b, f = base / name / snap, now / name / snap, int(snap[1:5])
+        a, b, f = base / name / snap, now / name / snap, int(snap[1:-4])
         if not (a.exists() and b.exists()):
             changed.append((f, -1))
             continue

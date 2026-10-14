@@ -7,7 +7,8 @@ DESCRIPTION = "HUD: no LIFE; score, flowers (x000) and hearts at the screen's ed
 # column 37; they were at 5 / 33).
 # The timer (0x4E560: as normal, or blinking when time is short) drew TIME at fix offset 0x201 (column 16; the
 # big-font printers put text 2 rows down: row 3), = at 0x281 and the time at 0x2A1: TIME=287 on one line. Now
-# TIME at TIME_AT (columns 18-21, rows 3-4) and the time under it at DIGITS_AT (columns 19-21, rows 5-6), no =.
+# TIME in the HUD's small font on the score line (2 pixels up, rows 2-3, as 1P=) and the time under it at DIGITS_AT
+# (columns 19-21, rows 4-5), no =.
 # The = call's place clears the old layouts' cells nothing draws now (OLD_CELLS: a save state made before showed
 # bits of them) - once, then CLEARED is set (cleared every frame, they cut into text boxes drawn over the HUD: the
 # lottery gnomes').
@@ -108,13 +109,16 @@ TIMER = [   # (the move.w #offset,d0 before each printer call, its old offset): 
 ]
 EQUALS = [0x4E59C, 0x4E5C6 + 0xC]     # move.w #0x281,d0 ; move.w #'=',d1 ; jsr 0x5F0EA - each 14 bytes
 TIME_AT = 18 * 32 + 1
-# ... and TIME half a tile right, so the 3 digits sit under its middle (the fix layer moves in 8-pixel columns): its
-# big-font letters (TIME_LETTERS: top tiles, the bottom ones 0x10 on) redrawn shifted 4 pixels as 5 new fix tiles a
-# row (columns 18-22), drawn by `time_word` in place of the printer's call (TIME_PRINTS; d2 = its palette).
-TIME_LETTERS = [0x6A4, 0x689, 0x68D, 0x685]
+# ... and TIME half a tile right, so the 3 digits sit under its middle (the fix layer moves in 8-pixel columns): the
+# small font's letters (TIME_LETTERS, as 1P= and the scores: tile 0x500 + the character) redrawn 4 pixels right and
+# SCORE_UP higher as 5 new fix tiles a row (columns 18-22, rows 2-3), drawn by `time_word` in place of the big-font
+# printer's call
+# (TIME_PRINTS) in the HUD font's palette (TIME_PALETTE) - steady when the time is short (the digits blink).
+TIME_LETTERS = [0x500 + ord(c) for c in "TIME"]
+TIME_PALETTE = P_TILE & 0xF000
 TIME_PRINTS = [0x4E596, 0x4E5CC]      # jsr 0x4DDEE (the big-font printer: TIME)
-TIME_COLUMN = 0x7000 + 18 * 32 + 3
-DIGITS_AT = 19 * 32 + 3
+TIME_COLUMN = 0x7000 + 18 * 32 + 2
+DIGITS_AT = 19 * 32 + 2
 
 
 
@@ -126,15 +130,12 @@ def fix_pixels(rom, tile):
 
 
 def time_tiles(rom):
-    """TIME's 2 rows, 4 pixels right: 5 new fix tiles each (top row, then bottom)."""
-    out = []
-    for row in (0, 0x10):
-        letters = [fix_pixels(rom, t + row) for t in TIME_LETTERS]
-        wide = [sum((letters[i][y] for i in range(4)), []) for y in range(8)]       # 32 pixels across
-        wide = [[0] * 4 + r + [0] * 4 for r in wide]                                 # 40, shifted 4
-        out.append([rom.add_fix_tile([r[c * 8:c * 8 + 8] for r in wide], why="HUD: TIME, half a tile right", share=True)
-                    for c in range(5)])
-    return out
+    """TIME 4 pixels right and SCORE_UP higher, over 2 rows: 5 new fix tiles each (top row, then bottom)."""
+    letters = [fix_pixels(rom, t) for t in TIME_LETTERS]
+    wide = [[0] * 4 + sum((letters[i][y] for i in range(4)), []) + [0] * 4 for y in range(8)]   # 40 across
+    tall = [[0] * 40 for _ in range(8 - SCORE_UP)] + wide + [[0] * 40 for _ in range(SCORE_UP)]
+    return [[rom.add_fix_tile([r[c * 8:c * 8 + 8] for r in tall[row:row + 8]], why="HUD: TIME on the score line",
+                              share=True) for c in range(5)] for row in (0, 8)]
 
 
 
@@ -564,8 +565,8 @@ flowers:
                   flowers.to_bytes(4, "big"), why="HUD: player %d's flowers under the hearts" % (1 + (where > 0x7400)))
     top, bottom = time_tiles(rom)
     word = rom.place_code(r"""
-| TIME, half a tile right (d2 = the palette, as the printer's) - a column only where its top cell is blank or the
-| timer's (ROUND CLEAR is drawn over it, in the same rows)
+| TIME, half a tile right, in the HUD font's palette (not the printer's, d2) - a column only where its cells are
+| blank or the timer's (ROUND CLEAR is drawn over it, in the same rows)
     movem.l %%d0-%%d4/%%a0,-(%%sp)
     move.w #1,0x3C0004
     move.w #0x%(at)X,%%d0
@@ -591,10 +592,10 @@ flowers:
     bne 3f
     move.w %%d0,0x3C0000
     move.w (%%a0),%%d1
-    or.w %%d2,%%d1
+    ori.w #0x%(palette)X,%%d1
     move.w %%d1,0x3C0002
     move.w 2(%%a0),%%d1
-    or.w %%d2,%%d1
+    ori.w #0x%(palette)X,%%d1
     move.w %%d1,0x3C0002
 3:  addq.l #4,%%a0
     add.w #0x20,%%d0
@@ -623,7 +624,7 @@ own:
     rts
 tiles:
     .word %(tiles)s
-""" % {"at": TIME_COLUMN, "hidden": TIMER_HIDDEN, "mode": MODE, "stage": STAGE,
+""" % {"at": TIME_COLUMN, "hidden": TIMER_HIDDEN, "mode": MODE, "stage": STAGE, "palette": TIME_PALETTE,
        "goal": GOAL_STATE, "hero1": HEROES[0], "hero2": HEROES[1],
        "tiles": ",".join("0x%X,0x%X" % (t, b) for t, b in zip(top, bottom))}, why="HUD: TIME, half a tile right")
     for at in TIME_PRINTS:
