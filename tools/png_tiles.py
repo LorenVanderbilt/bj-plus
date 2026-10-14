@@ -1,6 +1,7 @@
 """Minimal PNG read / write (no PIL): an indexed picture out, and any 8-bit PNG back in as palette indices.
 
 write_indexed(path, rows, palette): rows = [[index, ...], ...], palette = [(r, g, b), ...] (index 0 transparent).
+write_rgb(path, rows): rows = [[(r, g, b), ...], ...].
 read_rgba(path): the picture's pixels as rows of ((r, g, b), alpha).
 read_indices(path, palette): the picture's pixels as indices into palette - each pixel's colour matched to the
 nearest palette colour (so an editor that reorders the palette or saves RGB(A) still round-trips); fully
@@ -20,6 +21,15 @@ def write_indexed(path, rows, palette):
     png = b"\x89PNG\r\n\x1a\n" + _chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 3, 0, 0, 0))
     png += _chunk(b"PLTE", b"".join(bytes(c) for c in palette))
     png += _chunk(b"tRNS", b"\0") + _chunk(b"IDAT", zlib.compress(raw, 9)) + _chunk(b"IEND", b"")
+    with open(path, "wb") as f:
+        f.write(png)
+
+
+def write_rgb(path, rows):
+    h, w = len(rows), len(rows[0])
+    raw = b"".join(b"\0" + bytes(v for px in r for v in px) for r in rows)
+    png = b"\x89PNG\r\n\x1a\n" + _chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+    png += _chunk(b"IDAT", zlib.compress(raw, 6)) + _chunk(b"IEND", b"")
     with open(path, "wb") as f:
         f.write(png)
 
