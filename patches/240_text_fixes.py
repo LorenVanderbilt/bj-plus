@@ -33,8 +33,6 @@ FIXES = [
     (0x2C6C6, "TIME FOR CARDS", "TIME FOR CARDS?"),
     (0x2CCD6, "ENOUGH FLOWER.", "ENOUGH FLOWERS"),
     (0x2D3FE, "UNTERSTAND", "UNDERSTAND"),
-    (0x2D68A, "LISTEN TO ME", "LISTEN TO ME?"),
-    (0x2DB3C, "TIME BY PLAING", "TIME PLAYING"),
     (0x2DF7E, "I TATE", "I DATE"),
     (0x2E42E, "WUTH", "WITH"),
     (0x2E964, "IS THAT SO", "IS THAT SO?"),
@@ -76,6 +74,7 @@ STRINGS = [
     # third time, he lets you go): his second plea (was WHAT DO YOU WANT TO KNOW?, a mistranslation), his third (was
     # I'M PERSISTENT, LET'S PLAY.); his first is in RELOCATED (quiz_sure)
     (0x264D8, ["  I'M SURE.", "  OK, I'LL TRY"]),      # (the box takes 14)
+    (0x2D824, ["  KEEP LISTENING.", "  SNEAK AWAY."]),   # the drunk's (was YOU'RE STILL LISTENING. / YOU BETTER LEAVE SOON.)
     # his prizes: the second now keeps the flowers through a game over (losing a life no longer takes any:
     # keep-flowers-on-death) - was FLOWERS WILL REMAIN EVEN AFTER DIE.
     (0x263A2, ["  YOU'LL GET UP TO 255 FLOWERS.", "  NEVER LOSE FLOWERS.", "  I WANT NOTHING."]),
@@ -99,13 +98,9 @@ STRINGS = [
     (0x26A88, ["WANT TO SEE A TRICK?", "ONLY 5 FLOWERS"], 27),
     (0x26AEC, ["  SURE!", "  NO THANKS."]),                       # (was I'LL LOOK. / I WON'T LOOK.)
     (0x26ED4, ["YOU MAKE ME HAPPY.", "TAKE THIS NECTAR WITH YOU."]),  # (was ... HONEY ..., as the shop's NECTAR)
-    # the boatman, after SEE THE LARGE RIVER AHEAD? - YES (was IT'S GOOD IF YOU KNOW IT.)
-    # ... after NO (the IVY is the swinging vine; Japanese: rope), and his menu
-    (0x22664, ["THE BIG RIVER IS POLLUTED.", "FALL IN AND YOU'RE DONE FOR.", "YOU CAN CROSS WITH THE VINE,",
-               "BUT MANY HAVE DIED TRYING."]),
-    (0x22718, ["TAKE MY ADVICE.", "RENT ONE OF MY BOATS."]),           # (was FOGET THAT IDEA. / YOU SHOULD USE MY BOAT.)
+    # the boatman's menu (his question, YES and NO: RELOCATED, boat_ask / boat1 / boat_warn)
     (0x22462, ["  A LEAF BOAT, PLEASE.", "  A MUD BOAT, PLEASE.", "  NO THANKS."]),   # ASK FOR LEAF MADE BOAT ...
-    (0x2280C, ["SORRY, YOU CAN'T AFFORD IT."]),                        # (was YOU HAVE RUN OUT OF MONEY.)
+    (0x2280C, ["NO FLOWERS, NO BOAT, LAD!"]),                          # (was YOU HAVE RUN OUT OF MONEY.)
     # the Daruma Empire 1 mini boss's offer (was IF YOU BECOME / ONE OF US / I WON'T TAKE / YOUR LIFE.) and Blue's
     # answers (was YES I WILL. / NO KIDDING. - read as agreeing; Japanese: はい喜んで。 / 馬鹿言うな！)
     (0x32DE4, ["JOIN ME, AND", "I'LL SPARE", "YOUR LIFE."]),
@@ -292,6 +287,20 @@ RELOCATED = [   # (name, where its address is (an lea's operand) or None, old ad
     # Red's duel for the torch: his greeting (was ... A LONG TIME TO SEE YOU.)
     ("red1", 0x27ADE, 0x27C92, ["BLUE, I'VE BEEN WAITING", "A LONG TIME TO SEE YOU AGAIN.", "DON'T TELL ME YOU FORGOT ME!"], None),
     ("red_challenge", 0x27D9E, 0x27E24, ["I CHALLENGE YOU TO A", "LEAF DUMP DUEL!"], None),   # (was FIGHT ME.)
+    # Mechanical City 2's drunk (飲んだくれ - "the derelict" in English) and his grumbling, closer to the Japanese:
+    # the beer's price (was THE PRICES ARE RISING ALONG / WITH THE TAXES.), the two-player games (was WE CAN'T WASTE
+    # TIME BY PLAING / GAMES. - Blue's Journey is one), Raguy for Bakeen
+    ("drunk_intro", 0x2D36C, 0x2D53C, ["YOU SEE A DRUNK SLUMPED OVER", "A MUG OF BEER.", "WHAT ARE YOU GOING TO DO?"],
+     None),
+    ("drunk_hey", 0x2D624, 0x2D68A, ["HEY, YOU THERE...", "C'MERE. LISTEN TO THIS."], None),
+    ("drunk_slaves", 0x2D726, 0x2D786, ["THOSE DAMN DARUMAS... THEY", "MADE SLAVES OUTTA ALL OF US!"], None),
+    ("drunk_raguy", 0x2D876, 0x2D8C4, ["RAGUY'S ALREADY FALLEN TO 'EM.", "RESISTANCE? HAH!"], None),
+    ("drunk_tried", 0x2D914, 0x2D960, ["WE TRIED. DIDN'T DO A", "LICK OF GOOD."], None),
+    ("drunk_beer", 0x2D9D8, 0x2DA3C, ["AN' NOW THEY'VE JACKED UP THE", "PRICE OF BEER! HIC"], None),
+    ("drunk_games", 0x2DAC4, 0x2DB3C, ["AN' WHAT'S WITH ALL THESE", "TWO-PLAYER GAMES NOWADAYS?!"], None),
+    ("drunk_sorry", 0x2DBBE, 0x2DC2C, ["SORRY, PAL. ALL I DO IS GRIPE.", "HERE, TAKE SOMETHIN' FOR",
+                                       "YER TROUBLE."], None),
+    ("drunk_prize", 0x2DC8A, 0x2DCD4, ["  30 FLOWERS.", "  A SILVER COCOON.", "  I JUST WANT TO LEAVE."], None),
     ("end1", 0x23BCA, 0x23CAC, ["THE DARUMA TRIBE LEFT, AND", "NATURE RETURNED TO RAGUY."], None),
     ("end2", 0x23D04, 0x23D78, ["ALL WHO FELL ILL FROM THE", "POLLUTION WERE CURED,", " ", "INCLUDING PRINCESS FA."], None),
     ("end4", 0x23F14, 0x240F6, ["OF COURSE, FA SAID YES.", "AND THEY LIVED", "HAPPILY EVER AFTER."], None),
@@ -309,8 +318,17 @@ RELOCATED = [   # (name, where its address is (an lea's operand) or None, old ad
     ("end15b", 0x24C12, 0x24C62, ["NEITHER OF THEM EVER", "RECOVERED FROM THE SHOCK."], None),
     ("end16", 0x23704, 0x237BE, ["BLUE COLLAPSED, AND RAGUY", "WAS RUINED BY POLLUTION.", " " * 30,
                                  " " * 12 + "GAME OVER"], None),                         # BLUE IS EXHAUSTED AND ...
-    # the boatman, after SEE THE LARGE RIVER AHEAD? - YES (was IT'S GOOD IF YOU KNOW IT.)
-    ("boat1", 0x223AE, 0x22596, ["IT'S GOOD THAT YOU", "ALREADY KNOW.", "YOU CAN RENT MY BOAT."], None),
+    # the boatman, after his question - YES (was IT'S GOOD IF YOU KNOW IT.)
+    ("boat1", 0x223AE, 0x22596, ["GOOD, THAT SAVES MY BREATH.", "MY BOATS ARE FOR RENT!"], None),
+    # ... and his question, the first line anyone hears in a house (was SEE THE LARGE RIVER AHEAD?; his Japanese
+    # has an old man's voice: おぬし、この先に大河があるのを… - "you there, (know) there's a great river ahead?")
+    # ... and after NO, his warning (was THE BIG RIVER IS POLLUTED. / YOU WILL DIE IF YOU FALL IN. / YOU CAN CROSS IT
+    # BY USING IVY. / MANY PEOPLE HAVE DIED TRYING. - the IVY is the swinging vine; Japanese: rope) and his pitch (was
+    # FOGET THAT IDEA. / YOU SHOULD USE MY BOAT.), chained (0xFB) - the pitch first, so the warning can point at it
+    ("boat_pitch", None, 0x22718, ["SO SAVE YOURSELF THE TROUBLE.", "RENT ONE OF MY BOATS!"], None),
+    ("boat_warn", 0x223EA, 0x22664, ["THEN LISTEN UP, LAD! THAT", "RIVER IS POLLUTED. ONE DIP", "AND YOU'RE DONE FOR. SOME",
+                                     "SWING ACROSS ON THE VINE...", "MOST DON'T MAKE IT."], "boat_pitch"),
+    ("boat_ask", 0x21AFC, 0x21C12, ["AHOY THERE, LAD! HEARD ABOUT", "THE GREAT RIVER UP AHEAD?"], None),
     # the lottery host after each boss: the Japanese opens with "we're a family of travelling merchants", which the
     # English left out (so its THEY CAPTURED US DURING A TRIP. came from nowhere) - a third text chained in front
     ("lot3", None, 0x295E6, ["THANKS FOR", "FREEING US!", "10 FLOWERS FOR", "A LUCKY DRAW!"], None),  # THIS IS A REWARD ...
@@ -354,7 +372,7 @@ def relocate(rom, old, lines, next_text=None):
 # chain. The card game's rules are long: before its PLACE YOUR BET. they wait longer; so is the boatman's warning
 # about the river (4 lines), before his next line.
 LONGER_WAITS = {0x2CA0E: 123, 0x2C9F2: 123,       # next text (English, Japanese) -> frames
-                0x22718: 210, 0x226E2: 210,
+                "boat_pitch": 210, 0x226E2: 210,    # (a name: RELOCATED's, where it was moved to)
                 0x2F2B8: 123, 0x2F284: 123}       # (the robot mini boss's first line, before NONE OF YOUR WEAPONS ...)
 # ... and its next line then waits less before the scene moves on: its callback's object counts down from this
 ROBOT_LINE2_HOLD = (0x2F30D, 31)              # (63)
@@ -408,12 +426,6 @@ def apply(rom):
     for addr, lines, *width in STRINGS:
         text, room = whole_string(rom, addr, lines, *width)
         rom.write(addr, text, expect=bytes(rom.data[addr:addr + room]), why="text: %s" % " / ".join(lines))
-    src = "    move.b #63,0x78A8(%a6)\n"
-    for i, (nxt, frames) in enumerate(LONGER_WAITS.items(), 1):
-        src += "    cmp.l #0x%X,0x78A4(%%a6)\n    bne.s %df\n    move.b #%d,0x78A8(%%a6)\n%d:\n" % (nxt, i, frames, i)
-    wait = rom.place_code(src + "    rts\n", why="text chains: longer waits before some texts")
-    rom.write(CHAIN_WAIT, bytes.fromhex("4EB9") + wait.to_bytes(4, "big"), expect=bytes.fromhex("1D7C003F78A8"),
-              why="text chains: the wait, longer before some texts")
     for at in ENDING_WAITS:
         rom.write(at + 2, ENDING_HOLD.to_bytes(2, "big"), expect=(30).to_bytes(2, "big"),
                   why="good ending: a line's hold once typed")
@@ -441,6 +453,12 @@ def apply(rom):
         placed[name] = at = relocate(rom, old, lines, placed[nxt] if nxt else None)
         if ref is not None:
             rom.write(ref, at.to_bytes(4, "big"), expect=old.to_bytes(4, "big"), why="text: %s (moved)" % " / ".join(lines))
+    src = "    move.b #63,0x78A8(%a6)\n"
+    for i, (nxt, frames) in enumerate(LONGER_WAITS.items(), 1):
+        src += "    cmp.l #0x%X,0x78A4(%%a6)\n    bne.s %df\n    move.b #%d,0x78A8(%%a6)\n%d:\n" % (nxt if isinstance(nxt, int) else placed[nxt], i, frames, i)
+    wait = rom.place_code(src + "    rts\n", why="text chains: longer waits before some texts")
+    rom.write(CHAIN_WAIT, bytes.fromhex("4EB9") + wait.to_bytes(4, "big"), expect=bytes.fromhex("1D7C003F78A8"),
+              why="text chains: the wait, longer before some texts")
     for ref, old, lines in MOVED:
         text = b"\xfe".join(l.encode() for l in lines).replace(b"?", b"\x0a") + b"\xff"
         at = rom.alloc(len(text))

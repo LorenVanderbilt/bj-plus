@@ -17,7 +17,7 @@ drowning cover) - tick them off as they're checked in play.
 - **Empire Marsh 3:** a card game - odds 2-1 against, pays 1-1.
 - **Strange Space:** a man lost his axe - fetch it (a little to the left), he cuts a tree: an **invisible gold
   cocoon** behind it (shoot around until it appears).
-- **Mechanical City 2:** a derelict - keep listening for a **silver cocoon or 30 flowers**.
+- **Mechanical City 2:** a drunk (the "derelict" in the original English) - keep listening for a **silver cocoon or 30 flowers**.
 - **Mechanical City 3:** a hard-to-find house (stay near the bottom) - with Ret's torch, melt the ice around a
   **princess**; she gives protection from Nero's magic.
 
