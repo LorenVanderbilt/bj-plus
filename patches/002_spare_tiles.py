@@ -8,14 +8,17 @@ DESCRIPTION = "More free sprite tiles for new art: runs of blank tiles the game 
 #     auto-animation group included, over 150 frames each, 2026-10-06);
 #   * the program names none of them: the words in the code that match are frame numbers (object +8, animation
 #     lists - 0x2BB0..., 0x2CE0...) or other bytes, not tiles.
-# Runs below 0x100 (0x26, 0x5B) are left alone: the BIOS's boot logo draws tiles from there. They're added to the
-# end of rom.tile_pool (add_sprite_tile's tiles after its own range), so tiles already handed out keep their numbers.
+# They're added to the end of rom.tile_pool (add_sprite_tile's tiles after its own range), so tiles already handed
+# out keep their numbers. LOW_RUNS (below 0x100) came last: left alone at first in case the BIOS's boot logo drew
+# from there - it doesn't (its tiles are 0x5F00-0x5FFF, the header's $115; the boot screens checked unchanged with
+# them in use, 2026-10-15).
 RUNS = [(0x9D3, 13), (0x2BAD, 19), (0x2CD3, 45), (0x2F6C, 20), (0x333B, 9), (0x4FF0, 16)]   # (first, count): 122
+LOW_RUNS = [(0x26, 10), (0x5B, 21)]                                                          # 31 more
 
 
 def apply(rom):
     blank = bytes(64)
-    tiles = [t for first, n in RUNS for t in range(first, first + n)]
+    tiles = [t for first, n in RUNS + LOW_RUNS for t in range(first, first + n)]
     for t in tiles:
         a, b, at = rom._sprite_at(t)
         if rom.sprites_orig[a][at:at + 64] != blank or rom.sprites_orig[b][at:at + 64] != blank:

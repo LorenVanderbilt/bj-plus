@@ -15,6 +15,11 @@ DESCRIPTION = "The water's wave line carried over the shore's grass, and (TINT_K
 #   * the timer interrupt (vector 0x68; the game's own 0x9A0A, never used - its mode copy's timer bits stay clear - is
 #     no longer called: it re-arms the timer every 0x2FF clocks) writes the
 #     tinted colours: everything drawn below that line uses them.
+# SHORE: the wave line over the shore - off (2026-10-15: its 56 sprite tiles went to the title banner). Off, the
+# program space it took (SHORE_RESERVE bytes: its tables and code) is still set aside, so no later patch's code moves
+# (save states hold addresses in it); on, the build checks it still takes exactly that.
+SHORE = False
+SHORE_RESERVE = 76322
 TINT_K = 0.0   # (tint off for now - 0.35 was the tried strength; at 0 none of its code goes in. NB the water's
                # shimmer turns colours round in place (0xD2-0xD4 10-15): check that against the restore if it's on)
 TINT_TO = (1, 5, 15)          # 5-bit r, g, b: a deep blue
@@ -92,7 +97,8 @@ def cut_tiles(rom, lines):
     """The line tiles with their left (or right) CUTS columns cleared, each set of 8 starting on a multiple of 4 (the
     hardware's animation steps the low 2 bits). Returns the sets' first tiles: whole, left cuts, right cuts."""
     pool = set(rom.tile_pool)
-    starts = [t for t in sorted(pool) if t % 4 == 0 and all(t + i in pool for i in range(8))]
+    starts = [t for t in sorted(pool) if t >= 0x100 and t % 4 == 0 and all(t + i in pool for i in range(8))]
+    #   (not spare-tiles' low runs: they came later, and the tiles handed out before stay where they were)
     firsts = []
     for t in starts:
         if len(firsts) == 2 * len(CUTS):
@@ -729,7 +735,13 @@ cuts:
               why="each frame, after the layers are placed: the wave line over the shore first")
 
 def apply(rom):
-    shore_line(rom, line_tiles(rom))
+    before = rom.next_free
+    if SHORE:
+        shore_line(rom, line_tiles(rom))
+        assert rom.next_free - before == SHORE_RESERVE, "the shore line now takes %d bytes" % (rom.next_free - before)
+    else:
+        rom.alloc(SHORE_RESERVE, align=1)
+        rom.log.append("  0x%06X  %d byte(s) set aside  water tint: the shore line's place (it's off)" % (before, SHORE_RESERVE))
     if not TINT_K:
         return                          # (no tint: the palettes left alone)
     original_vblank = rom.u32(0x64)
