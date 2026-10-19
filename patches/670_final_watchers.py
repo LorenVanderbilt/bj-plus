@@ -23,13 +23,16 @@ import os
 #   each top down) through FRONT, a PNG of the block (16 px a tile) of which pixels draw in front (any pixel there;
 #   transparent: see-through - the colours come from the tiles).
 # The state starts over on the hall's first frame (the game may not come through DRAW_CALL on its way in); out of the
-# hall the slots are hidden (once) and the boss forgotten - and its count as it's set up - so a leftover never reads
+# hall, or as the next scene is set up (CLEAR_LAYER), the slots are hidden (once) and the boss forgotten - and its count as it's set up - so a leftover never reads
 # as a hit. (Its own patch, last, so its code moves
 # nothing.)
 STAGE = 40
 STAGE_AT = 0x103005
 DRAW_CALL = 0x11804            # jsr (the gameplay loop's front objects, then wall-pocket, elevator-spin)
 BOSS_SETUP = 0x36158           # jsr boss-hits' final-boss routine (a5: the boss)
+CLEAR_LAYER = 0xA36E           # move.w 0x24A(a6),d0 ; bra 0xA37E - one of the routines that clear a sprite layer as a
+CLEAR_LAYER_REST = 0xA37E      # scene is set up (the ending's set-up calls it after the fight: DRAW_CALL doesn't come
+                               # round any more, so the watchers are hidden there too)
 HITS_LEFT = 0x4013
 HALL_TILE = (25 * 64 + 21 * 2, 0x282A)
 FIRST_SLOT, LAST_SLOT = 80, 99
@@ -121,6 +124,27 @@ def apply(rom):
     code = rom.place_code("""
     bra.w frame
     bra.w setup
+    bra.w scene
+
+scene:                                  | a scene set up: the watchers hidden, if they're shown
+    bsr hide
+    move.w 0x24A(%%a6),%%d0
+    jmp 0x%(clear_rest)X
+
+hide:
+    tst.b 0x%(shown)X
+    beq 1f
+    movem.l %%d0-%%d1,-(%%sp)
+    clr.b 0x%(shown)X
+    move.w #1,0x3C0004
+    move.w #0x8200+%(first)d,%%d0
+    moveq #%(count)d,%%d1
+0:  move.w %%d0,0x3C0000
+    move.w #0,0x3C0002
+    addq.w #1,%%d0
+    dbf %%d1,0b
+    movem.l (%%sp)+,%%d0-%%d1
+1:  rts
 
 setup:                                  | (a5: the final boss, its hits just set)
     jsr 0x%(setup)X
@@ -139,16 +163,8 @@ frame:
     move.w #0x%(hall_addr)X,0x3C0000    | in the hall?
     cmpi.w #0x%(hall_tile)X,0x3C0002
     beq 2f
-    tst.b 0x%(shown)X                   | no: the watchers hidden (once), the state starts over
-    beq 1f
-    clr.b 0x%(shown)X
-    move.w #0x8200+%(first)d,%%d0
-    moveq #%(count)d,%%d1
-0:  move.w %%d0,0x3C0000
-    move.w #0,0x3C0002
-    addq.w #1,%%d0
-    dbf %%d1,0b
-1:  clr.l 0x%(boss)X                    | (nothing left over to read a false hit from)
+    bsr hide                            | no: the watchers hidden (once), the state starts over
+    clr.l 0x%(boss)X                    | (nothing left over to read a false hit from)
     st 0x%(hits)X
     clr.b 0x%(beaten)X
     move.w #0x7FFF,0x%(since)X
@@ -317,7 +333,7 @@ hops:
     .even
 """ % {"setup": setup, "boss": BOSS, "draw_before": draw_before, "stage": STAGE, "stage_at": STAGE_AT,
        "hall_addr": HALL_TILE[0], "hall_tile": HALL_TILE[1], "shown": SHOWN, "first": FIRST_SLOT,
-       "count": LAST_SLOT - FIRST_SLOT, "hits": HITS, "beaten": BEATEN, "since": SINCE, "tick": TICK,
+       "count": LAST_SLOT - FIRST_SLOT, "clear_rest": CLEAR_LAYER_REST, "hits": HITS, "beaten": BEATEN, "since": SINCE, "tick": TICK,
        "dim_a": 0x400000 + DIM_PALETTES[0x1E][0] * 32 + 2, "dim_b": 0x400000 + DIM_PALETTES[0x3E][0] * 32 + 2,
        "hits_left": HITS_LEFT, "watchers": len(WATCHERS) - 1, "writes": len(writes) - 1, "entries": entries,
        "talk_period": 2 * TALK_FOR, "talk_for": TALK_FOR, "talks_first": TALKS_FIRST, "talk_swap": TALK_SWAP,
@@ -329,5 +345,7 @@ hops:
         why="final fight: the dinosaurs watching")
     rom.write(DRAW_CALL, bytes.fromhex("4EB9") + code.to_bytes(4, "big"),
               expect=bytes.fromhex("4EB9") + draw_before.to_bytes(4, "big"), why="each frame of play: the final fight's watchers")
+    rom.write(CLEAR_LAYER, bytes.fromhex("4EF9") + (code + 8).to_bytes(4, "big"), expect=bytes.fromhex("302E024A600A"),
+              why="a scene set up: the final fight's watchers hidden")
     rom.write(BOSS_SETUP, bytes.fromhex("4EB9") + (code + 4).to_bytes(4, "big"),
               expect=bytes.fromhex("4EB9") + setup.to_bytes(4, "big"), why="final boss: its object kept for the watchers")
