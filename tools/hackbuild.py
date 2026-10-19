@@ -216,6 +216,13 @@ class Rom:
                 self.sprites[b][o:o + 2] = bytes(planes[2:4])
         self.log.append("  sprite 0x%04X  tile  %s" % (index, why))
 
+    def redraw_sprite_tile(self, index, pixels, why=""):
+        """Draw over an original sprite tile on purpose (its frame shows the new pixels; check nothing else uses it)."""
+        pooled = set(getattr(self, "pooled", ()))
+        self.pooled = pooled | {index}
+        self.put_sprite_tile(index, pixels, why)
+        self.pooled = pooled
+
     def add_sprite_tile(self, pixels, why="", share=False):
         """Store a 16x16 sprite tile in the next free slot and return its tile number. share: if a tile with the same
         pixels was added with share before, return that one instead (only for tiles nothing changes afterwards)."""
