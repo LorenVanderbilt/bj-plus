@@ -12,3 +12,4 @@ elevator_up  elevator  the up elevator's cone turns while it rises (stripes step
 elevator_down  elevator_down  the down elevator's cone turns the other way while it sinks, still before Blue boards and while he jumps (2026-10-18)
 continue_question  acid  the continue screen reads CONTINUE? 08 (2026-10-18)
 zipline  zipline  the ice world's zipline carries Blue 1.5x as fast along the same route (2026-10-18)
+title_banner  title_banner  the title: the bird tows the PLUS banner (in front of its ropes, which reach it), PLUS coloured like the logo (P pink, L green, U orange, S yellow - shaded, outlined); let go, the ropes drop and keep swinging; JOURNEY and its TM 3 px higher (2026-10-19; no input - recorded headless)
