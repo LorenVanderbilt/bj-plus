@@ -28,6 +28,8 @@ FIXES = [
     (0x27392, "WHERE ARE YOU GOING", "WHERE ARE YOU GOING?"),
     (0x27620, "GRAB A RIDE", "GRAB A RIDE?"),
     (0x280C2, "LOSTER.", "LOSER."),
+    # each player's continue prompt by the HUD (centred in 14): CONTINUE? (the continue screen's own: `continue-question`)
+    (0x12005, "   CONTINUE   ", "  CONTINUE?   "), (0x1265B, "   CONTINUE   ", "  CONTINUE?   "),
     (0x28168, "AWAY FROM ME", "AWAY FROM ME?"),
     (0x281E0, "CHOICE.I'LL FIGHT.", "CHOICE. I'LL FIGHT"),
     (0x2C6C6, "TIME FOR CARDS", "TIME FOR CARDS?"),
