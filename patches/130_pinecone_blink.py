@@ -11,20 +11,25 @@ DESCRIPTION = "Pinecone powerup: no grow animation (the hero is always big now) 
 # and position nudge, no zoom or grow animation). The powered-up hero's own flashing (the powerup timer
 # toggling the palette every other frame) then starts at once and is the blink. (An extra respawn-style
 # blink on top, player +9, was tried first: the two per-frame toggles together looked like solid white.)
+# Only the grow's Y nudge is kept (the powered-up hero's place is 8 units higher - his sprite stays level); its X
+# nudge stepped him back ~9 px, and the grow's pose (0x18) drawn in the big art set stood 16 px high for a few
+# frames - so the powered-up standing pose (STANDING) is set at once instead (same size, so nothing after moves).
 ENTRIES = [
-    # (address after the check, original bytes there, Y / X position nudge of the original grow)
-    (0x3E6FC, "1B7C00290068", 0x0800, 0x0400),   # from normal size
-    (0x40876, "1B7C00290068", 0x1000, 0x0800),   # from shrunk
+    # (address after the check, original bytes there, Y position nudge of the original grow)
+    (0x3E6FC, "1B7C00290068", 0x0800),   # from normal size
+    (0x40876, "1B7C00290068", 0x1000),   # from shrunk
 ]
+STANDING = 0x364
+# (Its end, the shrink back: `powerup-end`.)
 
 
 def apply(rom):
-    for addr, orig, dy, dx in ENTRIES:
+    for addr, orig, dy in ENTRIES:
         cave = rom.place_code(
             "    moveq #0x4D,%%d0\n"
             "    jsr 0x152FE\n"                # the pickup sound
             "    addi.w #0x%X,(%%a5)\n"         # the grow's position nudge
-            "    subi.w #0x%X,2(%%a5)\n"
+            "    move.w #0x%X,8(%%a5)\n"       # the powered-up standing pose
             "    move.w #-1,38(%%a5)\n"         # full size (no zoom)
             "    moveq #13,%%d0\n"
             "    jsr 0x152FE\n"                # the 'powered up' sound
@@ -37,7 +42,7 @@ def apply(rom):
             "    clr.b 9(%%a4)\n"
             "    move.b #2,1(%%a4)\n"           # form 2 = powered up
             "    moveq #0,%%d0\n"
-            "    jmp 0x43440\n" % (dy, dx),   # back to standing
+            "    jmp 0x43440\n" % (dy, STANDING),   # back to standing
             why="pinecone: become powered up at once instead of the grow")
         rom.write(addr, bytes.fromhex("4EF9") + cave.to_bytes(4, "big"), expect=bytes.fromhex(orig),
                   why="pinecone pickup: skip the grow animation")

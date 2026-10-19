@@ -7,3 +7,4 @@ dino_exclaim  dino_exclaim  the green dinosaur spots Blue standing still: its re
 armadillo_exclaim  armadillo_exclaim  the armadillo spots Blue: its ! bubble held ~1/2 s (2026-10-14)
 wheel_smooth  mechanical_wheel  Mechanical City's turning wheel: the platforms (and Blue on one) move every frame, not in steps (2026-10-14)
 wheel_sunken  ferris_sunken  the sunken wheels: gondolas move every frame; rushing to the second wheel it's already full (going back to the first: still empty until it reloads - known) (2026-10-14)
+bamboo_powerup  bamboo  the bamboo shoot: no grow as it's picked up, no hop; white flashing to the end; no shrink back (2026-10-18)
