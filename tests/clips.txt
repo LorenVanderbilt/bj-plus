@@ -11,3 +11,4 @@ bamboo_powerup  bamboo  the bamboo shoot: no grow as it's picked up, no hop; whi
 elevator_up  elevator  the up elevator's cone turns while it rises (stripes step every 6 frames), still when parked (2026-10-18)
 elevator_down  elevator_down  the down elevator's cone turns the other way while it sinks, still before Blue boards and while he jumps (2026-10-18)
 continue_question  acid  the continue screen reads CONTINUE? 08 (2026-10-18)
+zipline  zipline  the ice world's zipline carries Blue 1.5x as fast along the same route (2026-10-18)
