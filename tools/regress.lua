@@ -3,6 +3,7 @@
 -- report's "snaps" line gives each one's frame).
 --   a save alone: 5 seconds with the same input every time (HOLD), snapshots at SNAPS
 --   REGRESS_CLIP=1: a recorded clip plays the input (MAME -playback); a snapshot every EVERY frames until it ends
+dofile("tools/difficulty.lua")        -- (a test played at a difficulty: HACK_DIFFICULTY; nothing otherwise)
 local REPORT = os.getenv("REGRESS_REPORT")
 local CLIP = os.getenv("REGRESS_CLIP") == "1"
 local FRAMES = 300

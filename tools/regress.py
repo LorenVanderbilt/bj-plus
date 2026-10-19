@@ -39,12 +39,18 @@ FRAMES = 300                     # (a save alone: as tools/regress.lua plays it)
 TIMEOUT = 300                    # seconds a run may take (a save alone ~10, a clip about its length / 10)
 
 
+LEVELS = {}   # tests played at a difficulty: {name: LEVEL 1-8} (a "level=N" after the save in tests/clips.txt)
+
+
 def clips():
-    """The recorded tests: {name: (save, what it shows)}."""
+    """The recorded tests: {name: (save, what it shows)}; LEVELS filled in."""
     tests = {}
     for line in CLIPS.read_text().splitlines():
         if line.strip() and not line.startswith("#"):
             name, save, what = line.split(None, 2)
+            if what.startswith("level="):
+                level, what = what.split(None, 1)
+                LEVELS[name] = int(level[len("level="):])
             tests[name] = (save, what)
     return tests
 
@@ -68,6 +74,8 @@ def play(name, save, clip, now):
         return name, ["no recording (tests/clips/%s.inp)" % clip]
     env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy", REGRESS_REPORT=str(out / "report.txt"),
                REGRESS_CLIP="1" if clip else "0")
+    if name in LEVELS:                   # (tools/difficulty.lua, run by regress.lua, as ./run.sh with DIFFICULTY)
+        env["HACK_DIFFICULTY"] = str(LEVELS[name])
     cmd = ["mame", "aes", "-hash", "build/aes", "-rompath", "build/aes", "-cart", "bjourney", "-state", save,
            "-window", "-video", "none", "-sound", "none", "-nothrottle", "-skip_gameinfo", "-noautosave",
            "-cfg_directory", str(OUT / "cfg"), "-nvram_directory", str(OUT / "nvram"),
