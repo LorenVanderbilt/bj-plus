@@ -19,7 +19,8 @@ import math
 # (Scale2x three times, turned, each pixel's centre sampled) - or, once painted, ART's pictures (each shape's in
 # its first frame's colours, ART_COLOURS; DRAWN: the build writes them from RotSprite, and reads them as painted
 # once it's False) - then laid on the tile grid where they need the fewest tiles (an even offset: pieces are
-# placed in 2 px steps). A frame is a blank 1 x 1 grid and a piece per column of tiles.
+# placed in 2 px steps). A frame is a blank 1 x 1 grid and a piece per column of tiles. The bells hanging still are
+# their own art - or UPRIGHT's pictures where they've been painted over (their 32 x 32: the rest stays clear).
 # (Its own patch, last, so its code moves nothing.)
 PARENT = 0x5E036               # a0 = the object's parent (+0x4E); tst.b 0x28(a0)
 HANGING = [0x52B52, 0x52B80, 0x52BAE, 0x52BDC, 0x52C0A, 0x52C38]
@@ -31,12 +32,14 @@ PARAMS = [(10, 15, 147), (13, 15, 230), (12, 15, 360), (12, 15, 147), (11, 15, 2
                                # (each bell, HANGING's order then the top one: its pull back to hanging, its damping,
                                # its push from the hook's acceleration - /256 a frame. Higher bells' hooks move more:
                                # the lower ones get more push)
-FADE = 230                     # (frames: the stalk's push on the bells fades to nothing over them - each swing smaller)
+FADE = 200                     # (frames: the stalk's push on the bells fades to nothing over them - each swing smaller)
 STATE = 0x10E860               # 7 x 16 bytes (spare RAM, to 0x10E8CF)
 FRAME = 0x100206               # (a word counted each frame)
 FRAME_TABLE = 0x60772
 ART = "art/goal_bells/bell_%04X_%+d.png"   # (a shape's first frame, the angle) - 64 x 56: the frame's (0, 0) at (16, 8)
 ART_ORIGIN = (16, 8)
+UPRIGHT = "art/goal_bells/upright_%04X.png"   # (a shape's first frame) - the bell hanging still, as ART: painted over, its
+                                             # own tiles (only the bells use them) are redrawn in place
 DRAWN = False                  # True: each build draws ART with RotSprite (and rewrites it) - False once painted
 ART_COLOURS = {                # (the bells' palettes, as the goal loads them)
     0x74: "0444 8EFF BDEE BCDD 3BCC 3ABB BBFC 08E9 76C8 BAF8 B7C5 B492 B9AA 0CDD FEFF FFFF",
@@ -130,6 +133,30 @@ def art(rom, frame, palette, px, deg):
     return {(x - ART_ORIGIN[0], y - ART_ORIGIN[1]): v for y, row in enumerate(rows) for x, v in enumerate(row) if v}
 
 
+def upright(rom, frame, palette, tiles):
+    """The bell hanging still: its own art, or UPRIGHT's picture painted over it - its tiles redrawn to match."""
+    import os
+    from png_tiles import neo_to_rgb, read_indices
+    px = pixels(rom, tiles)
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(root, UPRIGHT % frame)
+    if not os.path.exists(path):
+        return px
+    colours = [neo_to_rgb(int(w, 16)) for w in ART_COLOURS[palette].split()]
+    rows = read_indices(path, colours)
+    ox, oy = ART_ORIGIN
+    assert not any(v for y, row in enumerate(rows) for x, v in enumerate(row)
+                   if v and not (ox <= x < ox + 32 and oy <= y < oy + 32)), \
+        "goal bells: %s - the bell hanging still has only its 32 x 32 (its own tiles)" % UPRIGHT % frame
+    new = [[rows[oy + y][ox + x] for x in range(32)] for y in range(32)]
+    for r in range(2):
+        for c in range(2):
+            cell = [row[c * 16:c * 16 + 16] for row in new[r * 16:r * 16 + 16]]
+            if cell != rom.sprite_tile(tiles[r][c]):
+                rom.redraw_sprite_tile(tiles[r][c], cell, why="goal bell 0x%X hanging still, as painted" % frame)
+    return new
+
+
 def layout(art):
     """The fewest tiles: the grid's origin (even, px) and its cells {(col, row): 16 x 16 pixels}."""
     xs = [x for x, _ in art]; ys = [y for _, y in art]
@@ -159,7 +186,7 @@ def apply(rom):
         tiles, palette, mode = frame_tiles(rom, f)
         key = tuple(map(tuple, tiles))
         if key not in drawings:
-            px = pixels(rom, tiles)
+            px = upright(rom, f, palette, tiles)
             drawings[key] = {}
             for a in ANGLES:
                 ox, oy, cells = layout(art(rom, f, palette, px, a))
