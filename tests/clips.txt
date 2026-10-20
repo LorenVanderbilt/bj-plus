@@ -3,7 +3,7 @@
 # tests/clips/<name>.inp: recorded with
 #   ./run.sh -- -state <save> -record <name>.inp
 # (into recordings/, which MAME overwrites without asking), then copied here - the test replays the copy.
-round_clear  goal_bell  ROUND CLEAR and its bonus lines centred, after the goal; TIME on the score line, the time under it (2026-10-14; frame 900 catches the stage wipe mid-way: its edge shifts a row when a patch changes how busy a frame is - not a fault)
+round_clear  goal_bell  (the bells swing on their hooks as the stalk rocks: goal-bells-rock) ROUND CLEAR and its bonus lines centred, after the goal; TIME on the score line, the time under it (2026-10-14; frame 900 catches the stage wipe mid-way: its edge shifts a row when a patch changes how busy a frame is - not a fault)
 dino_exclaim  dino_exclaim  the green dinosaur spots Blue standing still: its red mark held ~1/3 s, a pause, then the charge (2026-10-14)
 armadillo_exclaim  armadillo_exclaim  the armadillo spots Blue: its ! bubble held ~1/2 s (2026-10-14)
 wheel_smooth  mechanical_wheel  Mechanical City's turning wheel: the platforms (and Blue on one) move every frame, not in steps (2026-10-14)
