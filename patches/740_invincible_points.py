@@ -7,7 +7,7 @@ DESCRIPTION = "Invincible (bamboo shoot): an enemy run through shows its points 
 # starts a pop-up where the enemy was: a new object (NEW_OBJECT) UP px above its place, showing the points (+50 / +250)
 # in a small font in SPEED UP's gold (palette 6, always loaded: the gold by row, a black outline - GLYPHS) - rising
 # (RISE, slowing by SLOW) for LIFE frames, its last ones thinned out to fade it (FADES: a checkerboard of half its
-# pixels, then a quarter - there's no see-through), then gone.
+# pixels - there's no see-through; a quarter step too was dropped for the leaf tornado's tiles), then gone.
 # (Its own patch, last, so its code moves nothing.)
 SCORE_SITES = [(0x42C9E, 0x5E28E), (0x42CA6, 0x5E294)]   # (jsr <add to player N's score>)
 POINTS_AT = [(0x4752C, 0x250), (0x47536, 0x50)]           # (move.l #points,d0 in 0x47526)
@@ -18,7 +18,7 @@ PRIORITY = 0x20                # (+0x28: lower draws in front - Blue 0x80)
 UP, LEFT = 18, 11              # px: the pop-up's top left from the enemy's place
 RISE, SLOW = 0x40, -1
 LIFE = 48
-FADES = [(14, 1), (7, 2)]      # (frames left, fade step): from then on
+FADES = [(12, 1)]              # (frames left, fade step): from then on
 ROWS = [7, 5, 3, 1, 3, 5, 8]   # (each glyph row's gold: palette 6's colours, as SPEED UP's rows)
 OUTLINE = 15
 GLYPHS = {
@@ -61,13 +61,13 @@ def apply(rom):
         values.append(points)
     frames = {}
     for points in values:
-        for fade in range(3):
+        for fade in range(len(FADES) + 1):
             pic = picture("+%X" % points, fade)
             tiles = [rom.add_sprite_tile([row[c * 16:c * 16 + 16] for row in pic], share=True,
                                          why="invincible points: +%X (fade %d)" % (points, fade)) for c in range(2)]
             n = rom.add_frame([tiles], PALETTE, why="invincible points: +%X (fade %d)" % (points, fade))
             frames.setdefault(points, []).append(n)
-        assert frames[points] == [frames[points][0] + 4 * f for f in range(3)]
+        assert frames[points] == [frames[points][0] + 4 * f for f in range(len(FADES) + 1)]
     fades = "".join("    cmpi.w #%d,0x50(%%a5)\n    bhi 3f\n    addq.w #4,%%d0\n" % (left, ) for left, _ in FADES)
     code = rom.place_code("""
     bra.w popup
