@@ -17,6 +17,9 @@ DESCRIPTION = ("ROUND CLEAR: the frozen level dims to half while the stats are u
 # Each step scales each colour's 4-bit channels by a table (its low bits, bits 12-14, left out while dimmed; the dark
 # bit kept). BUF is RAM a shop / NPC room keeps the level's objects in (0x10A800-0x10CFFF) - free at ROUND CLEAR.
 # (Its own patch, last, so its code moves nothing.)
+# Also wall-light's palette (WALL_LIGHT_PAL): written only as its tile is drawn, so when the level's palettes load after
+# that (a continue there: the wall on screen as the level's built) it was left empty. Now kept each frame in its stage
+# (not while black, nor while dimmed).
 # Also screen-blackout's last gap: the story's last scene (STORY_LAST) loads no colours (it keeps the scene before's) so
 # it couldn't be blacked out - its sprites came on as the screen was drawn (one torn frame). Now the colours are kept in
 # BUF, the screen's blacked out like the other scenes (screen-blackout's story path) and BUF noted as a load: the
@@ -81,6 +84,10 @@ BEST_HOLD = 120                 # (frames screen-blackout's fallback waits, at m
 BLACKOUT_HOLD_AT = BLACKOUT_RAM + 8
 BEAM_CUT = 0x35494              # jsr <story-last-line's> - the story's last scene: the beam's layers about to be drawn
 TITLE_SETUP = 0x1AE76           # move.b #32,0x3005(a6) - the title being set up (the story over: bra here)
+WALL_LIGHT_STAGE, WALL_LIGHT_PAL = 28, 0xC7   # wall-light's (patches/380_wall_light.py: its stage, palette, COLOURS)
+WALL_LIGHT_COLOURS = [0x8000, 0x8DDD, 0x8CCC, 0x8BBB, 0x8AAA, 0x8999, 0x8888, 0x8777, 0x8666, 0x8555, 0x8444,
+                      0x8EC2, 0x0CA0, 0x0980, 0x0760, 0x8540]
+STAGE = 0x103005
 RAM = 0x10D500                 # spare RAM: ACTIVE (byte), DIR (byte: 1 down, -1 up, 0 holding), STEP (byte), HALF
 ACTIVE, DIR, STEP, HALF, RET = RAM, RAM + 1, RAM + 2, RAM + 3, RAM + 4   # (byte), RET: the routine's return (long)
 NOWHERE = RAM + 16              # (30 bytes: elevator-spin's colours while black)
@@ -110,6 +117,7 @@ def apply(rom):
         assert bra >> 8 == 0x60
         blackout = story2 + 14 + ((bra & 0xFF) - 0x100 if bra & 0x80 else bra & 0xFF)
     assert rom.u16(blackout) == 0x4A39, "screen-blackout's blackout moved"   # tst.b <BLACK>
+    assert bytes(rom.data).find(b"".join(c.to_bytes(2, "big") for c in WALL_LIGHT_COLOURS)) > 0, "wall-light's colours changed"
     assert rom.u16(BEAM_CUT) == 0x4EB9
     beam_hook = rom.u32(BEAM_CUT + 2)
     code = rom.place_code("""
@@ -161,7 +169,18 @@ frame:
 1:  jmp 0x%(loop_top)X
 
 tick:
+    cmpi.b #%(wl_stage)d,0x%(stage)X    | (wall-light's palette kept)
+    bne 0f
+    tst.b 0x%(b_black)X
+    bne 0f
     tst.b 0x%(active)X
+    bne 0f
+    lea wall_light(%%pc),%%a0
+    lea 0x%(wl_pal)X,%%a1
+    moveq #7,%%d1
+1:  move.l (%%a0)+,(%%a1)+
+    dbf %%d1,1b
+0:  tst.b 0x%(active)X
     beq 9f
     move.b 0x%(dir)X,%%d1
     beq 9f
@@ -296,6 +315,9 @@ title_setup:
     move.b #32,0x3005(%%a6)
     rts
 
+wall_light:
+    .word %(wl_colours)s
+
 tables:
     .long %(table_ptrs)s
 %(tab_src)s
@@ -307,7 +329,8 @@ tables:
        "table_ptrs": ",".join("tab%d_lo,tab%d_r" % (k, k) for k in range(STEPS + 1)), "tab_src": tab_src,
        "scene_last": STORY_LAST[1], "story_black": story2 + 6, "b_count": BLACKOUT_COUNT, "b_list": BLACKOUT_LIST,
        "b_max": BLACKOUT_MAX, "b_reveal": BLACKOUT_REVEAL, "b_black": BLACKOUT_BLACK,
-       "nowhere": NOWHERE, "blackout": blackout, "best_hold": BEST_HOLD, "beam_hook": beam_hook,
+       "nowhere": NOWHERE, "blackout": blackout, "best_hold": BEST_HOLD, "wl_stage": WALL_LIGHT_STAGE, "stage": STAGE,
+       "wl_pal": 0x400000 + WALL_LIGHT_PAL * 32, "wl_colours": ",".join("0x%04X" % c for c in WALL_LIGHT_COLOURS), "beam_hook": beam_hook,
        "b_hold_at": BLACKOUT_HOLD_AT},
         why="ROUND CLEAR: the level dimmed behind the stats")
     rom.write(FREEZE_WAIT, bytes.fromhex("303C") + FREEZE.to_bytes(2, "big"), expect=bytes.fromhex("303C0030"),
