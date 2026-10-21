@@ -44,6 +44,7 @@ TIMER_HIDDEN = 0x10E9FE       # (the hud patch's)
 BLACK_PALETTE, BLACK_PIXEL = 7, 1   # (fix palette 7, entry 1: black - the hud patch keeps it so)
 BLANK = 0x0520
 COLUMNS, ROWS = range(40), range(2, 30)   # the visible fix cells
+BLACKOUT = 0x10E600           # (screen-blackout's flag: while the screen's held black the wipe waits)
 WIPE_ON, WIPE_T = 0x10EA60, 0x10EA62   # (spare RAM: byte 1 = covered / 2 = running; the frame)
 MUSIC_DUE = 0x10EA66          # a byte: the stage's music still to start
 BLINKS = [0x107009, 0x107409] # each hero's blink (can't be hurt) timer: none as a stage starts, only after a death
@@ -190,7 +191,9 @@ frame:
 1:  tst.b 0x%(no_hud)X
     beq 2f
     jmp 0x%(hud)X
-2:  cmpi.b #2,0x%(on)X
+2:  tst.b 0x%(blackout)X                | (screen-blackout's screen black: the wipe waits for it - its level whole)
+    bne 10f
+    cmpi.b #2,0x%(on)X
     bne 10f                             | (covered: waiting for play)
     movem.l %%d0-%%d3/%%a0,-(%%sp)
     move.w #1,0x3C0004
@@ -243,7 +246,7 @@ offsets:
     .word %(offsets)s
 changes:
     .word %(changes)s
-""" % {"on": WIPE_ON, "t": WIPE_T, "hud": hud, "no_hud": NO_HUD, "hidden": TIMER_HIDDEN,
+""" % {"blackout": BLACKOUT, "on": WIPE_ON, "t": WIPE_T, "hud": hud, "no_hud": NO_HUD, "hidden": TIMER_HIDDEN,
        "black": black, "duration": DURATION, "blank": BLANK, "mode": MODE, "delay": START_DELAY,
        "setup": SETUP, "due": MUSIC_DUE, "music_at": min(MUSIC_AT, START_DELAY + DURATION - 1) - START_DELAY,
        "stage_music": STAGE_MUSIC, "blink1": BLINKS[0], "blink2": BLINKS[1],

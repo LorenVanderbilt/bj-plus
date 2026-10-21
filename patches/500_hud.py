@@ -58,6 +58,7 @@ FIX_PALETTES = 0x1000
 FACE_COLOURS = [(7, 3, "EFB0 8F91 9F70", "4FD0 6F90 8C60"), (7, 10, "BC38 0A27 1805", "B0F9 A0D4 11A1"),
                 (7, 1, "8000 8777", "8000 B08F"), (7, 9, "EFFA", "F04F"), (7, 15, "FFFF", "201E")]   # (palette, first entry, old, new)
 FACE_TILE, FACE_PALETTE = 0x400, 7
+BLACKOUT = 0x10E600          # (screen-blackout's flag: the screen held black while it's built)
 FACE_MERGE = {9: 3, 15: 6}           # (both faces: the face uses every entry but 2, so its one yellow and one white pixel
                                      # take the nearest colours it has - freeing 9 and 15 for player 1's suit)
 FACE_REMAP = {10: 2, 11: 9, 12: 15}  # (player 1's face: its suit's entries)
@@ -209,8 +210,9 @@ lives2:
     move.w #0x%(blank)X,0x3C0002
     move.w #0x%(blank)X,0x3C0002
     rts
-4:
-%(colours)s    moveq #0,%%d1
+4:  tst.b 0x%(black)X                   | (screen-blackout's screen black: the colours left - the stage's own fix
+    bne 5f                              | palettes, put in at its reveal, have them)
+%(colours)s5:  moveq #0,%%d1
     move.b 0(%%a4),%%d1
     divu #10,%%d1
     swap %%d1                           | d1 = the last digit
@@ -223,8 +225,8 @@ lives2:
     rts
 """ % {"colours": "".join("    move.w #0x%s,0x%X\n" % (w, 0x400000 + pal * 32 + (entry + i) * 2)
                           for pal, entry, old, new in FACE_COLOURS for i, w in enumerate(new.split())),
-       "face1": faces[0], "face2": faces[1], "x": small_x, "digit": DIGIT_0, "hidden": TIMER_HIDDEN, "blank": BLANK},
-                         why="HUD: a player's lives")
+       "face1": faces[0], "face2": faces[1], "x": small_x, "digit": DIGIT_0, "hidden": TIMER_HIDDEN, "blank": BLANK,
+       "black": BLACKOUT}, why="HUD: a player's lives")
     for n, (at, where) in enumerate(LIVES):
         rom.write(at, bytes.fromhex("303C") + where.to_bytes(2, "big") + bytes.fromhex("4EF9") +
                   (lives + 4 * n).to_bytes(4, "big"), why="HUD: player %d's lives by the flowers" % (n + 1))
