@@ -159,6 +159,7 @@ ON_TITLE = 0x10E906          # FRAME when the title was last on screen
 START_BITS = 0x10E907        # which players pressed the Start that opened the menu
 CHOICE = 0x10E908
 STAGE_PICK = 0x10E909        # a stage picked in the level select (0 = none)
+COLOURS_DUE = 0x10E91F       # the framed look's colours to put in at the next frame (framed_setup / frame_wait)
 SELECT_REQ = 0x10E90A        # Start pressed while the menu was open
 OPT_CURSOR = 0x10E90B
 TITLE_PHASE = 0x10E90C       # 1 from the start of the title screen's set-up until the title ends
@@ -1109,12 +1110,14 @@ level_select:
     move.b (%a0,%d6.w),STAGE_PICK
 1:  rts
 
-| black screen, white text in palette PAL
+| black screen, white text in palette PAL - its colours from a vblank, after the clearing (which takes most of a
+| frame): the screen changes in one frame, not torn partway down
 screen_setup:
     jsr CLEAR_FIX
     moveq #0,%d0
     move.w #379,%d1
     jsr CLEAR_SPRITES
+    jsr 0xE856
     lea 0x400000+PAL*32,%a0
     move.w #0x0000,(%a0)+
     moveq #3,%d0
@@ -1180,7 +1183,7 @@ l_line:
     addq.w #1,%d3
     cmp.w 4(%sp),%d3
     bne l_line
-    jsr WAIT_FRAME
+    bsr frame_wait
     addq.w #1,%d7
     cmp.w #BLINK_ON+BLINK_OFF,%d7
     bcs 2f
@@ -1264,7 +1267,7 @@ st2_loop:
     bsr big_print
     moveq #2,%d3
     bsr big_arrow
-    jsr WAIT_FRAME
+    bsr frame_wait
     bsr buttons                      | d0 = held, d1 = new (repeats included for the directions)
     btst #0,%d1                      | Up / Down: the line
     beq 5f
@@ -1551,20 +1554,20 @@ big_arrow:
     movem.l (%sp)+,%d0-%d1
     rts
 
-| the framed look (OPTIONS): screen_setup, then the font's shades, the frame's palette and the frame
+| the framed look (OPTIONS): screen_setup, then the frame; the font's shades and the frame's palette black for now -
+| they're put in at the screen loop's next frame (frame_wait), once its text is all printed: it appears whole
 framed_setup:
     bsr screen_setup
     movem.l %d0-%d2/%a0-%a1,-(%sp)
-    lea font_colours(%pc),%a0
     lea 0x400000+FONT_PAL_NO*32,%a1
     moveq #15,%d0
-1:  move.w (%a0)+,(%a1)+
+1:  clr.w (%a1)+
     dbf %d0,1b
-    lea frame_colours(%pc),%a0
     lea FRAME_PAL_ADDR,%a1
     moveq #15,%d0
-2:  move.w (%a0)+,(%a1)+
+2:  clr.w (%a1)+
     dbf %d0,2b
+    st COLOURS_DUE
     move.w %sr,-(%sp)
     or.w #0x0700,%sr
     move.w #1,0x3C0004
@@ -1591,6 +1594,26 @@ framed_setup:
     move.w (%sp)+,%sr
     movem.l (%sp)+,%d0-%d2/%a0-%a1
     rts
+
+| the screens' wait for the next frame: then (at the vblank) the framed look's colours, if they're due
+frame_wait:
+    jsr WAIT_FRAME
+    tst.b COLOURS_DUE
+    beq 9f
+    movem.l %d0/%a0-%a1,-(%sp)
+    lea font_colours(%pc),%a0
+    lea 0x400000+FONT_PAL_NO*32,%a1
+    moveq #15,%d0
+1:  move.w (%a0)+,(%a1)+
+    dbf %d0,1b
+    lea frame_colours(%pc),%a0
+    lea FRAME_PAL_ADDR,%a1
+    moveq #15,%d0
+2:  move.w (%a0)+,(%a1)+
+    dbf %d0,2b
+    clr.b COLOURS_DUE
+    movem.l (%sp)+,%d0/%a0-%a1
+9:  rts
 
 frame_hide:
     move.w %sr,-(%sp)
@@ -1710,7 +1733,7 @@ TABLES
         "LAST_SOUND": "0x%X" % LAST_SOUND, "FIRST_EFFECT": "0x%X" % FIRST_EFFECT,
         "CURSOR": "0x%X" % CURSOR, "SOUND_NO": "0x%X" % SOUND_NO, "MENU_OPEN": "0x%X" % MENU_OPEN,
         "MENU_CURSOR": "0x%X" % MENU_CURSOR, "MENU_PREV": "0x%X" % MENU_PREV, "ON_TITLE": "0x%X" % ON_TITLE,
-        "START_BITS": "0x%X" % START_BITS, "CHOICE": "0x%X" % CHOICE, "STAGE_PICK": "0x%X" % STAGE_PICK,
+        "START_BITS": "0x%X" % START_BITS, "CHOICE": "0x%X" % CHOICE, "STAGE_PICK": "0x%X" % STAGE_PICK, "COLOURS_DUE": "0x%X" % COLOURS_DUE,
         "SELECT_REQ": "0x%X" % SELECT_REQ, "TITLE_PHASE": "0x%X" % TITLE_PHASE, "OPT_CURSOR": "0x%X" % OPT_CURSOR, "PAL": str(PAL),
         "BLINK_ON": str(BLINK_ON), "BLINK_OFF": str(BLINK_OFF), "BIG_FLAG": "0x%X" % BIG_FONT,
         "ARROW_TOP_WORD": "0x%X" % (FONT_PAL << 12 | arrow[0]), "ARROW_BOTTOM_WORD": "0x%X" % (FONT_PAL << 12 | arrow[1]),

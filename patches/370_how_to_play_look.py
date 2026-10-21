@@ -13,6 +13,7 @@ FIX = 0x7000
 ROWS = range(24, 28)
 BUTTON_COLUMNS = [10, 12, 14]                # B, C, D (A at 8)
 BUTTON_PALS = [1, 2, 3]
+BLACKOUT = 0x10E600          # (screen-blackout's flag: the screen held black while the cinema builds - not written then)
 PANEL = [0x8000, 0x0BBB, 0x0AAA, 0x0666, 0xF444, None, None, None, None, None, 0x0000, 0x7FFF, 0x204C, 0x0FF0,
          0x0FB0, 0x8000]                     # fix palette 15; colours 5-9 the red: 0800 0B00 0F66 0F33 0F00
 BUTTON_COLOURS = [
@@ -31,11 +32,14 @@ def apply(rom):
     code = rom.place_code(r"""
     jsr 0x542C8
     movem.l %%d0-%%d3/%%a0-%%a1,-(%%sp)
+    tst.b 0x%(black)X                   | (screen-blackout's screen black: left black)
+    bne 2f
     lea colours(%%pc),%%a0              | the buttons' palettes
     lea 0x%(pal_ram)X,%%a1
     moveq #%(words)d-1,%%d0
 1:  move.w (%%a0)+,(%%a1)+
     dbf %%d0,1b
+2:
     move.w %%sr,-(%%sp)
     or.w #0x0700,%%sr
 %(cols)s
@@ -62,7 +66,7 @@ button:                                 | d0 = its first column's top tile, d1 =
 
 colours:
     .word %(colours)s
-""" % {"pal_ram": 0x400000 + BUTTON_PALS[0] * 32, "words": len(words), "cols": cols, "rows": len(ROWS),
+""" % {"black": BLACKOUT, "pal_ram": 0x400000 + BUTTON_PALS[0] * 32, "words": len(words), "cols": cols, "rows": len(ROWS),
        "colours": ",".join("0x%04X" % w for w in words)},
         why="how-to-play: the B, C, D buttons coloured")
     rom.write(FRAME_CALL, bytes.fromhex("4EB9") + code.to_bytes(4, "big"), expect=bytes.fromhex("4EB9000542C8"),
