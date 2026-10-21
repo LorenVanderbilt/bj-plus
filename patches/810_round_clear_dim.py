@@ -1,7 +1,9 @@
 import hashlib
 
 NAME = "round-clear-dim"
-DESCRIPTION = "ROUND CLEAR: the frozen level dims to half while the stats are up, so the bonus lines are easy to read"
+DESCRIPTION = ("ROUND CLEAR: the frozen level dims to half while the stats are up, so the bonus lines are easy to read; "
+               "and screen-blackout's last gaps (the story's last scene and its beam, back to the title, a room's way "
+               "out, TODAY'S BEST 5 in the attract)")
 
 # ROUND CLEAR's routines (ROUTINES: after the goal, after a boss - each called once, running the whole stats
 # screen) draw its letters and bonus lines in the fix layer over the frozen level, and over the bells and leaves they
@@ -15,6 +17,19 @@ DESCRIPTION = "ROUND CLEAR: the frozen level dims to half while the stats are up
 # Each step scales each colour's 4-bit channels by a table (its low bits, bits 12-14, left out while dimmed; the dark
 # bit kept). BUF is RAM a shop / NPC room keeps the level's objects in (0x10A800-0x10CFFF) - free at ROUND CLEAR.
 # (Its own patch, last, so its code moves nothing.)
+# Also screen-blackout's last gap: the story's last scene (STORY_LAST) loads no colours (it keeps the scene before's) so
+# it couldn't be blacked out - its sprites came on as the screen was drawn (one torn frame). Now the colours are kept in
+# BUF, the screen's blacked out like the other scenes (screen-blackout's story path) and BUF noted as a load: the
+# reveal puts them back with the scene whole. And the third room's way out (ROOM_OUT3: the room at 0x130EC
+# - its way in is screen-blackout's, its way out was missed; the attract demo's walk into it too) goes through
+# screen-blackout's room_out like the others: the level shown whole after its first frames of play. elevator-spin's
+# colour cycling (ELEVATOR_PAL) wrote its palette while black (the cone alone on the black screen): now, while black,
+# into spare RAM. And the attract's TODAY'S BEST 5 (BEST_IN) is blacked out at a vblank as it starts (it came in in
+# pieces), held, and shown whole as its loop starts (BEST_LOOP - the one after a game over too). And the title's set-up
+# (TITLE_SETUP - the story over jumps into it): black at once first (the story's last frames were cleared in strips
+# over their colours), the title shown whole by screen-blackout's fallback. And the last scene's cut to the beam
+# (BEAM_CUT, as its last text box goes - story-last-line's hook there): its layers are redrawn over ~3 frames, so
+# black first (the colours kept as for the scene's start) and shown whole once drawn.
 # Also the C of ROUND CLEAR (C_TILES): its bottom curl's tip had a lone pixel sticking up - touched up (C_ART, the user's).
 ROUTINES = [0x54CD0, 0x54FD8]  # jsr <hud's> ; nop - each ROUND CLEAR routine's first call
 GOAL_RETURN = 0x11658          # (after the goal's routine: the dim stays - the next stage loads its palettes)
@@ -51,8 +66,24 @@ f333aaf.........
 ....fffaaaaa7faf
 .......ffffff.f.
 """
+STORY_LAST = (0x1552E, 0x3533E)  # jsr <screen-blackout's story_last> - its last scene; (the scene)
+BLACKOUT_STORY2 = 60           # screen-blackout's jump table: its story's 3rd scene (pea <scene>; jsr 0xE856; bra blackout)
+BLACKOUT_RAM = 0x10E600        # screen-blackout's REVEAL (+1), COUNT (+6), LIST (+16: 10 bytes a load), MAX_LOADS
+BLACKOUT_COUNT, BLACKOUT_LIST, BLACKOUT_MAX = BLACKOUT_RAM + 6, BLACKOUT_RAM + 16, 16
+BLACKOUT_REVEAL = BLACKOUT_RAM + 1  # (its REVEAL: shown at the next vblank)
+ROOM_OUT3 = 0x1316A             # jsr 0x13660 - out of the room at 0x130EC: its sprites cleared, the level rebuilt
+BLACKOUT_ROOM_OUT = 36          # screen-blackout's jump table: room_out
+ELEVATOR_PAL = bytes.fromhex("41F900401EE2720E30D9")   # elevator-spin: lea 0x401EE2,a0 ; moveq #14,d1 ; move.w (a1)+,(a0)+
+BLACKOUT_BLACK = BLACKOUT_RAM   # (its BLACK)
+BEST_IN = 0x10854               # jsr 0x152FE (its music) - the attract's TODAY'S BEST 5 starting
+BEST_LOOP = 0x549D0             # move.w #512,0x3800(a6) - TODAY'S BEST 5 set up, its loop starting
+BEST_HOLD = 120                 # (frames screen-blackout's fallback waits, at most)
+BLACKOUT_HOLD_AT = BLACKOUT_RAM + 8
+BEAM_CUT = 0x35494              # jsr <story-last-line's> - the story's last scene: the beam's layers about to be drawn
+TITLE_SETUP = 0x1AE76           # move.b #32,0x3005(a6) - the title being set up (the story over: bra here)
 RAM = 0x10D500                 # spare RAM: ACTIVE (byte), DIR (byte: 1 down, -1 up, 0 holding), STEP (byte), HALF
 ACTIVE, DIR, STEP, HALF, RET = RAM, RAM + 1, RAM + 2, RAM + 3, RAM + 4   # (byte), RET: the routine's return (long)
+NOWHERE = RAM + 16              # (30 bytes: elevator-spin's colours while black)
 
 
 def apply(rom):
@@ -66,9 +97,30 @@ def apply(rom):
         tables.append((bytes(s[b >> 4] << 4 | s[b & 15] for b in range(256)), bytes(s)))
     tab_src = "".join("tab%d_lo:\n    .byte %s\ntab%d_r:\n    .byte %s\n" % (
         k, ",".join(str(v) for v in lo), k, ",".join(str(v) for v in r)) for k, (lo, r) in enumerate(tables))
+    blackout_code = rom.u32(STORY_LAST[0] + 2) - 64
+    assert rom.u16(blackout_code + BLACKOUT_STORY2) == 0x6000
+    d = rom.u16(blackout_code + BLACKOUT_STORY2 + 2)
+    story2 = blackout_code + BLACKOUT_STORY2 + 2 + (d - 0x10000 if d & 0x8000 else d)
+    assert rom.u16(story2) == 0x4879 and rom.u16(story2 + 6) == 0x4EB9, "screen-blackout's story path moved"
+    bra = rom.u16(story2 + 12)        # bra blackout
+    if bra == 0x6000:
+        d = rom.u16(story2 + 14)
+        blackout = story2 + 14 + (d - 0x10000 if d & 0x8000 else d)
+    else:
+        assert bra >> 8 == 0x60
+        blackout = story2 + 14 + ((bra & 0xFF) - 0x100 if bra & 0x80 else bra & 0xFF)
+    assert rom.u16(blackout) == 0x4A39, "screen-blackout's blackout moved"   # tst.b <BLACK>
+    assert rom.u16(BEAM_CUT) == 0x4EB9
+    beam_hook = rom.u32(BEAM_CUT + 2)
     code = rom.place_code("""
     bra.w entry                         | (+0)
     bra.w frame                         | (+4)
+    bra.w story_last                    | (+8)
+    bra.w elevator_pal                  | (+12)
+    bra.w best_in                       | (+16)
+    bra.w best_loop                     | (+20)
+    bra.w title_setup                   | (+24)
+    bra.w beam_cut                      | (+28)
 
 | a ROUND CLEAR routine starting: the palettes kept, the dim on; its return swapped for ours
 entry:
@@ -173,6 +225,77 @@ tick:
 8:  clr.b 0x%(active)X
 9:  rts
 
+| the story's last scene: its colours kept, then black (the screen-blackout's way) and the kept colours noted as a load
+story_last:
+    bsr keep_colours
+    pea 0x%(scene_last)X
+    pea story_noted(%%pc)
+    jmp 0x%(story_black)X               | (a vblank, black: its rts to story_noted)
+
+| the beam's cut in the last scene: the same - black while its layers are drawn
+beam_cut:
+    bsr keep_colours
+    jsr 0xE856
+    jsr 0x%(blackout)X
+    bsr story_noted
+    jmp 0x%(beam_hook)X
+
+keep_colours:
+    movem.l %%d0/%%a0-%%a1,-(%%sp)
+    lea 0x400000,%%a0
+    lea 0x%(buf)X,%%a1
+    move.w #256*8-1,%%d0
+1:  move.l (%%a0)+,(%%a1)+
+    dbf %%d0,1b
+    movem.l (%%sp)+,%%d0/%%a0-%%a1
+    rts
+
+story_noted:
+    movem.l %%d0/%%a0,-(%%sp)
+    move.w 0x%(b_count)X,%%d0
+    cmpi.w #%(b_max)d,%%d0
+    bcc 1f
+    addq.w #1,0x%(b_count)X
+    mulu #10,%%d0
+    lea 0x%(b_list)X,%%a0
+    adda.w %%d0,%%a0
+    move.l #0x400000,(%%a0)+            | (to: every palette)
+    move.l #0x%(buf)X,(%%a0)+           | (from: the kept colours)
+    move.w #255,(%%a0)
+    move.b #1,0x%(b_reveal)X            | (shown at its first vblank wait: the scene's set up whole before it)
+1:  movem.l (%%sp)+,%%d0/%%a0
+    rts                                 | (into the scene)
+
+| elevator-spin's colours: into palette 0xF7 - while black, nowhere
+elevator_pal:
+    lea 0x401EE2,%%a0
+    tst.b 0x%(b_black)X
+    beq 1f
+    lea 0x%(nowhere)X,%%a0
+1:  rts
+
+| the attract's TODAY'S BEST 5 starting: black at once (at a vblank)
+best_in:
+    jsr 0xE856
+    jsr 0x%(blackout)X
+    move.w #%(best_hold)d,0x%(b_hold_at)X
+    jmp 0x152FE
+
+| TODAY'S BEST 5 set up: shown at its loop's first vblank
+best_loop:
+    move.w #512,0x3800(%%a6)
+    tst.b 0x%(b_black)X
+    beq 1f
+    move.b #1,0x%(b_reveal)X
+1:  rts
+
+| the title being set up: black at once (at a vblank) first
+title_setup:
+    jsr 0xE856
+    jsr 0x%(blackout)X
+    move.b #32,0x3005(%%a6)
+    rts
+
 tables:
     .long %(table_ptrs)s
 %(tab_src)s
@@ -181,7 +304,11 @@ tables:
        "ret": RET, "hud": hud, "goal": GOAL_RETURN, "final": FINAL_RETURN, "no_boss_dim": "" if BOSS_DIM else
        "    cmpi.l #0x%X,4(%%sp)              | (no dim after a boss: switched off)\n    bne 0f\n    jmp 0x%X" % (BOSS_RETURN, hud), "steps": STEPS, "half_bytes": PALS * 32 // STEP_FRAMES,
        "half_pals": PALS // STEP_FRAMES, "text_pal": TEXT_PAL, "halves": STEP_FRAMES, "loop_top": FRAME_LOOP_TOP, "loop_end": FRAME_LOOP_END,
-       "table_ptrs": ",".join("tab%d_lo,tab%d_r" % (k, k) for k in range(STEPS + 1)), "tab_src": tab_src},
+       "table_ptrs": ",".join("tab%d_lo,tab%d_r" % (k, k) for k in range(STEPS + 1)), "tab_src": tab_src,
+       "scene_last": STORY_LAST[1], "story_black": story2 + 6, "b_count": BLACKOUT_COUNT, "b_list": BLACKOUT_LIST,
+       "b_max": BLACKOUT_MAX, "b_reveal": BLACKOUT_REVEAL, "b_black": BLACKOUT_BLACK,
+       "nowhere": NOWHERE, "blackout": blackout, "best_hold": BEST_HOLD, "beam_hook": beam_hook,
+       "b_hold_at": BLACKOUT_HOLD_AT},
         why="ROUND CLEAR: the level dimmed behind the stats")
     rom.write(FREEZE_WAIT, bytes.fromhex("303C") + FREEZE.to_bytes(2, "big"), expect=bytes.fromhex("303C0030"),
               why="the stage's end: a shorter freeze before ROUND CLEAR")
@@ -189,6 +316,22 @@ tables:
         rom.write(at + 2, code.to_bytes(4, "big"), expect=hud.to_bytes(4, "big"), why="ROUND CLEAR: the dim on")
     rom.write(FRAME_LOOP, bytes.fromhex("4EF9") + (code + 4).to_bytes(4, "big"), expect=bytes.fromhex("301F51C8FFAC"),
               why="vblank wait, each frame: ROUND CLEAR's dim")
+    rom.write(STORY_LAST[0] + 2, (code + 8).to_bytes(4, "big"), expect=(blackout_code + 64).to_bytes(4, "big"),
+              why="story cinema: its last scene blacked out too")
+    rom.write(ROOM_OUT3 + 2, (blackout_code + BLACKOUT_ROOM_OUT).to_bytes(4, "big"), expect=(0x13660).to_bytes(4, "big"),
+              why="out of the room at 0x130EC: black at once, the level shown whole")
+    rom.write(BEST_IN, bytes.fromhex("4EB9") + (code + 16).to_bytes(4, "big"), expect=bytes.fromhex("4EB9000152FE"),
+              why="attract: TODAY'S BEST 5 blacked out at once")
+    rom.write(BEST_LOOP, bytes.fromhex("4EB9") + (code + 20).to_bytes(4, "big"), expect=bytes.fromhex("3D7C02003800"),
+              why="TODAY'S BEST 5: shown whole as its loop starts")
+    rom.write(BEAM_CUT + 2, (code + 28).to_bytes(4, "big"), expect=beam_hook.to_bytes(4, "big"),
+              why="story: the beam's cut blacked out while its layers are drawn")
+    rom.write(TITLE_SETUP, bytes.fromhex("4EB9") + (code + 24).to_bytes(4, "big"), expect=bytes.fromhex("1D7C00203005"),
+              why="the title's set-up: black at once first")
+    at = bytes(rom.data).find(ELEVATOR_PAL)
+    assert at > 0 and bytes(rom.data).find(ELEVATOR_PAL, at + 1) < 0, "elevator-spin's palette copy not found"
+    rom.write(at, bytes.fromhex("4EB9") + (code + 12).to_bytes(4, "big"), expect=ELEVATOR_PAL[:6],
+              why="elevator-spin: its colours nowhere while the screen's black")
     old = b"".join(bytes(rom.fix[t * 32:t * 32 + 32]) for t in C_TILES)
     assert hashlib.sha1(old).hexdigest()[:8] == C_SHA, "ROUND CLEAR's C: not the original tiles"
     art = [[int(c, 16) if c != "." else 0 for c in row] for row in C_ART.split()]
