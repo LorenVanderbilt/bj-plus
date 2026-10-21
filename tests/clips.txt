@@ -29,3 +29,4 @@ screen_change  title_banner  screen changes all at once (screen-blackout): NEW G
 house_in  travel_agent  into the travel agent's house and out (screen-blackout): the level black in one frame, a short black (the unseen fade-out / clearing waits skipped), the room's own fade-in; NO, COME AGAIN!, its fade-out, the level back whole (2026-10-21)
 boss_clear_dim  boss1  the first boss beaten: ROUND CLEAR's stats over the level dimmed to half, then the colours eased back up (round-clear-dim, 2026-10-21)
 story_end  story_blue  the story's end, untouched: the girl's scene comes in whole (empty box), the cut to the beam black then whole, the leaf scene to the title black then whole, the attract on to TODAY'S BEST 5 shown whole (round-clear-dim's screen-blackout hooks, 2026-10-21)
+acid_continue  acid  into the acid on the last life, continue: back in the level the wall's lights as before (wall-light's palette kept, 2026-10-21)
