@@ -31,3 +31,4 @@ boss_clear_dim  boss1  the first boss beaten: ROUND CLEAR's stats over the level
 story_end  story_blue  the story's end, untouched: the girl's scene comes in whole (empty box), the cut to the beam black then whole, the leaf scene to the title black then whole, the attract on to TODAY'S BEST 5 shown whole (round-clear-dim's screen-blackout hooks, 2026-10-21)
 acid_continue  acid  into the acid on the last life, continue: back in the level the wall's lights as before (wall-light's palette kept, 2026-10-21)
 tunnel_life_ball  brickwall  shrunk, through Lower Earth Empire 2's hidden tunnel: the life ball at its end (the user's drawing), picked up - one more heart (round-clear-dim, 2026-10-21)
+spin_no_hurt  spin_ditch  a kicked enemy spinning in a ditch, bouncing wall to wall: Blue walks through it unhurt (spin-no-hurt, 2026-10-21)
