@@ -36,3 +36,4 @@ ocarina_throws  ocarina_idle  big Blue idles into the ocarina (the user's touche
 conveyor_belt  conveyor  Mechanical City 1's conveyor belt and its wheels animating at 5 frames a step (mech-anim-speed, 2026-10-24)
 one_up_popup  cocoon_1up  the gold cocoon picked up: 1UP in the small gold font above Blue's head, rising, slowing and fading (one-up-popup, 2026-10-24)
 fruit_popups  fruit_both  fruit picked up as big Blue and as shrunk Blue: +100 / +150 in the small gold font above his head, lower over the shrunk one (fruit-popup, 2026-10-24)
+cabbage_popup  cabbage  the cabbage picked up: +10000 in the small gold font above Blue's head, rising and fading (cabbage-popup, 2026-10-24)
