@@ -107,7 +107,11 @@ THROW_ART = {0xB0: 0xB0, 0xB8: 0xB0, 0xC0: 0xB0, 0xC8: 0xB0, 0x8C: 0xB0,
              0xB4: 0xB4, 0xBC: 0xB4, 0xC4: 0xB4, 0xCC: 0xB4, 0x90: 0xB4,
              0x94: 0x94, 0x98: 0x94, 0x9C: 0x9C}
 THROW_MID = 0xAC
+THROW_FOLLOW = 0x9C            # (its ART there - the user's follow-through: the four throws' last step, after the release;
+                               # 0x9C was the lying-down throw's release, a throw never seen in play - 0x94's ART left out,
+                               # 0x94 / 0x98 draw the big swim poses, FRAME_SUBSTITUTES)
 THROW_ANIMS = [0x23, 0x24, 0x25, 0x26]
+ART_END, FRAMES_END = 0xB8C66, 0x3CB0   # where this patch's code and art always end (see the end of apply)
 HERO_UP_PX = 15
 OCARINA_FRAMES = [0x184, 0x188, 0x18C]
 SWIM_BIG = {0x178: 0x3C8, 0x17C: 0x3CC, 0x180: 0x3C8}   # small flipper swim frame -> the big frame it gets
@@ -566,6 +570,13 @@ def apply(rom):
             w = rom.u16(at)
             rom.write(at, (THROW_MID | w & 3).to_bytes(2, "big"),
                       why="throw animation 0x%X: its second step the in-between (was its release)" % n)
+    if os.path.exists(os.path.join(root, ART % THROW_FOLLOW)):
+        for n in THROW_ANIMS:
+            at = rom.u32(ANIM_TABLE + 4 * n) + 6
+            w = rom.u16(at)
+            assert w < 0x8000 and rom.u16(at + 2) >= 0xFFFE, "throw animation 0x%X: not four steps" % n
+            rom.write(at, (THROW_FOLLOW | w & 3).to_bytes(2, "big"),
+                      why="throw animation 0x%X: its last step the follow-through (was its release)" % n)
     burned = {}
     for n in BURN_ANIMS:
         p = rom.u32(ANIM_TABLE + 4 * n)
@@ -996,3 +1007,11 @@ DATA
     rom.data[COPY_START:COPY_END] = original
     rom.log.append("  0x%06X  %d byte(s)  the drawing routine as it was (its hooks only in the copy)" %
                    (COPY_START, COPY_END - COPY_START))
+    # The art's definitions share the free space with every later patch's code, and its frames their frame numbers -
+    # a redrawn frame can change both, which moved the later code (old saves then crash). So this patch always ends
+    # at ART_END / FRAMES_END (where it ended 2026-10-21): later patches stay put as the art changes.
+    assert rom.next_free <= ART_END, "hero-big-art: the art outgrew ART_END (0x%X > 0x%X)" % (rom.next_free, ART_END)
+    assert rom.next_frame <= FRAMES_END, "hero-big-art: more frames than FRAMES_END (0x%X)" % rom.next_frame
+    rom.log.append("  hero-big-art: %d byte(s), %d frame number(s) to spare" % (ART_END - rom.next_free,
+                                                                              (FRAMES_END - rom.next_frame) // 4))
+    rom.next_free, rom.next_frame = ART_END, FRAMES_END
