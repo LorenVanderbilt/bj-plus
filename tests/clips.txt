@@ -32,3 +32,4 @@ story_end  story_blue  the story's end, untouched: the girl's scene comes in who
 acid_continue  acid  into the acid on the last life, continue: back in the level the wall's lights as before (wall-light's palette kept, 2026-10-21)
 tunnel_life_ball  brickwall  shrunk, through Lower Earth Empire 2's hidden tunnel: the life ball at its end (the user's drawing), picked up - one more heart (round-clear-dim, 2026-10-21)
 spin_no_hurt  spin_ditch  a kicked enemy spinning in a ditch, bouncing wall to wall: Blue walks through it unhurt (spin-no-hurt, 2026-10-21)
+ocarina_throws  ocarina_idle  big Blue idles into the ocarina (the user's touched-up frames), then throws standing and jumping: wind-up, in-between, release, the follow-through held longer (hero-big-art, throw-follow-linger, 2026-10-24)
