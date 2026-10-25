@@ -131,7 +131,8 @@ MUSIC_NO = 0x10E931          # its MUSIC: line's
 # The SOUND FX: line steps through the sound effects the user kept (docs/sfx_labels.csv, a grid exported from their
 # sheet: row = the code's high digit, column = its low digit; "E" = not used - blank or a synthesiser sample;
 # "?" / "??" = unnamed): each shown as its code and name. SOUND_NO holds the line's place in that list.
-SFX_LABELS = "docs/sfx_labels.csv"
+SFX_LABELS = "docs/sfx_labels_title_menu.csv"   # (frozen: the names as of 2026-10-24, so this patch's size never
+                                                # changes - sound-test-names shows docs/sfx_labels.csv's, the live ones)
 
 
 def sfx_list():
