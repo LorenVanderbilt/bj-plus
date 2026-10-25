@@ -39,3 +39,4 @@ fruit_popups  fruit_both  fruit picked up as big Blue and as shrunk Blue: +100 /
 cabbage_popup  cabbage  the cabbage picked up: +10000 in the small gold font above Blue's head, rising and fading (cabbage-popup, 2026-10-24)
 riddle_man  quiz_in  into the riddle man's house (Empire Marsh 2): turned down twice, then both riddles - WHICH RIDDLE IS THIS? and the wisest, most handsome man in the marsh (text-fixes, 2026-10-24)
 continue_boss  boss1  the last life lost to the first boss, continue: back at the boss, not the stage's beginning (continue-restart, 2026-10-24)
+jungle2_card_house  jungle2_ice  up the falling ice blocks from the top of Jungle Zone 2's icy climb to the new card game house, and in (jungle2-card-house, 2026-10-24)
