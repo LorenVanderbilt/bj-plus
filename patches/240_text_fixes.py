@@ -15,7 +15,6 @@ FIXES = [
     (0x2323C, "MY HATCHET,", "MY HATCHET!"),
     (0x235B0, "BELIEVE IT", "BELIEVE IT?"),
     (0x260E0, "TAKE THE FLOWERS.", "TAKE YOUR FLOWERS"),
-    (0x2613C, "WHAT IS MY NAME", "WHAT IS MY NAME?"),
     (0x2630C, "WHAT DO YOU PREFER", "WHAT DO YOU PREFER?"),
     (0x26556, "WANT TO KNOW", "WANT TO KNOW?"),
     (0x26926, "ARE YOU INTERESTED", "ARE YOU INTERESTED?"),
@@ -58,8 +57,9 @@ FIXES = [
 # Whole strings rewritten in their own space: the new lines, then the original's ending (an end byte, or a
 # callback: 0xFC + the code's address, which doesn't move), the rest padded after it (never read).
 STRINGS = [
-    # the hint about the quiz man (one per name): QUESTINS, his name, and a few words shortened to make room
-] + [(addr, ["IN THE SHABARN MARSH EMPIRE", "YOU'LL FIND AN OLD MAN WHO", "LOVES QUIZZES.", "HE'LL HELP YOU",
+    # the hint about the quiz man (one per name): QUESTINS, his name, and a few words shortened to make room;
+    # LOVES TO QUIZ. now LOVES RIDDLES. (the user, 2026-10-24)
+] + [(addr, ["IN THE SHABARN MARSH EMPIRE", "YOU'LL FIND AN OLD MAN WHO", "LOVES RIDDLES.", "HE'LL HELP YOU",
              "IF YOU ANSWER HIS QUESTIONS", "HIS NAME IS %s." % name])
      for addr, name in [(0x22B88, "POPOPPE"), (0x22C92, "PIKKYURU"), (0x22D9A, "PUKAMONME")]] + [
     # his name, as the quiz's answers: HOHOPPEY / PECULU / PUCAMONMME, romanized again from the Japanese
@@ -70,8 +70,13 @@ STRINGS = [
     # his first question: a giveaway (he's asked just the one) - was FIRST QUESTION IS, HOW MANY / QUESTIONS HAVE
     # YOU ANSWERED (zero, as worded; the Japanese is the old "question 1: which question is this?" joke) - and its
     # answers (was ONE QUESTION. / TWO QUESTIONS. / SEVENTY QUESTIONS; the first is right; the box takes 14)
-    (0x25F28, ["HOW MANY QUESTIONS HAVE I", "ASKED YOU SO FAR?"]),
-    (0x25FAE, ["  JUST ONE", "  TWO", "  WAIT...WHAT?"]),
+    # The riddle man (the user, 2026-10-24): "which riddle is this?" - the Japanese joke, true however many times
+    # he's pleaded first (HOW MANY QUESTIONS HAVE I ASKED wasn't, after a turn-down); the first answer is right
+    (0x25F28, ["FIRST RIDDLE! WHICH RIDDLE", "IS THIS?"]),      # (no colon in the font: it shows an A)
+    (0x25FAE, ["  THE FIRST", "  THE SECOND", "  WAIT...WHAT?"]),
+    # his last: his name, asked as a grandpa's riddle (was YOU DID A GOOD JOB. / LAST QUESTION, WHAT IS MY NAME) -
+    # the answers still his names, the hint's the right one
+    (0x2613C, ["WHO'S THE WISEST, MOST", "HANDSOME MAN IN THE MARSH?"]),
     # turning him down: he asks three times, each with these choices (was NO, I WON'T. / YES, I WILL.; turned down a
     # third time, he lets you go): his second plea (was WHAT DO YOU WANT TO KNOW?, a mistranslation), his third (was
     # I'M PERSISTENT, LET'S PLAY.); his first is in RELOCATED (quiz_sure)
@@ -83,7 +88,7 @@ STRINGS = [
     # winning: was GREAT! YOU'RE A GENIUS. / I'LL MAKE YOUR DREAM COME TRUE. - DREAMS, the first line's full stop
     # giving it room (his box takes the prizes' 37)
     (0x262B0, ["GREAT! YOU'RE A GENIUS", "I'LL MAKE YOUR DREAMS COME TRUE."], 37),
-    (0x26556, ["COME ON, JUST ONE QUIZ?"]),
+    (0x26556, ["COME ON, JUST ONE RIDDLE?"]),
     (0x26632, ["PRETTY PLEASE? JUST ONE?"]),
     # the story cinema (the box takes 33: FA WAS OVERCOME BY THE POLLUTION. at 0x358A2)
     (0x34BA8, ["THE PLANET RAGUY WAS ONCE", "BEAUTIFUL."]),
@@ -280,11 +285,13 @@ RELOCATED = [   # (name, where its address is (an lea's operand) or None, old ad
     # the quiz man's house: answering that you're not Blue (was I THOUGHT IT WAS SOMEONE ELSE - 31 wide on one line)
     ("quiz_not_blue", 0x22A5A, 0x22A8A, ["SORRY, I THOUGHT YOU WERE", "SOMEONE ELSE"], None),
     # his greeting, after his laugh (was I'M THE QUIZ MAN. / YOU GET TWO QUESTIONS. / YOU'LL LOSE ALL YOU FLOWERS /
-    # IF YOU CAN'T ANSWER ONE.; クイズじいさん, "Quiz Grandpa")
-    ("quiz_greeting", 0x25C6A, 0x25DC0, ["I'M THE QUIZ GRANDPA!", "ANSWER MY TWO QUESTIONS", "TO WIN. MISS ONE AND I'LL",
+    # IF YOU CAN'T ANSWER ONE.; クイズじいさん, "Quiz Grandpa"). The riddle man since (the user, 2026-10-24): his lines kept
+    # their lengths (RELOCATED text goes in free space - longer or shorter would move every later patch's code), the
+    # greeting's first padded with spaces
+    ("quiz_greeting", 0x25C6A, 0x25DC0, ["I'M THE RIDDLE MAN!  ", "ANSWER MY TWO QUESTIONS", "TO WIN. MISS ONE AND I'LL",
                                           "GET ALL YOUR FLOWERS!"], None),
     # ... and turning down his quiz (was ARE YOU SURE / YOU'LL LET ME QUIZ YOU?)
-    ("quiz_sure", 0x25EE2, 0x26472, ["ARE YOU SURE YOU DON'T", "WANT TO TRY MY QUIZ?"], None),
+    ("quiz_sure", 0x25EE2, 0x26472, ["ARE YOU SURE YOU DON'T", "WANT MY TWO RIDDLES?"], None),
     # Red's duel for the torch: his greeting (was ... A LONG TIME TO SEE YOU.)
     ("red1", 0x27ADE, 0x27C92, ["BLUE, I'VE BEEN WAITING", "A LONG TIME TO SEE YOU AGAIN.", "DON'T TELL ME YOU FORGOT ME!"], None),
     ("red_challenge", 0x27D9E, 0x27E24, ["I CHALLENGE YOU TO A", "LEAF DUMP DUEL!"], None),   # (was FIGHT ME.)
