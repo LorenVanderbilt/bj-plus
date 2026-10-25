@@ -42,3 +42,4 @@ continue_boss  boss1  the last life lost to the first boss, continue: back at th
 jungle2_card_house  jungle2_ice  up the falling ice blocks from the top of Jungle Zone 2's icy climb to the new card game house, and in (jungle2-card-house, 2026-10-24)
 sound_test_names  title_banner  the sound test: MUSIC: with each track's name (18 skipped - not music), SOUND FX: from the live sheet (18 ?, 41 GOAL ... round to EF JUMP) (sound-test-names, 2026-10-24)
 ride_grid  travel_ticket  the travel agent's ride: the grid's lines glide (a step every 4 frames) and diagonal chains of coloured squares in the shimmering floor's greens and blues sweep across with a fading trail; then the destination (ride-grid, 2026-10-25)
+boomerang_feel  boomerang  the boomerang (D to switch to it, level 3): quick volleys - three out at once, every third throw bigger - and one thrown from a jump coming back down to Blue (boomerang-feel, 2026-10-25)
