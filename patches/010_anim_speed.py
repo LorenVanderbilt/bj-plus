@@ -2,7 +2,8 @@ NAME = "anim-speed"
 DESCRIPTION = "Slow the hardware tile animation (waterfalls etc.) by setting the LSPC animation clock"
 
 # How many video frames each hardware-animated tile stays on screen before advancing.
-# The game never sets this itself, so it runs at the BIOS default of 5 (12 steps/second).
+# The game sets it per stage (a table at 0x1516E: 5 frames - 12 steps/second - nearly everywhere; Jungle Zone 2's
+# has the animation off, a mode bit kept below).
 # Bigger = slower: 8 = 7.5 steps/sec, 10 = 6 steps/sec, 12 = 5 steps/sec. (Max 256.)
 FRAMES_PER_STEP = 9
 
