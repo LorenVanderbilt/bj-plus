@@ -7,6 +7,8 @@
     tools/hackbuild.py --list              list the available patches
     tools/hackbuild.py --original          the original game plus patches_original/ (a stage select, for
                                            before-and-after footage), into build/original/ instead
+    tools/hackbuild.py --pin               build, then pin every patch's code / data where it now is
+                                           (patches/pins.json - see Rom.alloc): run it when committing a patch
 
 Output goes to build/roms/ (the arcade/MVS machine: bjourney.zip = the patched game, neogeo.zip =
 the BIOS) and build/aes/ (the home-console machine: the game as a cartridge plus a software-list
@@ -54,6 +56,9 @@ SPRITE_FREE_START, SPRITE_FREE_END = 0x2F9C, 0x2FFF
 FRAME_TABLE = 0x60772
 FRAME_FREE_START, FRAME_FREE_END = 0x3C00, 0x3FFC   # (0x34D0-0x3FFC all point at the same empty definition)
 AS, LD, OBJCOPY = "m68k-neogeo-elf-as", "m68k-neogeo-elf-ld", "m68k-neogeo-elf-objcopy"
+# Where each patch's code / data blocks sit (--pin writes it from a build): patches keep these addresses while they
+# fit, so editing one patch doesn't move the others' code (save states hold return addresses into it).
+PINS_FILE = os.path.join(ROOT, "patches", "pins.json")
 
 
 def swap_pairs(b):
@@ -80,6 +85,12 @@ class Rom:
         self.tile_pool = []          # more free sprite tiles (tile-pool frees them), used after the range above
         self.next_frame = FRAME_FREE_START
         self.log = []
+        # Pinned layout (PINS_FILE, written by --pin): where each patch's code and data blocks sit - see alloc()
+        self.pins = None             # {patch name: [[address, size], ...]} or None (no pinning: as before)
+        self.patch = None            # the patch being applied, and the number of its blocks so far
+        self.block = 0
+        self.layout = []             # (patch, address, size) of every block placed, in order
+        self.overflow = None         # where blocks that don't fit their pin go (after everything pinned)
 
     def u16(self, addr): return int.from_bytes(self.data[addr:addr + 2], "big")
     def u32(self, addr): return int.from_bytes(self.data[addr:addr + 4], "big")
@@ -107,12 +118,41 @@ class Rom:
         self.sound[addr:addr + len(new)] = new
         self.log.append("  m1 0x%05X  %d byte(s)  %s" % (addr, len(new), why))
 
+    def start_patch(self, name):
+        self.patch, self.block = name, 0
+
+    def use_pins(self, pins):
+        """Place blocks at their pinned addresses (see alloc); blocks that don't fit go after the last pinned one."""
+        self.pins = pins
+        self.overflow = max([FREE_START] + [a + n for blocks in pins.values() for a, n in blocks])
+
+    def _pinned(self):
+        blocks = (self.pins or {}).get(self.patch, [])
+        return blocks[self.block] if self.block < len(blocks) else None
+
     def alloc(self, size, align=2):
-        addr = (self.next_free + align - 1) & ~(align - 1)
+        """Free space for a block of size bytes. next_free advances as it always has - the place the block would
+        take with everything packed one after another (patches that set or check next_free see that). Without pins
+        that's where it goes. With pins (a patch's blocks' addresses as of the last --pin) it goes at its pinned
+        address if it fits there, else after everything pinned - so a patch that grows moves only itself, and save
+        states (which hold return addresses into patch code) made before stay good everywhere else."""
+        logical = (self.next_free + align - 1) & ~(align - 1)
+        self.next_free = logical + size
+        pin = self._pinned()
+        if self.pins is None:
+            addr = logical
+        elif pin and size <= pin[1] and pin[0] % align == 0:
+            addr = pin[0]
+        else:
+            addr = (self.overflow + align - 1) & ~(align - 1)
+            self.overflow = addr + size
+            self.log.append("  (%s's block %d: %d bytes - %s - placed after the pinned ones)" % (
+                self.patch, self.block, size, "new" if not pin else "grown past its pin's %d" % pin[1]))
         end = addr + size
         if end > len(self.data) or any(b != 0xFF for b in self.orig[addr:end]):
             raise SystemExit("out of free space in the program ROM")
-        self.next_free = end
+        self.layout.append((self.patch, addr, size))
+        self.block += 1
         return addr
 
     def _assemble(self, source, origin):
@@ -130,8 +170,15 @@ class Rom:
         # with the address (branch/immediate sizes), so sizing it at address 0 is not reliable.
         # 4-byte aligned: the linker aligns the code to 4 and would pad a 2-aligned start with a NOP,
         # shifting every label by 2 from what the caller expects.
-        addr = (self.next_free + 3) & ~3
-        code = self._assemble(source, addr)
+        pin = self._pinned() if self.pins is not None else None
+        if pin and pin[0] % 4 == 0:                 # pinned: assemble there - if it still fits, it stays
+            addr = pin[0]
+            code = self._assemble(source, addr)
+            if len(code) > pin[1]:
+                pin = None
+        if not pin or pin[0] % 4:
+            addr = ((self.next_free if self.pins is None else self.overflow) + 3) & ~3
+            code = self._assemble(source, addr)
         size = len(code)
         assert self.alloc(size, align=4) == addr
         self.data[addr:addr + size] = code
@@ -420,7 +467,11 @@ def main():
     ap.add_argument("--list", action="store_true", help="list available patches and exit")
     ap.add_argument("--original", action="store_true",
                     help="the original game plus patches_original/ only, into build/original/")
+    ap.add_argument("--pin", action="store_true",
+                    help="after building, pin every patch's code / data where it now is (patches/pins.json)")
     args = ap.parse_args()
+    if args.pin and (args.only or args.skip or args.original):
+        raise SystemExit("--pin pins the whole hack: no --only / --skip / --original with it")
 
     global OUT_DIR, AES_DIR
     if args.original:
@@ -445,12 +496,26 @@ def main():
     m1 = next(d for i, d in entries if i.filename == M1_NAME)
     rom = Rom(swap_pairs(p1), s1, {i.filename: d for i, d in entries if i.filename in C_NAMES}, m1)
 
+    if not args.original and os.path.exists(PINS_FILE):
+        import json
+        rom.use_pins({n: [[int(a, 16), size] for a, size in blocks] for n, blocks in json.load(open(PINS_FILE)).items()})
     print("Applying %d patch(es): %s" % (len(chosen), ", ".join(chosen) or "(none)"))
     for n in chosen:
         print("* %s - %s" % (n, patches[n].DESCRIPTION))
+        rom.start_patch(n)
         patches[n].apply(rom)
     for line in rom.log:
         print(line)
+
+    if args.pin:
+        import json
+        pins = {}
+        for name, addr, size in rom.layout:
+            pins.setdefault(name, []).append([addr, size])
+        with open(PINS_FILE, "w") as f:
+            f.write("{\n" + ",\n".join('  "%s": [%s]' % (n, ", ".join('["0x%06X", %d]' % (a, b) for a, b in blocks))
+                                       for n, blocks in pins.items()) + "\n}\n")
+        print("Pinned %d block(s) of %d patch(es) in %s" % (len(rom.layout), len(pins), os.path.relpath(PINS_FILE, ROOT)))
 
     patched = rom.patched_files()
     os.makedirs(OUT_DIR, exist_ok=True)
