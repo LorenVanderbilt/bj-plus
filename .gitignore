@@ -12,6 +12,7 @@ __pycache__/
 recordings/
 # MAME save states (made while testing)
 sta/
+sta_original/
 # Personal run.sh settings
 local.cfg
 dist/

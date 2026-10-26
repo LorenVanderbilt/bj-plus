@@ -5,6 +5,8 @@
     tools/hackbuild.py --only anim-speed   apply just the named patch(es)
     tools/hackbuild.py --skip anim-speed   apply everything except the named patch(es)
     tools/hackbuild.py --list              list the available patches
+    tools/hackbuild.py --original          the original game plus patches_original/ (a stage select, for
+                                           before-and-after footage), into build/original/ instead
 
 Output goes to build/roms/ (the arcade/MVS machine: bjourney.zip = the patched game, neogeo.zip =
 the BIOS) and build/aes/ (the home-console machine: the game as a cartridge plus a software-list
@@ -398,12 +400,12 @@ def write_aes_set(entries, patched):
     open(os.path.join(AES_DIR, "neogeo.xml"), "w").write(xml)
     shutil.copy(src_bios, os.path.join(AES_DIR, "aes.zip"))
     shutil.copy(os.path.join(ROOT, "roms", "neogeo.zip"), os.path.join(AES_DIR, "neogeo.zip"))
-    print("Built build/aes/ (home-console set)")
+    print("Built %s/ (home-console set)" % os.path.relpath(AES_DIR, ROOT))
 
 
-def load_patches():
+def load_patches(folder="patches"):
     found = {}
-    for path in sorted(glob.glob(os.path.join(ROOT, "patches", "*.py"))):
+    for path in sorted(glob.glob(os.path.join(ROOT, folder, "*.py"))):
         spec = importlib.util.spec_from_file_location(os.path.basename(path)[:-3], path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
@@ -416,9 +418,15 @@ def main():
     ap.add_argument("--only", nargs="+", metavar="NAME", help="apply only these patches")
     ap.add_argument("--skip", nargs="+", metavar="NAME", default=[], help="apply all but these patches")
     ap.add_argument("--list", action="store_true", help="list available patches and exit")
+    ap.add_argument("--original", action="store_true",
+                    help="the original game plus patches_original/ only, into build/original/")
     args = ap.parse_args()
 
-    patches = load_patches()
+    global OUT_DIR, AES_DIR
+    if args.original:
+        OUT_DIR = os.path.join(ROOT, "build", "original", "roms")
+        AES_DIR = os.path.join(ROOT, "build", "original", "aes")
+    patches = load_patches("patches_original" if args.original else "patches")
     if args.list:
         for name, m in patches.items():
             print("%-16s %s" % (name, m.DESCRIPTION))
@@ -450,7 +458,7 @@ def main():
         for info, data in entries:
             z.writestr(info.filename, patched.get(info.filename, data))
     shutil.copy(os.path.join(ROOT, "roms", "neogeo.zip"), os.path.join(OUT_DIR, "neogeo.zip"))
-    print("Built build/roms/bjourney.zip")
+    print("Built %s" % os.path.relpath(os.path.join(OUT_DIR, "bjourney.zip"), ROOT))
     write_aes_set(entries, patched)
 
 

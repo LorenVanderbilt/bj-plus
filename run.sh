@@ -7,6 +7,8 @@
 #   ./run.sh --only anim-speed        just that patch
 #   ./run.sh --skip anim-speed        everything except that patch (--skip every patch = the original game)
 #   ./run.sh --difficulty 1           start at that difficulty (LEVEL 1-8; AES only - as if picked in OPTIONS)
+#   ./run.sh --original               the ORIGINAL game plus a stage select on the title (Up / Down) - for
+#                                     before-and-after footage (build/original/; its saves go in sta_original/)
 #   ./run.sh [options] -- [MAME options]     anything after -- goes to MAME
 # Personal defaults go in local.cfg (not committed), a shell file, e.g.:  DIFFICULTY=1
 # To record a play session so it can be replayed exactly later (saved to recordings/NAME.inp):
@@ -18,6 +20,7 @@ mode=aes
 bios=""
 build_args=""
 DIFFICULTY=""
+ORIGINAL=""
 [ -f local.cfg ] && . ./local.cfg
 while [ $# -gt 0 ] && [ "$1" != "--" ]; do
     case "$1" in
@@ -25,17 +28,21 @@ while [ $# -gt 0 ] && [ "$1" != "--" ]; do
         --aes) mode=aes ;;
         --bios) shift; bios="-bios $1" ;;
         --difficulty) shift; DIFFICULTY="$1" ;;
+        --original) build_args="$build_args --original"; ORIGINAL=1 ;;
         *) build_args="$build_args $1" ;;
     esac
     shift
 done
 [ "$1" = "--" ] && shift
 python3 tools/hackbuild.py $build_args || exit 1
+out=build
+states=""
+[ -n "$ORIGINAL" ] && { out=build/original; states="-state_directory sta_original"; }   # (its saves apart from the hack's)
 mkdir -p recordings
 if [ "$mode" = aes ]; then
-    [ -f build/aes/neogeo.xml ] || { echo "No AES build (need roms/aes.zip) - use --mvs, or see tools/hackbuild.py"; exit 1; }
+    [ -f $out/aes/neogeo.xml ] || { echo "No AES build (need roms/aes.zip) - use --mvs, or see tools/hackbuild.py"; exit 1; }
     script=""
     [ -n "$DIFFICULTY" ] && { export HACK_DIFFICULTY="$DIFFICULTY"; script="-autoboot_script tools/difficulty.lua"; }
-    exec mame aes -hash build/aes -rompath build/aes -cart bjourney $bios $script -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
+    exec mame aes -hash $out/aes -rompath $out/aes -cart bjourney $states $bios $script -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
 fi
-exec mame bjourney -rompath build/roms $bios -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
+exec mame bjourney -rompath $out/roms $states $bios -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
