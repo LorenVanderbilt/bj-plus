@@ -36,7 +36,7 @@ DESCRIPTION = "Title menu (AES): Start opens (CONTINUE /) NEW GAME / OPTIONS on 
 #   BACK TO TITLE   - ends the "game" the way a finished one ends (mode 8: START_GAME's mode loop at 0x10D20
 #                     cleans up and returns to the attract sequence), with the attract toggle set so the title
 #                     comes next
-# (For the beta, beta-no-card-options - the last patch - leaves AUTO SAVE and MEMORY CARD out of the list.)
+# (For the beta, beta-no-card-options leaves AUTO SAVE and MEMORY CARD out of the list.)
 # Both screens take either player's controls (0x10FD96 / 0x10FD9C and both Start bits of 0x10FDAC).
 #
 # ---- Memory card: CONTINUE, and an optional auto-save; the hack's save never touches the original game's

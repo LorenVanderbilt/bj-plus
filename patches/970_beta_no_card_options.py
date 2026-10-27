@@ -4,7 +4,7 @@ DESCRIPTION = "Options: AUTO SAVE and MEMORY CARD left out for the beta (auto-sa
 # The user, 2026-10-25: leave the memory card's auto-save and manager out of the beta (ENABLED = False brings them
 # back). `title-menu`'s options screen draws OPT_COUNT lines from a table of string offsets (its options' strings,
 # copied to RAM with the settings filled in) and acts on the line picked by number - AUTO SAVE 3, MEMORY CARD 4,
-# anything else past DIFFICULTY is BACK TO TITLE. Found by their bytes (title-menu's code would move if it grew):
+# anything else past DIFFICULTY is BACK TO TITLE. Found by their bytes (title-menu doesn't export its addresses):
 #   * LIST_COUNT: 4 lines; the list takes the strings to start after that many offset words (2 x 4 bytes in, not 2 x
 #     6), so the table's first 4 offsets are each 4 more (the strings stay put - the settings are filled in at fixed
 #     places in them): LEVEL, SOUND TEST, DIFFICULTY and - 4th - BACK TO TITLE;
