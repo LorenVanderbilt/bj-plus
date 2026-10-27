@@ -64,3 +64,4 @@ liquid_sink  liquid_fall  Daruma Empire 1's yellow liquid: no splash, Blue sinks
 lava  lava  Lower Earth Empire 2's lava: Blue burning, the lava swallowing him (drown-in-front, 2026-10-27)
 mantis_exit  boss_mantis  the last level's mini boss, the mantis: beaten, his farewell, then he sinks all the way out of sight and the scene fades by itself (mantis-exit, 2026-10-27)
 boss_hits  miniboss_mech  Mechanical City 2's mini boss beaten at the default difficulty - its hit count (boss-hits, 2026-10-27)
+keep_on_death  spike_ice  two lives lost on Strange Space 3's ice spikes: the 10 flowers and the boomerang kept each time (keep-flowers-on-death, item-keep); a third death, a continue: a quarter of the flowers taken (10 -> 7, as the original) (2026-10-27)
