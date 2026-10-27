@@ -1,3 +1,10 @@
+import os
+import re
+import subprocess
+import tempfile
+
+import hackbuild
+
 NAME = "hero-big-art"
 DESCRIPTION = "Draw the normal-size hero with the big (powerup) artwork; gameplay (collisions, timing) unchanged"
 
@@ -88,7 +95,8 @@ RED_CODE = (0x23000, 0x25400)   # ... running the ending's code (its scenes and 
 RED_DUEL_CODE = (0x28400, 0x28680)
 BOXES = 0x64772                   # hit boxes: a pointer per frame number (as the frame table)
 RED_BOX_SIDE_PX, RED_BOX_UP_PX = 3, 8   # Red's hit box in the duels: this much wider each side, and taller
-BOX_LOOKUP = 0xB6A0               # the overlap test's other object's box: move.w 8(a0),d5 ; movea.l (a1,d5.w),a2   # ... or the torch duel's (Lower Earth Empire's house: Red is 0x284BE)
+BOX_LOOKUP = 0xB6A0               # the overlap test's other object's box: move.w 8(a0),d5 ; movea.l (a1,d5.w),a2
+                                  # (... or the torch duel's: Lower Earth Empire's house, Red is 0x284BE)
 BIG_SET = 0x80
 # The big form has no throwing poses (its throw animations 0x23-0x26 + 0x80 are an empty frame), so the
 # normal throw's frames are drawn with two big poses from the ROM: the wind-up (arm back) with an unused
@@ -107,9 +115,9 @@ THROW_ART = {0xB0: 0xB0, 0xB8: 0xB0, 0xC0: 0xB0, 0xC8: 0xB0, 0x8C: 0xB0,
              0xB4: 0xB4, 0xBC: 0xB4, 0xC4: 0xB4, 0xCC: 0xB4, 0x90: 0xB4,
              0x94: 0x94, 0x98: 0x94, 0x9C: 0x9C}
 THROW_MID = 0xAC
-THROW_FOLLOW = 0x9C            # (its ART there - the user's follow-through: the four throws' last step, after the release;
-                               # 0x9C was the lying-down throw's release, a throw never seen in play - 0x94's ART left out,
-                               # 0x94 / 0x98 draw the big swim poses, FRAME_SUBSTITUTES)
+THROW_FOLLOW = 0x9C            # (its ART there - the user's follow-through: the four throws' last step, after the
+                               # release; 0x9C was the lying-down throw's release, a throw never seen in play -
+                               # 0x94's ART left out, 0x94 / 0x98 draw the big swim poses, FRAME_SUBSTITUTES)
 THROW_ANIMS = [0x23, 0x24, 0x25, 0x26]
 ART_END, FRAMES_END = 0xB8C66, 0x3CB0   # where this patch's code and art always end (see the end of apply)
 HERO_UP_PX = 15
@@ -188,25 +196,29 @@ RIGHT_X_ZOOMED = 0xA794   # subi.w #0x4000,d6 ; move.w d6,(a2)
 RIGHT_Y_ZOOMED = 0xA7C4   # subi.w #-18433,d5 ; moveq #1,d6
 
 
-import os
-_DEBUG_MARKS = bool(os.environ.get("BJ_DEBUG_MARKS"))   # diagnostic build: count hero draws per hook
-_marks = {}
-
-
 def hero_only(reg, body, tag=""):
     """68000 source that runs `body` only for our hero while it is being drawn with a big frame (the flag
     the drawing hook sets in PAIR_RAM +5), else skips it. `tag` makes the labels unique when one routine
     uses this more than once."""
-    checks = "".join("    cmpa.l #0x%X,%%%s\n    beq hero%s_%d\n" % (obj, reg, tag, i) for i, obj in enumerate(HERO_OBJECTS))
-    checks += "    cmpa.l 0x%X,%%%s\n    beq hero%s_%d\n" % (RED_OBJ, reg, tag, len(HERO_OBJECTS))
-    flags = "".join("hero%s_%d:\n    tst.b 0x%X\n    beq done%s\n    bra hero%s\n" % (tag, i, ram + 5, tag, tag)
-                    for i, ram in enumerate(PAIR_RAM + [RED_PAIR]))
-    mark = ""
-    if _DEBUG_MARKS:
-        mark = "    addq.b #1,0x%X\n" % (0x10E700 + len(_marks))
-        _marks[len(_marks)] = tag
-    return (checks + "    bra done%s\n%shero%s:\n%s%sdone%s:\n"
-            % (tag, flags, tag, mark, body, tag))
+    out = ""
+    for i, obj in enumerate(HERO_OBJECTS):
+        out += """
+    cmpa.l #0x%(obj)X,%%%(reg)s
+    beq hero%(tag)s_%(i)d""" % {"obj": obj, "reg": reg, "tag": tag, "i": i}
+    out += """
+    cmpa.l 0x%(red)X,%%%(reg)s                | (the red rival, while he's a hero)
+    beq hero%(tag)s_%(i)d
+    bra done%(tag)s""" % {"red": RED_OBJ, "reg": reg, "tag": tag, "i": len(HERO_OBJECTS)}
+    for i, ram in enumerate(PAIR_RAM + [RED_PAIR]):
+        out += """
+hero%(tag)s_%(i)d:
+    tst.b 0x%(flag)X                      | (drawn with a big frame?)
+    beq done%(tag)s
+    bra hero%(tag)s""" % {"tag": tag, "i": i, "flag": ram + 5}
+    return out + """
+hero%(tag)s:
+%(body)sdone%(tag)s:
+""" % {"tag": tag, "body": body}
 
 
 _vine_labels = [0]
@@ -215,25 +227,67 @@ _vine_labels = [0]
 def x_shift(dreg, px=None, facing_left=False):
     """Nudge the big art left (plus the vine-climbing correction while on a vine; mirrored facing left)."""
     _vine_labels[0] += 1
-    n = _vine_labels[0]
-    checks = "".join("    cmp.b #%d,104(%%a0)\n    beq vine%d\n" % (st, n) for st in VINE_STATES)
-    vine = "    %s.w #%d,%%%s\n" % ("add" if facing_left else "sub", VINE_PX * 128, dreg)
-    per_anim = ("    movem.l %%d0/%%a1,-(%%sp)\n    moveq #0,%%d0\n    move.b 104(%%a0),%%d0\n    and.w #0x7F,%%d0\n"
-                "    add.w %%d0,%%d0\n    lea 0x%X,%%a1\n    move.w (%%a1,%%d0.w),%%d0\n    %s.w %%d0,%%%s\n"
-                "    movem.l (%%sp)+,%%d0/%%a1\n" % (_side_table[0], "add" if facing_left else "sub", dreg))
+    v = {"n": _vine_labels[0], "d": dreg, "op": "add" if facing_left else "sub", "side": _side_table[0],
+         "left": (HERO_LEFT_PX if px is None else px) * 128, "vine": VINE_PX * 128, "held": ROPE_HELD,
+         "last": OBJECTS - 1, "near": ROPE_NEAR_PX * 128, "hand": ROPE_HAND_PX * 128}
+    vine = """
+    %(op)s.w #%(vine)d,%%%(d)s""" % v
     if not facing_left:                      # hanging on a lottery rope: his big hand drawn on its cord
-        codes = "".join("    cmp.l #0x%X,%%d1\n    beq ropc%d\n" % (c, n) for c in ROPE_CODES)
-        vine += ("    tst.w 0x%X\n    beq rope%d\n    movem.l %%d0-%%d4/%%a1,-(%%sp)\n    lea 0x104000,%%a1\n"
-                 "    moveq #%d,%%d0\n    move.w #0x7FFF,%%d2\n    moveq #0,%%d3\nropl%d:\n    move.l 4(%%a1),%%d1\n%s"
-                 "    bra ropn%d\nropc%d:\n    move.w 2(%%a1),%%d1\n    sub.w 2(%%a0),%%d1\n    move.w %%d1,%%d4\n"
-                 "    bpl ropa%d\n    neg.w %%d4\nropa%d:\n    cmp.w %%d2,%%d4\n    bcc ropn%d\n    move.w %%d4,%%d2\n"
-                 "    move.w %%d1,%%d3\nropn%d:\n    lea 0x80(%%a1),%%a1\n    dbf %%d0,ropl%d\n    cmp.w #%d,%%d2\n"
-                 "    bhi ropx%d\n    add.w %%d3,%%%s\n    sub.w #%d,%%%s\nropx%d:\n    movem.l (%%sp)+,%%d0-%%d4/%%a1\n"
-                 "rope%d:\n"
-                 % (ROPE_HELD, n, OBJECTS - 1, n, codes, n, n, n, n, n, n, n, ROPE_NEAR_PX * 128, n, dreg,
-                    ROPE_HAND_PX * 128, dreg, n, n))
-    return ("    sub.w #%d,%%%s\n" % ((HERO_LEFT_PX if px is None else px) * 128, dreg) + per_anim +
-            checks + "    clr.w 0x%X\n    bra novine%d\nvine%d:\n%snovine%d:\n" % (ROPE_HELD, n, n, vine, n))
+        v["codes"] = "".join("""
+    cmp.l #0x%X,%%d1
+    beq rope_found%d""" % (c, v["n"]) for c in ROPE_CODES)
+        vine += """
+    tst.w 0x%(held)X                      | (lottery ropes in the room?)
+    beq rope_none%(n)d
+    movem.l %%d0-%%d4/%%a1,-(%%sp)
+    lea 0x104000,%%a1                     | the nearest rope object: its x offset in d3
+    moveq #%(last)d,%%d0
+    move.w #0x7FFF,%%d2
+    moveq #0,%%d3
+rope_loop%(n)d:
+    move.l 4(%%a1),%%d1%(codes)s
+    bra rope_next%(n)d
+rope_found%(n)d:
+    move.w 2(%%a1),%%d1
+    sub.w 2(%%a0),%%d1
+    move.w %%d1,%%d4
+    bpl rope_abs%(n)d
+    neg.w %%d4
+rope_abs%(n)d:
+    cmp.w %%d2,%%d4
+    bcc rope_next%(n)d
+    move.w %%d4,%%d2
+    move.w %%d1,%%d3
+rope_next%(n)d:
+    lea 0x80(%%a1),%%a1
+    dbf %%d0,rope_loop%(n)d
+    cmp.w #%(near)d,%%d2                  | near enough: on the rope - his hand on its cord
+    bhi rope_far%(n)d
+    add.w %%d3,%%%(d)s
+    sub.w #%(hand)d,%%%(d)s
+rope_far%(n)d:
+    movem.l (%%sp)+,%%d0-%%d4/%%a1
+rope_none%(n)d:""" % v
+    v["vine_code"] = vine
+    v["states"] = "".join("""
+    cmp.b #%d,104(%%a0)
+    beq vine%d""" % (st, v["n"]) for st in VINE_STATES)
+    return """
+    sub.w #%(left)d,%%%(d)s
+    movem.l %%d0/%%a1,-(%%sp)              | and by the hero state's entry in the side table
+    moveq #0,%%d0
+    move.b 104(%%a0),%%d0
+    and.w #0x7F,%%d0
+    add.w %%d0,%%d0
+    lea 0x%(side)X,%%a1
+    move.w (%%a1,%%d0.w),%%d0
+    %(op)s.w %%d0,%%%(d)s
+    movem.l (%%sp)+,%%d0/%%a1%(states)s
+    clr.w 0x%(held)X
+    bra novine%(n)d
+vine%(n)d:%(vine_code)s
+novine%(n)d:
+""" % v
 
 
 _up_table = [None]
@@ -242,18 +296,37 @@ _side_table = [None]
 
 def y_shift(dreg):
     """Raise the big art by the hero's state's entry in the UP_PX table (HERO_UP_PX unless overridden)."""
-    return ("    movem.l %%d0/%%a1,-(%%sp)\n    moveq #0,%%d0\n    move.b 104(%%a0),%%d0\n    and.w #0x7F,%%d0\n"
-            "    add.w %%d0,%%d0\n    lea 0x%X,%%a1\n    move.w (%%a1,%%d0.w),%%d0\n    add.w %%d0,%%%s\n"
-            "    movem.l (%%sp)+,%%d0/%%a1\n" % (_up_table[0], dreg))
+    return """
+    movem.l %%d0/%%a1,-(%%sp)
+    moveq #0,%%d0
+    move.b 104(%%a0),%%d0
+    and.w #0x7F,%%d0
+    add.w %%d0,%%d0
+    lea 0x%(up)X,%%a1
+    move.w (%%a1,%%d0.w),%%d0
+    add.w %%d0,%%%(d)s
+    movem.l (%%sp)+,%%d0/%%a1
+""" % {"up": _up_table[0], "d": dreg}
 
 
 def carried_shift(dreg, tag=""):
     """Raise an enemy being carried (code CARRIED_CODE; +126 = which player carries it) while that player's
     hero is drawn big - drawing only, its real position is the game's."""
-    return ("    cmpi.l #0x%X,4(%%a0)\n    bne cdone%s\n    tst.b 126(%%a0)\n    bne cp2%s\n    tst.b 0x%X\n"
-            "    bra ctest%s\ncp2%s:\n    tst.b 0x%X\nctest%s:\n    beq cdone%s\n    add.w #%d,%%%s\ncdone%s:\n"
-            % (CARRIED_CODE, tag, tag, PAIR_RAM[0] + 5, tag, tag, PAIR_RAM[1] + 5, tag, tag, CARRY_UP_PX * 128,
-               dreg, tag))
+    return """
+    cmpi.l #0x%(code)X,4(%%a0)
+    bne cdone%(tag)s
+    tst.b 126(%%a0)                       | (carried by player 2?)
+    bne cp2%(tag)s
+    tst.b 0x%(p1)X
+    bra ctest%(tag)s
+cp2%(tag)s:
+    tst.b 0x%(p2)X
+ctest%(tag)s:
+    beq cdone%(tag)s
+    add.w #%(up)d,%%%(d)s
+cdone%(tag)s:
+""" % {"code": CARRIED_CODE, "tag": tag, "p1": PAIR_RAM[0] + 5, "p2": PAIR_RAM[1] + 5, "up": CARRY_UP_PX * 128,
+       "d": dreg}
 
 
 def hook(rom, site, expect_hex, source, why):
@@ -268,9 +341,6 @@ def hook(rom, site, expect_hex, source, why):
 def relocated(code, start, end):
     """68000 source for `code` (the bytes at start-end) to run anywhere: branches and pc-relative calls inside go to
     labels, outside to absolute addresses (a conditional branch out through a jmp); everything else as it is."""
-    import re
-    import subprocess
-    import tempfile
     with tempfile.NamedTemporaryFile(suffix=".bin") as f:
         f.write(code)
         f.flush()
@@ -364,7 +434,6 @@ def frame_pixels(rom, frame):
     0xAF1C: tiles-1, x and y-up in 2px units, palette, high byte, the tiles) - from the main block's top left;
     and its palette). An entry 1, attribute, [palette,] [high byte,] low byte changes the high byte (attribute bit
     5) and the flips from then on (bits 0 / 1: e.g. the ocarina frames' tiles are stored mirrored)."""
-    import hackbuild
     p = rom.u32(hackbuild.FRAME_TABLE + frame)
     d = rom.data
     cols, rows, _, palette, hi = d[p:p + 5]
@@ -419,7 +488,7 @@ def upscaled_pixels(rom, frame):
             v = src.get((x * 2 // 3, y * 2 // 3))
             if v:
                 big[x, y] = v
-    p = rom.u32(__import__("hackbuild").FRAME_TABLE + frame)
+    p = rom.u32(hackbuild.FRAME_TABLE + frame)
     return big, palette, (rom.data[p] + 1) * 3 // 2, (rom.data[p + 1] + 1) * 3 // 2
 
 
@@ -463,7 +532,6 @@ def frame_from_pixels(rom, big, palette, main_cols, main_rows, frame, what, keep
             while rs and rs[0] == run[-1] + 1:
                 run.append(rs.pop(0))
             pieces.append((c * 8, -run[0] * 8, [new_tile((c, r)) for r in run]))
-    import hackbuild
     n = rom.add_frame(out, palette, why="big hero: frame 0x%X, %s" % (frame, what), pieces=pieces)
     rom.data[rom.u32(hackbuild.FRAME_TABLE + n) + 2] = BURN_MODE
     p2_palette = rom.data[rom.u32(hackbuild.FRAME_TABLE + frame + P2_FRAMES) + 3]
@@ -490,7 +558,7 @@ def spread_antennas(rom, frame):
     for x in range(23, 27):                   # where it joins the head
         if (x, 13) in lean:
             px[x, 12] = lean[x, 13]
-    p = rom.u32(__import__("hackbuild").FRAME_TABLE + frame)
+    p = rom.u32(hackbuild.FRAME_TABLE + frame)
     tiles = rom.frame_tiles(frame)[0]        # (the cells left alone keep their tiles)
     keep = {(c, r): t for r, row in enumerate(tiles) for c, t in enumerate(row) if t is not None}
     return frame_from_pixels(rom, px, palette, rom.data[p] + 1, rom.data[p + 1] + 1, frame, "antennas spread",
@@ -537,9 +605,14 @@ def apply(rom):
     stub = rom.place_code("    jmp 0x%X\n" % 0xFFFFF0, why="hero big art: into the drawing routine's copy")
     ROW_OVERRIDES[STANDING_ANIM] = [spread_antennas(rom, f) for f in BREATHE]
     rows, frame_map = big_frame_tables(rom)
-    hook(rom, ROPE_IDLE, "4A2E78CB66000052",
-         "    move.w #1,0x%X\n    tst.b 0x78CB(%%a6)\n    beq 1f\n    addq.l #4,%%sp\n    jmp 0x29A44\n1:  rts\n"
-         % ROPE_HELD, "lottery ropes: note that they're there (for the big hero hanging on one)")
+    hook(rom, ROPE_IDLE, "4A2E78CB66000052", """
+    move.w #1,0x%X
+    tst.b 0x78CB(%%a6)
+    beq 1f
+    addq.l #4,%%sp
+    jmp 0x29A44
+1:  rts
+""" % ROPE_HELD, "lottery ropes: note that they're there (for the big hero hanging on one)")
     red_boxes(rom, frame_map)
     fidget, q = [], rom.u32(ANIM_TABLE + 4 * FIDGET_ANIM)
     while rom.u16(q) < 0xFFFE:
@@ -548,7 +621,7 @@ def apply(rom):
             fidget.append(w & 0x3FFC)
         q += 4 if w >= 0x8000 else 2
     for frame in SWIM_FIXES:
-        at = rom.u32(__import__("hackbuild").FRAME_TABLE + frame)
+        at = rom.u32(hackbuild.FRAME_TABLE + frame)
         k = bytes(rom.data[at:at + 32]).index(b"\x01\x40\x5f\x00")
         rom.write(at + k, b"\x00\x01\x40\x5f", expect=b"\x01\x40\x5f\x00",
                   why="big flipper swim frame 0x%X: its palette switch on a tile, not a stray one" % frame)
@@ -592,7 +665,7 @@ def apply(rom):
     for row in rows:
         offs.append(off)
         off += len(row)
-    first_new = __import__("hackbuild").FRAME_FREE_START
+    first_new = hackbuild.FRAME_FREE_START
     p2_end = max(list(P2_COPIES) + [first_new - 4]) + 4
     data = ("p2_tab:\n    .word %s\n" % ",".join("0x%X" % P2_COPIES.get(f, f) for f in range(first_new, p2_end, 4)) +
             "burn_tab:\n    .word %s\n" % ",".join("0x%X" % burned[f] for f in (0x11C, 0x120, 0x124, 0x128)) +
@@ -602,23 +675,51 @@ def apply(rom):
             "frame_map:\n    .word %s\n" % ",".join("0x%X" % frame_map.get(f, 0) for f in range(0, NORMAL_FRAMES, 4)))
 
     def hero_check(reg):
-        return ("".join("    cmpa.l #0x%X,%%%s\n    beq 1f\n" % (obj, reg) for obj in HERO_OBJECTS) +
-                "    cmpa.l 0x%X,%%%s\n    beq 1f\n" % (RED_OBJ, reg))
+        """To 1f if `reg` is a hero (or the red rival) - else on."""
+        out = "".join("""
+    cmpa.l #0x%X,%%%s
+    beq 1f""" % (obj, reg) for obj in HERO_OBJECTS)
+        return out + """
+    cmpa.l 0x%X,%%%s
+    beq 1f
+""" % (RED_OBJ, reg)
 
     def pair(reg, ram):
-        return ("    lea 0x%X,%%%s\n    cmpa.l #0x%X,%%%s\n    beq 2f\n    lea 0x%X,%%%s\n    cmpa.l #0x%X,%%%s\n"
-                "    beq 2f\n    lea 0x%X,%%%s\n2:\n" % (PAIR_RAM[0], ram, HERO_OBJECTS[0], reg, PAIR_RAM[1], ram,
-                                                          HERO_OBJECTS[1], reg, RED_PAIR, ram))
+        """`ram` = the hero `reg`'s pair RAM (player 1's, player 2's, else the red rival's)."""
+        return """
+    lea 0x%(p1)X,%%%(ram)s
+    cmpa.l #0x%(hero1)X,%%%(reg)s
+    beq 2f
+    lea 0x%(p2)X,%%%(ram)s
+    cmpa.l #0x%(hero2)X,%%%(reg)s
+    beq 2f
+    lea 0x%(red)X,%%%(ram)s
+2:
+""" % {"p1": PAIR_RAM[0], "p2": PAIR_RAM[1], "red": RED_PAIR, "hero1": HERO_OBJECTS[0], "hero2": HERO_OBJECTS[1],
+       "reg": reg, "ram": ram}
 
-    restores = "".join(
-        "    lea 0x%X,%%a1\n    lea 0x%X,%%a0\n    btst #0,7(%%a1)\n    beq no34_%d\n    move.w 8(%%a1),34(%%a0)\n"
-        "no34_%d:\n    btst #1,7(%%a1)\n    beq no36_%d\n    move.w 10(%%a1),36(%%a0)\nno36_%d:\n"
-        "    btst #2,7(%%a1)\n    beq nozoom_%d\n    move.w 12(%%a1),38(%%a0)\nnozoom_%d:\n    clr.b 7(%%a1)\n"
-        % (ram, obj, i, i, i, i, i, i) for i, (ram, obj) in enumerate(zip(PAIR_RAM, HERO_OBJECTS)))
-    restores += ("    lea 0x%X,%%a1\n    move.l 0x%X,%%a0\n    cmpa.w #0,%%a0\n    beq nozoom_r\n    btst #0,7(%%a1)\n"
-                 "    beq no34_r\n    move.w 8(%%a1),34(%%a0)\nno34_r:\n    btst #1,7(%%a1)\n    beq no36_r\n"
-                 "    move.w 10(%%a1),36(%%a0)\nno36_r:\n    btst #2,7(%%a1)\n    beq nozoom_r\n    move.w 12(%%a1),38(%%a0)\n"
-                 "nozoom_r:\n    clr.b 7(%%a1)\n" % (RED_PAIR, RED_OBJ))
+    def restore(i, load_obj):
+        """Each hero's +34 / +36 / +38 put back as its normal frame gives them (pair RAM +7: which are due)."""
+        return """
+%(load)s    btst #0,7(%%a1)
+    beq no34_%(i)s
+    move.w 8(%%a1),34(%%a0)
+no34_%(i)s:
+    btst #1,7(%%a1)
+    beq no36_%(i)s
+    move.w 10(%%a1),36(%%a0)
+no36_%(i)s:
+    btst #2,7(%%a1)
+    beq nozoom_%(i)s
+    move.w 12(%%a1),38(%%a0)
+nozoom_%(i)s:
+    clr.b 7(%%a1)
+""" % {"i": i, "load": load_obj}
+
+    restores = "".join(restore(i, "    lea 0x%X,%%a1\n    lea 0x%X,%%a0\n" % (ram, obj))
+                       for i, (ram, obj) in enumerate(zip(PAIR_RAM, HERO_OBJECTS)))
+    restores += restore("r", "    lea 0x%X,%%a1\n    move.l 0x%X,%%a0\n    cmpa.w #0,%%a0\n    beq nozoom_r\n"
+                        % (RED_PAIR, RED_OBJ))
     src = r"""
     bra.w step                      | +0: from the animation step
     bra.w draw                      | +4: from the drawing routine
@@ -931,19 +1032,23 @@ RESTORES    movem.l (%sp)+,%a0-%a1
 
 DATA
 """
-    src = src.replace("HERO_ONLY_A0", "".join("    cmpa.l #0x%X,%%a0\n    beq 12f\n" % obj for obj in HERO_OBJECTS))
-    src = src.replace("RED_OBJ_RAM", "0x%X" % RED_OBJ).replace("BIG_NOW_RAM", "0x%X" % BIG_NOW)
-    src = src.replace("CARRIED_CODE_ADDR", "0x%X" % CARRIED_CODE).replace("COPY_STUB", "0x%X" % stub).replace("HERO_END", "0x%X" % (max(HERO_OBJECTS) + 0x80))
-    src = src.replace("RED_CODE_LO", "0x%X" % RED_CODE[0]).replace("RED_CODE_HI", "0x%X" % RED_CODE[1])
-    src = src.replace("RED_DUEL_LO", "0x%X" % RED_DUEL_CODE[0]).replace("RED_DUEL_HI", "0x%X" % RED_DUEL_CODE[1])
-    src = (src.replace("HERO_A0F", hero_check("a0")).replace("PAIR_A0F", pair("a0", "a1"))
-           .replace("HERO_A0H", hero_check("a0")).replace("PAIR_A0H", pair("a0", "a1"))
-           .replace("HERO_A5", hero_check("a5")).replace("HERO_A0", hero_check("a0"))
-           .replace("PAIR_A5", pair("a5", "a2")).replace("PAIR_A0", pair("a0", "a1"))
-           .replace("NORMAL_ANIMS", "0x%X" % NORMAL_ANIMS).replace("NORMAL_FRAMES", "0x%X" % NORMAL_FRAMES)
-           .replace("ANIM_TABLE", "0x%X" % ANIM_TABLE).replace("NEW_FRAMES", "0x%X" % first_new).replace("P2_TAB_END", "0x%X" % p2_end).replace("BURN_STATE", "33")
-           .replace("DRAW_LOOP_RETURN", "0x%X" % DRAW_LOOP_RETURN)
-           .replace("ZOOM_SHRINK", str(ZOOM_SHRINK)).replace("ZOOM_GROW", str(ZOOM_GROW)).replace("RESTORES", restores).replace("DATA", data))
+    tokens = [   # (in this order: HERO_A0F / HERO_A0H before HERO_A0, PAIR_A0F / PAIR_A0H before PAIR_A0)
+        ("HERO_ONLY_A0", "".join("    cmpa.l #0x%X,%%a0\n    beq 12f\n" % obj for obj in HERO_OBJECTS)),
+        ("RED_OBJ_RAM", "0x%X" % RED_OBJ), ("BIG_NOW_RAM", "0x%X" % BIG_NOW),
+        ("CARRIED_CODE_ADDR", "0x%X" % CARRIED_CODE), ("COPY_STUB", "0x%X" % stub),
+        ("HERO_END", "0x%X" % (max(HERO_OBJECTS) + 0x80)),
+        ("RED_CODE_LO", "0x%X" % RED_CODE[0]), ("RED_CODE_HI", "0x%X" % RED_CODE[1]),
+        ("RED_DUEL_LO", "0x%X" % RED_DUEL_CODE[0]), ("RED_DUEL_HI", "0x%X" % RED_DUEL_CODE[1]),
+        ("HERO_A0F", hero_check("a0")), ("PAIR_A0F", pair("a0", "a1")),
+        ("HERO_A0H", hero_check("a0")), ("PAIR_A0H", pair("a0", "a1")),
+        ("HERO_A5", hero_check("a5")), ("HERO_A0", hero_check("a0")),
+        ("PAIR_A5", pair("a5", "a2")), ("PAIR_A0", pair("a0", "a1")),
+        ("NORMAL_ANIMS", "0x%X" % NORMAL_ANIMS), ("NORMAL_FRAMES", "0x%X" % NORMAL_FRAMES),
+        ("ANIM_TABLE", "0x%X" % ANIM_TABLE), ("NEW_FRAMES", "0x%X" % first_new), ("P2_TAB_END", "0x%X" % p2_end),
+        ("BURN_STATE", "33"), ("DRAW_LOOP_RETURN", "0x%X" % DRAW_LOOP_RETURN),
+        ("ZOOM_SHRINK", str(ZOOM_SHRINK)), ("ZOOM_GROW", str(ZOOM_GROW)), ("RESTORES", restores), ("DATA", data)]
+    for token, value in tokens:
+        src = src.replace(token, value)
     base = rom.place_code(src, why="hero big art: pick and draw the big frame for the normal hero's frame")
     for site in STEP_SITES:
         rom.write(site, bytes.fromhex("4EB9") + base.to_bytes(4, "big") + bytes.fromhex("4E71"),
@@ -961,43 +1066,46 @@ DATA
     _up_table[0] = rom.place_code(
         "    .word %s\n" % ",".join(str(UP_PX.get(n, HERO_UP_PX) * 128) for n in range(STATES)),
         why="hero big art: how far up to draw it, per hero state")
-    hook(rom, DRAW_X_ZOOMED, "044540003C3C0100",
-         "    sub.w #0x4000,%d5\n" + hero_only("a0", x_shift("d5", HERO_LEFT_PX_FACING_LEFT, True)) +
-         "    move.w #256,%d6\n    rts\n",
-         "sprite X (facing left, zoomed)")
-    hook(rom, DRAW_X_PLAIN, "044640003486",
-         "    sub.w #0x4000,%d6\n" + hero_only("a0", x_shift("d6")) + "    move.w %d6,(%a2)\n    rts\n",
-         "sprite X (usual path)")
-    hook(rom, DRAW_Y_ZOOMED, "0445B7FF7C01",
-         "    sub.w #-18433,%d5\n" + hero_only("a0", y_shift("d5")) + carried_shift("d5", "") + "    moveq #1,%d6\n    rts\n",
-         "sprite Y (zoomed path)")
-    hook(rom, DRAW_Y_PLAIN, "0447B7FFDE433487",
-         "    sub.w #-18433,%d7\n    add.w %d3,%d7\n" + hero_only("a0", y_shift("d7")) + carried_shift("d7", "") + "    move.w %d7,(%a2)\n    rts\n",
-         "sprite Y (usual path)")
-    hook(rom, PIECES_BASE, "0447B7FF48473E2E029804474000",
-         "    sub.w #-18433,%d7\n" + hero_only("a0", y_shift("d7"), "y") + carried_shift("d7", "y") +
-         "    swap %d7\n    move.w 664(%fp),%d7\n    sub.w #0x4000,%d7\n" + hero_only("a0", x_shift("d7"), "x") +
-         "    rts\n",
-         "sprite pieces' base position")
+    # Each draw hook: the instructions it replaces, with (for the hero drawn big) the nudge after the position's
+    # worked out - X: x_shift; Y: y_shift and carried_shift; a sprite's pieces: both. In this order (their code is
+    # placed as they're made).
+    def lines(instructions):
+        return "".join("    %s\n" % i for i in instructions)
 
-    # The same three hooks for the hero facing left.
-    hook(rom, LEFT_X, "044540003485",
-         "    sub.w #0x4000,%d5\n" + hero_only("a0", x_shift("d5", HERO_LEFT_PX_FACING_LEFT, True), "lx") + "    move.w %d5,(%a2)\n    rts\n",
-         "sprite X (facing left)")
-    hook(rom, LEFT_Y, "0447B7FFDE433487",
-         "    sub.w #-18433,%d7\n    add.w %d3,%d7\n" + hero_only("a0", y_shift("d7"), "ly") + carried_shift("d7", "ly") + "    move.w %d7,(%a2)\n    rts\n",
-         "sprite Y (facing left)")
-    hook(rom, LEFT_PIECES, "0447B7FF48473E28000204474000",
-         "    sub.w #-18433,%d7\n" + hero_only("a0", y_shift("d7"), "py") + carried_shift("d7", "py") +
-         "    swap %d7\n    move.w 2(%a0),%d7\n    sub.w #0x4000,%d7\n" + hero_only("a0", x_shift("d7", HERO_LEFT_PX_FACING_LEFT, True), "px") +
-         "    rts\n",
-         "sprite pieces' base position (facing left)")
-    hook(rom, RIGHT_X_ZOOMED, "044640003486",
-         "    sub.w #0x4000,%d6\n" + hero_only("a0", x_shift("d6"), "rzx") + "    move.w %d6,(%a2)\n    rts\n",
-         "sprite X (facing right, zoomed)")
-    hook(rom, RIGHT_Y_ZOOMED, "0445B7FF7C01",
-         "    sub.w #-18433,%d5\n" + hero_only("a0", y_shift("d5"), "rzy") + carried_shift("d5", "rzy") + "    moveq #1,%d6\n    rts\n",
-         "sprite Y (facing right, zoomed)")
+    def x_part(reg, tag, left):
+        return hero_only("a0", x_shift(reg, HERO_LEFT_PX_FACING_LEFT, True) if left else x_shift(reg), tag)
+
+    def y_part(reg, tag):
+        return hero_only("a0", y_shift(reg), tag) + carried_shift(reg, tag)
+
+    hooks = [   # (site, the bytes there, what, the new code)
+        (DRAW_X_ZOOMED, "044540003C3C0100", "sprite X (facing left, zoomed)",
+         lines(["sub.w #0x4000,%d5"]) + x_part("d5", "", True) + lines(["move.w #256,%d6", "rts"])),
+        (DRAW_X_PLAIN, "044640003486", "sprite X (usual path)",
+         lines(["sub.w #0x4000,%d6"]) + x_part("d6", "", False) + lines(["move.w %d6,(%a2)", "rts"])),
+        (DRAW_Y_ZOOMED, "0445B7FF7C01", "sprite Y (zoomed path)",
+         lines(["sub.w #-18433,%d5"]) + y_part("d5", "") + lines(["moveq #1,%d6", "rts"])),
+        (DRAW_Y_PLAIN, "0447B7FFDE433487", "sprite Y (usual path)",
+         lines(["sub.w #-18433,%d7", "add.w %d3,%d7"]) + y_part("d7", "") + lines(["move.w %d7,(%a2)", "rts"])),
+        (PIECES_BASE, "0447B7FF48473E2E029804474000", "sprite pieces' base position",
+         lines(["sub.w #-18433,%d7"]) + y_part("d7", "y") +
+         lines(["swap %d7", "move.w 664(%fp),%d7", "sub.w #0x4000,%d7"]) + x_part("d7", "x", False) + lines(["rts"])),
+        # the same for the hero facing left
+        (LEFT_X, "044540003485", "sprite X (facing left)",
+         lines(["sub.w #0x4000,%d5"]) + x_part("d5", "lx", True) + lines(["move.w %d5,(%a2)", "rts"])),
+        (LEFT_Y, "0447B7FFDE433487", "sprite Y (facing left)",
+         lines(["sub.w #-18433,%d7", "add.w %d3,%d7"]) + y_part("d7", "ly") + lines(["move.w %d7,(%a2)", "rts"])),
+        (LEFT_PIECES, "0447B7FF48473E28000204474000", "sprite pieces' base position (facing left)",
+         lines(["sub.w #-18433,%d7"]) + y_part("d7", "py") +
+         lines(["swap %d7", "move.w 2(%a0),%d7", "sub.w #0x4000,%d7"]) + x_part("d7", "px", True) + lines(["rts"])),
+        # and the zoomed path facing right
+        (RIGHT_X_ZOOMED, "044640003486", "sprite X (facing right, zoomed)",
+         lines(["sub.w #0x4000,%d6"]) + x_part("d6", "rzx", False) + lines(["move.w %d6,(%a2)", "rts"])),
+        (RIGHT_Y_ZOOMED, "0445B7FF7C01", "sprite Y (facing right, zoomed)",
+         lines(["sub.w #-18433,%d5"]) + y_part("d5", "rzy") + lines(["moveq #1,%d6", "rts"])),
+    ]
+    for site, expect, what, source in hooks:
+        hook(rom, site, expect, source, what)
 
     # The drawing routine with all the hooks above, as a copy only the big hero (and a carried enemy) is drawn by:
     # the original, for every other object, is as it was.

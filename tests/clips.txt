@@ -49,3 +49,6 @@ sold_out_stamp  shop_user  the fairy shop: the SOLD OUT stamp (the user's redraw
 hud_idle  cliff  the HUD (score and flowers by the edges, hearts, lives, TIME as a column, the 1P / 2P corners blank) while Blue stands still ~25 s: no GO sign, no bird; then he walks on (hud, no-idle-go, no-idle-bird, no-join-prompts, 2026-10-26)
 weapon_switch  boomerang  D switches the weapon in hand (leaf / boomerang level 3); a leaf pickup raises the leaf (level 2: its gust), a bomb pickup adds the acorn bomb, D then cycles all three, each at its own level (weapon-switch, 2026-10-26)
 mini_run  mini_blue  mini Blue in a cave, back and forth along the floor and up the slope, A held in stretches: he runs (1.5x) instead of stopping - he can't attack as mini; flowers picked up on the way (mini-run, 2026-10-26)
+vine_slide  vine_swing  big Blue on a swinging vine: Up / Down slide him along it, his big hands on the vine (vine-slide, hero-big-art, 2026-10-26)
+swim  swim_flippers  big Blue swimming with the flippers: the big swim poses, no stray leg or dash (swim-art, hero-big-art, 2026-10-26)
+carry  carry1  big Blue picks up an enemy and carries it (drawn higher, over his big art) and throws it (hero-big-art, 2026-10-26)
