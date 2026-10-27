@@ -181,17 +181,26 @@ def apply(rom):
         src += "".join("    move.w #0x%04X,(%%a0)+\n" % c for c in colors)
     for obj, y, (name, row, desc, icon) in zip(ICON_OBJECTS, ICON_YS, SCREEN3):
         frame, slot = frames[icon]
-        src += ("    move.w #0x%X,0x%X\n    move.b #0x%X,0x%X\n    move.w #0x%X,0x%X\n    move.w #0x%X,0x%X\n"
-                % (frame, obj + 8, slot, obj + 0x20, ICON_X, obj + 2, y, obj))
+        src += """
+    move.w #0x%(frame)X,0x%(obj_frame)X         | (the icon object: its frame, palette, x, y)
+    move.b #0x%(slot)X,0x%(obj_palette)X
+    move.w #0x%(x)X,0x%(obj_x)X
+    move.w #0x%(y)X,0x%(obj)X
+""" % {"frame": frame, "obj_frame": obj + 8, "slot": slot, "obj_palette": obj + 0x20, "x": ICON_X, "obj_x": obj + 2,
+       "y": y, "obj": obj}
     src += "    jsr 0x%X\n" % header + text
     src += "".join("    move.w #0x%X,%%d0\n    move.w #0x%X,%%d1\n    jsr 0x%X\n" % (a, LEADER_TILE, DRAW_LEADER)
                    for a in leaders)
     screen3 = rom.place_code(src + "    rts\n" + data, why="item screen 3")
-    switch = rom.place_code(
-        "    cmpi.w #0x200,0x%X\n    bne 1f\n    jmp 0x%X\n"
-        "1:  cmpi.w #0x100,0x%X\n    bne 2f\n    jmp 0x%X\n"
-        "2:  rts\n" % (TIMER, SCREEN2, TIMER, screen3),
-        why="item screens: screen 2 at 0x200, screen 3 at 0x100")
+    switch = rom.place_code("""
+    cmpi.w #0x200,0x%(timer)X
+    bne 1f
+    jmp 0x%(screen2)X
+1:  cmpi.w #0x100,0x%(timer)X
+    bne 2f
+    jmp 0x%(screen3)X
+2:  rts
+""" % {"timer": TIMER, "screen2": SCREEN2, "screen3": screen3}, why="item screens: screen 2 at 0x200, screen 3 at 0x100")
     rom.write(TIMER_INIT, bytes.fromhex("3D7C030078F0"), expect=bytes.fromhex("3D7C020078F0"),
               why="item screens: a third screen's worth longer")
     rom.write(SWITCH, bytes.fromhex("4EB9") + switch.to_bytes(4, "big") + bytes.fromhex("4E71") * 3,

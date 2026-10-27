@@ -22,7 +22,6 @@ BOATMAN_BROKE = 0x22528        # lea <NO FLOWERS, NO BOAT, GET OUT!>,a0 - its 0x
 TALK_ENDS = 0x22502
 REFUSE_ACTION = 0x25ABE
 SKIP = 0x10E9FC              # a byte (spare RAM: may hold anything at first - cleared as a room starts)
-WAIT_FRAME = 0xE856
 WAIT = 0xE858                # d0 = frames
 LINGER = 60
 

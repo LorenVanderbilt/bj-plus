@@ -6,9 +6,8 @@ DESCRIPTION = "In-game text: typo and wording fixes (from docs/in_game_text.csv)
 # found near a string's address (docs/in_game_text.md); a longer phrase may only take trailing spaces that end
 # its line. Fixes that don't fit are left out (and listed when building) until the text can be moved elsewhere.
 # "?" is character 0x0A (tile 0x50A); many question lines already end with it.
-FIXES = [
+FIXES = [   # (string address, old phrase, new phrase)
     (0x2BE3A, "STARGE SPACE", "STRANGE SPACE"),                 # the map screen's area name
-    # (string address, old phrase, new phrase)
     (0x227A6, "IHDECISION", "INDECISION"), (0x227A6, "HOWHERE", "NOWHERE"),
     (0x229D0, "BEAT EMPEROR DARUMA", "BEAT EMPEROR DARUMA?"),
     (0x22F86, "CUT THAT TREE", "CUT THAT TREE?"),
@@ -446,11 +445,12 @@ def apply(rom):
     rom.write(at + 2, new.to_bytes(2, "big"), expect=old.to_bytes(2, "big"), why="Red's challenge: more time to answer")
     rom.write(FROZEN_WAIT + 2, FROZEN_HOLD.to_bytes(2, "big"), expect=(60).to_bytes(2, "big"),
               why="frozen ending: its line stays before the fade")
-    hold = rom.place_code(
-        "    move.w #%d,%%d0\n"
-        "    jsr 0xE858\n"
-        "    move.b #1,0x7861(%%a6)\n"
-        "    rts\n" % HAPPY_HOLD, why="happy ending: Fa's yes stays before the fade")
+    hold = rom.place_code("""
+    move.w #%d,%%d0
+    jsr 0xE858                          | (wait d0 frames)
+    move.b #1,0x7861(%%a6)
+    rts
+""" % HAPPY_HOLD, why="happy ending: Fa's yes stays before the fade")
     rom.write(HAPPY_DONE, bytes.fromhex("4EB9") + hold.to_bytes(4, "big"), expect=bytes.fromhex("1D7C00017861"),
               why="happy ending: hold the last line")
     at, frames = ROBOT_LINE2_HOLD
@@ -462,9 +462,14 @@ def apply(rom):
         placed[name] = at = relocate(rom, old, lines, placed[nxt] if nxt else None)
         if ref is not None:
             rom.write(ref, at.to_bytes(4, "big"), expect=old.to_bytes(4, "big"), why="text: %s (moved)" % " / ".join(lines))
-    src = "    move.b #63,0x78A8(%a6)\n"
+    src = "    move.b #63,0x78A8(%a6)\n"      # (the chain's usual wait; longer before the texts LONGER_WAITS names)
     for i, (nxt, frames) in enumerate(LONGER_WAITS.items(), 1):
-        src += "    cmp.l #0x%X,0x78A4(%%a6)\n    bne.s %df\n    move.b #%d,0x78A8(%%a6)\n%d:\n" % (nxt if isinstance(nxt, int) else placed[nxt], i, frames, i)
+        src += """
+    cmp.l #0x%(text)X,0x78A4(%%a6)
+    bne.s %(n)df
+    move.b #%(frames)d,0x78A8(%%a6)
+%(n)d:
+""" % {"text": nxt if isinstance(nxt, int) else placed[nxt], "n": i, "frames": frames}
     wait = rom.place_code(src + "    rts\n", why="text chains: longer waits before some texts")
     rom.write(CHAIN_WAIT, bytes.fromhex("4EB9") + wait.to_bytes(4, "big"), expect=bytes.fromhex("1D7C003F78A8"),
               why="text chains: the wait, longer before some texts")
