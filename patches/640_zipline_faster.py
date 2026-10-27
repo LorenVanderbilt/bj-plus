@@ -1,5 +1,5 @@
 NAME = "zipline-faster"
-DESCRIPTION = "The zipline (the only one, in the ice world) carries Blue along its rope faster"
+DESCRIPTION = "Strange Space 3's zipline (the game's only one) carries Blue along its rope faster"
 
 # The zipline's handle (object code 0x50584) follows a fixed path: each frame it keeps its place (+0 / +2 into +0x48),
 # calls the path routine (PATH_CALL: jsr 0x19EEE, with its tables in a0 / a1 - a step a frame, minus when the path is

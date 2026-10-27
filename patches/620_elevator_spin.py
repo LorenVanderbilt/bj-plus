@@ -9,7 +9,7 @@ import math
 # in place for colour cycling: each pixel keeps its brightness (metal 3 levels, the ring 2) and gets a stripe position
 # (3) from where it sits round its row - STRIPES stripes round the shape, so they bunch at the edges - as colour
 # 1 + 3 * level + stripe (metal) or 10 + 3 * level + stripe (ring). Each frame of play (after the front objects are
-# drawn: DRAW_CALL, after `wall-pocket`'s turn there) the first object showing the cone sets the palette: while it
+# drawn: DRAW_CALL) the first object showing the cone sets the palette: while it
 # moves the stripes step every FRAME_TIME frames - forward going up, back going down; standing still they hold.
 # Moving is measured, not read from its fields (the cone's three objects keep them differently; the one rising to the
 # top keeps its speed after it parks): its height in the level, its y (+0, 8.8, up from the screen's bottom) plus the
@@ -27,7 +27,7 @@ STRIPES = 15
 CONTRAST = 0.30
 TONES = [1 + CONTRAST * 0.4, 1 - CONTRAST * 0.3, 1 - CONTRAST]
 FRAME_TIME = 6
-DRAW_CALL = 0x11804            # jsr (the gameplay loop's front objects, then `wall-pocket`)
+DRAW_CALL = 0x11804            # jsr (the gameplay loop's front objects)
 OBJECTS, OBJECT_SIZE, LAST_OBJECT = 0x104000, 0x80, 0x107F80
 ACTIVE, FRAME = 0x28, 8
 CAMERA_Y = 0x10020A

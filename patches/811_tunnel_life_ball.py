@@ -6,7 +6,7 @@ NAME = "tunnel-life-ball"
 DESCRIPTION = "Lower Earth Empire 2's hidden tunnel: its reward, the white lily (+10 flowers), is a life ball (+1 heart)"
 
 # The placed white lily's start (LILY_START, in the game's object kind tables LILY_KINDS) is ours: in LILY_STAGE, at
-# the tunnel's end (LILY_AT, level coordinates from the level's own camera 0x10021A / 0x10020E, as wall-pocket), it
+# the tunnel's end (LILY_AT, level coordinates from the level's own camera 0x10021A / 0x10020E, as wall-moss), it
 # starts as a life ball (pickup type LIFE_BALL); elsewhere as before. The game's only life ball is the lottery's prize
 # (frame LOTTERY_BALL: 32 across, in a 64 x 48 frame Blue can't pick up - he's stopped by it), so the build makes a
 # 16 x 16 one (BALL_ART - first shrunk from the lottery's ~35 px, then the user's to draw; one new tile, a new frame

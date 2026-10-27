@@ -27,7 +27,7 @@ import os
 # as a hit.
 STAGE = 40
 STAGE_AT = 0x103005
-DRAW_CALL = 0x11804            # jsr (the gameplay loop's front objects, then wall-pocket, elevator-spin)
+DRAW_CALL = 0x11804            # jsr (the gameplay loop's front objects, then elevator-spin)
 BOSS_SETUP = 0x36158           # jsr boss-hits' final-boss routine (a5: the boss)
 CLEAR_LAYER = 0xA36E           # move.w 0x24A(a6),d0 ; bra 0xA37E - one of the routines that clear a sprite layer as a
 CLEAR_LAYER_REST = 0xA37E      # scene is set up (the ending's set-up calls it after the fight: DRAW_CALL doesn't come

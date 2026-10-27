@@ -6,10 +6,10 @@ DESCRIPTION = "Lower Earth Empire 2: the moss on the brick wall by the water a r
 # tiles 0x740-0x74F. Now that tuft is a row lower, at (78-79, 39), with a second one beside it at (80-81, 39), and
 # plain bricks where it was. They're drawn over the wall by sprites of their own (CHAINS: free there, between the
 # wall layer, 109-131, and the next, 150-170; the objects - the hero - are drawn after them), placed each gameplay
-# frame from the camera (level x = screen x + 0x10021A, level y = screen y - 0x10020E - 384, as wall-pocket) while
-# on screen, else hidden; leaving the stage hides them once (SHOWN). Hooked on the gameplay loop's front object
-# group call (0x11804, wall-pocket's).
-FRONT_CALL = 0x11804         # jsr (wall-pocket's clamp when it's on, else 0xA3A6)
+# frame from the camera (level x = screen x + 0x10021A, level y = screen y - 0x10020E - 384: the level's own
+# camera, CAM_X / CAM_Y) while on screen, else hidden; leaving the stage hides them once (SHOWN). Hooked on the
+# gameplay loop's front object group call (0x11804).
+FRONT_CALL = 0x11804         # jsr 0xA3A6 - the front object group
 STAGE = 4
 ATTR = 0xBA70                # the wall's tile attributes (palette 0xBA)
 CHAINS = [   # (first sprite, level cell x, top cell y, each column's tiles top to bottom)
@@ -17,7 +17,8 @@ CHAINS = [   # (first sprite, level cell x, top cell y, each column's tiles top 
     (142, 80, 39, [[0x754], [0x755]]),                 # the second tuft
 ]
 SHOWN = 0x10E828             # (byte)
-CAM_X, CAM_Y = 0x10021A, 0x10020E   # (the level's own camera - see wall-pocket: 0x100216 / 0x10020A move after a respawn)
+CAM_X, CAM_Y = 0x10021A, 0x10020E   # (the level's own camera: 0x100216 / 0x10020A, the same until a respawn,
+                                    # can move their origin - 1024 px over and up after dying by the wall)
 
 
 def chain_code(i, first, cx, cy, columns):

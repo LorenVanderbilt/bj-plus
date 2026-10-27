@@ -16,22 +16,22 @@ PUFF_X = 18               # px in from the house's x (the original right-hand pu
 def apply(rom):
     checks = "".join("    cmp.w #%d,%%d0\n    beq 1f\n" % p for p in PUFFS)
     for at, end in SITES:
-        code = rom.place_code(
-            "    and.w #63,%%d0\n"
-            "%s"
-            "    bra 9f\n"
-            "1:  jsr 0x%X\n"
-            "    bne 9f\n"
-            "    move.l #0x%X,4(%%a1)\n"
-            "    move.l (%%a5),(%%a1)\n"
-            "    addi.w #0x%X,(%%a1)\n"
-            "    addi.w #0x%X,2(%%a1)\n"
-            "    move.w #0,12(%%a1)\n"
-            "    move.w #32,14(%%a1)\n"
-            "    move.w #4,16(%%a1)\n"
-            "    move.w #0,18(%%a1)\n"
-            "    move.b #0x90,40(%%a1)\n"
-            "9:  jmp 0x%X\n" % (checks, NEW_OBJECT, SMOKE, PUFF_UP << 7, PUFF_X << 7, end),
+        code = rom.place_code("""
+    and.w #63,%%d0
+%(checks)s    bra 9f
+1:  jsr 0x%(new_object)X                | a puff: a new object (ne: none free)
+    bne 9f
+    move.l #0x%(smoke)X,4(%%a1)
+    move.l (%%a5),(%%a1)                | at the house's place, PUFF_UP up and PUFF_X in
+    addi.w #0x%(up)X,(%%a1)
+    addi.w #0x%(x)X,2(%%a1)
+    move.w #0,12(%%a1)
+    move.w #32,14(%%a1)                 | (drifting right)
+    move.w #4,16(%%a1)
+    move.w #0,18(%%a1)
+    move.b #0x90,40(%%a1)
+9:  jmp 0x%(end)X
+""" % {"checks": checks, "new_object": NEW_OBJECT, "smoke": SMOKE, "up": PUFF_UP << 7, "x": PUFF_X << 7, "end": end},
             why="house chimney: puffs to the right, one after another")
         rom.write(at, bytes.fromhex("4EF9") + code.to_bytes(4, "big"), expect=bytes.fromhex("0240003F6600"),
                   why="house chimney: the smoke's spawning")
