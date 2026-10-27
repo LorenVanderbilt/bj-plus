@@ -60,26 +60,26 @@ def s_outlines(rom, text, col, row, palette):
 
 
 def apply(rom):
-    half = rom.place_code(
-        "    movem.l %%d0/%%a0,-(%%sp)\n"
-        "    addi.w #0x7002,%%d0\n"
-        "    lea 0x%X,%%a0\n"
-        "    jsr 0x%X\n"
-        "    movem.l (%%sp)+,%%d0/%%a0\n"
-        "    addi.w #32,%%d0\n"            # one column on, not two
-        "    jmp 0x%X\n" % (APOSTROPHE_GLYPH, DRAW_2X2, PRINTER),
-        why="big-font apostrophe takes half a cell")
+    half = rom.place_code("""
+    movem.l %%d0/%%a0,-(%%sp)
+    addi.w #0x7002,%%d0
+    lea 0x%(glyph)X,%%a0
+    jsr 0x%(draw)X
+    movem.l (%%sp)+,%%d0/%%a0
+    addi.w #32,%%d0                     | one column on, not two
+    jmp 0x%(printer)X
+""" % {"glyph": APOSTROPHE_GLYPH, "draw": DRAW_2X2, "printer": PRINTER}, why="big-font apostrophe takes half a cell")
     rom.write(APOSTROPHE, bytes.fromhex("4EF9") + half.to_bytes(4, "big"), expect=bytes.fromhex("48E780800640"),
               why="big-font printer: apostrophe goes through the half-cell version")
-    setup = rom.place_code(
-        "    lea text(%%pc),%%a0\n"
-        "    move.w #%d,%%d0\n"
-        "    rts\n"
-        "text:\n"
-        "    .ascii \"%s\"\n"
-        "    .byte 0xFF\n"
-        "    .even\n" % (COLUMN * 32 + ROW, TEXT),
-        why="high score title text and position")
+    setup = rom.place_code("""
+    lea text(%%pc),%%a0
+    move.w #%(at)d,%%d0
+    rts
+text:
+    .ascii "%(text)s"
+    .byte 0xFF
+    .even
+""" % {"at": COLUMN * 32 + ROW, "text": TEXT}, why="high score title text and position")
     rom.write(TITLE_SETUP, bytes.fromhex("4EB9") + setup.to_bytes(4, "big") + bytes.fromhex("4E71"),
               expect=bytes.fromhex("41FA01D4303C00E4"), why="high score title: new text, centered")
     for call, printer, text, col, row, palette in S_LINES:

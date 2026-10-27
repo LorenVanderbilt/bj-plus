@@ -1,9 +1,13 @@
 # Blue's Journey Plus - in-game text
 
-Every text string found in the program ROM of the current build (English; the Japanese screens
-draw their text from tile tables and aren't listed). `/` marks a line break; "?" is the game's character 0x0A. Current build, with the text-fixes patch. Found by scanning for runs
-of capitals made of real words, so a stray non-text entry may slip in and a very short string may be
-missed; text drawn from tiles (the big title font, the item-screen headers) isn't included.
+A snapshot from 2026-09-29: every text string found in the program ROM then (English; the Japanese
+screens draw their text from tile tables and aren't listed), with only the first round of typo fixes -
+the text review's starting point (its sheet, with the notes: in_game_text.csv). Many lines have been
+rewritten since: what the game shows now is `text-fixes`' work (patches/240_text_fixes.py - FIXES,
+STRINGS, RELOCATED, MOVED; a rewritten line's original stays in the ROM, unused). `/` marks a line
+break; "?" is the game's character 0x0A. Found by scanning for runs of capitals made of real words, so a
+stray non-text entry may slip in and a very short string may be missed; text drawn from tiles (the big
+title font, the item-screen headers) isn't included.
 
 | ROM address | Area | Text |
 |---|---|---|

@@ -25,24 +25,24 @@ STANDING = 0x364
 
 def apply(rom):
     for addr, orig, dy in ENTRIES:
-        cave = rom.place_code(
-            "    moveq #0x4D,%%d0\n"
-            "    jsr 0x152FE\n"                # the pickup sound
-            "    addi.w #0x%X,(%%a5)\n"         # the grow's position nudge
-            "    move.w #0x%X,8(%%a5)\n"       # the powered-up standing pose
-            "    move.w #-1,38(%%a5)\n"         # full size (no zoom)
-            "    moveq #13,%%d0\n"
-            "    jsr 0x152FE\n"                # the 'powered up' sound
-            "    move.w #0x80,98(%%a5)\n"       # big art set
-            "    move.l 26628(%%a6),%%a4\n"     # this player's block
-            "    move.w #512,36(%%a4)\n"        # powerup timer
-            "    clr.w 12(%%a4)\n"
-            "    clr.b 4(%%a4)\n"
-            "    clr.b 100(%%a4)\n"
-            "    clr.b 9(%%a4)\n"
-            "    move.b #2,1(%%a4)\n"           # form 2 = powered up
-            "    moveq #0,%%d0\n"
-            "    jmp 0x43440\n" % (dy, STANDING),   # back to standing
-            why="pinecone: become powered up at once instead of the grow")
+        cave = rom.place_code("""
+    moveq #0x4D,%%d0
+    jsr 0x152FE                         | the pickup sound
+    addi.w #0x%(dy)X,(%%a5)             | the grow's position nudge
+    move.w #0x%(standing)X,8(%%a5)      | the powered-up standing pose
+    move.w #-1,38(%%a5)                 | full size (no zoom)
+    moveq #13,%%d0
+    jsr 0x152FE                         | the 'powered up' sound
+    move.w #0x80,98(%%a5)               | big art set
+    move.l 26628(%%a6),%%a4             | this player's block
+    move.w #512,36(%%a4)                | powerup timer
+    clr.w 12(%%a4)
+    clr.b 4(%%a4)
+    clr.b 100(%%a4)
+    clr.b 9(%%a4)
+    move.b #2,1(%%a4)                   | form 2 = powered up
+    moveq #0,%%d0
+    jmp 0x43440                         | back to standing
+""" % {"dy": dy, "standing": STANDING}, why="pinecone: become powered up at once instead of the grow")
         rom.write(addr, bytes.fromhex("4EF9") + cave.to_bytes(4, "big"), expect=bytes.fromhex(orig),
                   why="pinecone pickup: skip the grow animation")

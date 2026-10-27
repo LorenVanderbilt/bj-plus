@@ -15,14 +15,15 @@ SITES = [(0x3BAA8, "197C00A00009", "0x9(%a4)"), (0x3BB12, "1D7C00A07009", "0x700
 
 def apply(rom):
     for at, old, dest in SITES:
-        code = rom.place_code(
-            "    move.b #%d,%s\n"
-            "    cmpi.b #%d,0x%X\n"
-            "    bcs 1f\n"
-            "    cmpi.b #%d,0x%X\n"
-            "    bhi 1f\n"
-            "    clr.b %s\n"
-            "1:  rts\n" % (SPAWN_BLINK, dest, BOSS_STAGES[0], STAGE, BOSS_STAGES[1], STAGE, dest),
+        code = rom.place_code("""
+    move.b #%(blink)d,%(dest)s
+    cmpi.b #%(first_boss)d,0x%(stage)X  | (a boss room: none)
+    bcs 1f
+    cmpi.b #%(last_boss)d,0x%(stage)X
+    bhi 1f
+    clr.b %(dest)s
+1:  rts
+""" % {"blink": SPAWN_BLINK, "dest": dest, "first_boss": BOSS_STAGES[0], "last_boss": BOSS_STAGES[1], "stage": STAGE},
             why="hero appearing: blinks %d frames, none in a boss room" % SPAWN_BLINK)
         rom.write(at, bytes.fromhex("4EB9") + code.to_bytes(4, "big"), expect=bytes.fromhex(old),
                   why="hero appearing: the blink (none in a boss room)")

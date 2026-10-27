@@ -21,24 +21,25 @@ def apply(rom):
         raise SystemExit("boatman-close: no jsr at 0x%X" % ROOM_WAIT)
     npc_wait = int.from_bytes(old[2:], "big")
     handlers = [int.from_bytes(rom.data[MENU_TABLE + 4 * i:MENU_TABLE + 4 * i + 4], "big") for i in range(3)]
-    wraps = [rom.place_code(
-        "    st 0x%X\n"
-        "    jsr 0x%X\n"
-        "    tst.b 0x%X\n"
-        "    bne.s 1f\n"
-        "    clr.b 0x%X                       | (a line instead: it ends the room)\n"
-        "1:  rts\n" % (PICKED, h, DONE, PICKED), why="boatman: his menu's pick %d, noted" % i)
+    wraps = [rom.place_code("""
+    st 0x%(picked)X
+    jsr 0x%(handler)X
+    tst.b 0x%(done)X
+    bne.s 1f
+    clr.b 0x%(picked)X                  | (a line instead: it ends the room)
+1:  rts
+""" % {"picked": PICKED, "handler": h, "done": DONE}, why="boatman: his menu's pick %d, noted" % i)
         for i, h in enumerate(handlers)]
     table = rom.alloc(12, align=2)
     rom.data[table:table + 12] = b"".join(w.to_bytes(4, "big") for w in wraps)
     rom.write(MENU_TABLE_REF, table.to_bytes(4, "big"), expect=MENU_TABLE.to_bytes(4, "big"),
               why="boatman: his menu's handlers, through the wrappers")
-    at = rom.place_code(
-        "    tst.b 0x%X\n"
-        "    beq.s 1f\n"
-        "    clr.b 0x%X\n"
-        "    jmp 0x%X                         | (a boat, or none, was picked: no line to read)\n"
-        "1:  jmp 0x%X\n" % (PICKED, PICKED, WAIT, npc_wait),
-        why="boatman: no button wait when his menu closed the room")
+    at = rom.place_code("""
+    tst.b 0x%(picked)X
+    beq.s 1f
+    clr.b 0x%(picked)X
+    jmp 0x%(wait)X                      | (a boat, or none, was picked: no line to read)
+1:  jmp 0x%(npc_wait)X
+""" % {"picked": PICKED, "wait": WAIT, "npc_wait": npc_wait}, why="boatman: no button wait when his menu closed the room")
     rom.write(ROOM_WAIT, bytes.fromhex("4EB9") + at.to_bytes(4, "big"), expect=old,
               why="boatman: his room's wait - a button wait only after a line")

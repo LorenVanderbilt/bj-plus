@@ -24,20 +24,21 @@ PIECES = [(0x800, 0x2300)]     # (x from the geyser's (its left edge): over its 
 
 
 def apply(rom):
-    foam = rom.place_code(
-        "    move.l 0x70(%%a5),%%a0           | its geyser still there?\n"
-        "    cmp.l #0x%X,4(%%a0)\n"
-        "    bne.s 9f\n"
-        "    tst.b 0x28(%%a0)\n"
-        "    beq.s 9f\n"
-        "    move.b #0xA0,0x28(%%a5)          | its picture every frame (the lakes' show on odd frames only: a\n"
-        "    move.w 0x%X(%%a6),%%d0           | shimmer - but here they hide the line under them)\n"
-        "    and.w #12,%%d0\n"
-        "    add.w 0x74(%%a5),%%d0\n"
-        "    move.w %%d0,8(%%a5)\n"
-        "    jmp 0x%X\n"
-        "9:  clr.b 0x28(%%a5)\n"
-        "    rts\n" % (GEYSER_CODE, FRAME_COUNT, OFF_SCREEN),
+    foam = rom.place_code("""
+    move.l 0x70(%%a5),%%a0              | its geyser still there?
+    cmp.l #0x%(geyser)X,4(%%a0)
+    bne.s 9f
+    tst.b 0x28(%%a0)
+    beq.s 9f
+    move.b #0xA0,0x28(%%a5)             | its picture every frame (the lakes' show on odd frames only: a
+    move.w 0x%(frame)X(%%a6),%%d0       | shimmer - but here they hide the line under them)
+    and.w #12,%%d0
+    add.w 0x74(%%a5),%%d0
+    move.w %%d0,8(%%a5)
+    jmp 0x%(off_screen)X
+9:  clr.b 0x28(%%a5)
+    rts
+""" % {"geyser": GEYSER_CODE, "frame": FRAME_COUNT, "off_screen": OFF_SCREEN},
         why="geyser foam: the lakes' bubbles at a geyser's foot")
     rom.geyser_foam_code = foam
     pieces = ""
@@ -56,22 +57,21 @@ def apply(rom):
             "    move.w #-1,0x2C(%%a1)\n"
             "    move.l %%a5,0x70(%%a1)\n"
             "    move.w #0x%X,0x74(%%a1)\n" % (ALLOC_BEHIND, foam, FOAM_DY, dx, picture))
-    spawn = rom.place_code(
-        "    move.b #1,41(%%a5)\n"
-        "    movem.l %%d0-%%d7/%%a0-%%a6,-(%%sp)\n"
-        "    lea 0x104000,%%a0                | (its old bubbles, if any: cleared)\n"
-        "2:  cmp.l #0x%X,4(%%a0)\n"
-        "    bne.s 3f\n"
-        "    cmp.l 0x70(%%a0),%%a5\n"
-        "    bne.s 3f\n"
-        "    clr.b 0x28(%%a0)\n"
-        "    clr.l 0x70(%%a0)\n"
-        "3:  lea 0x80(%%a0),%%a0\n"
-        "    cmp.l #0x107000,%%a0\n"
-        "    bcs.s 2b\n"
-        "%s"
-        "1:  movem.l (%%sp)+,%%d0-%%d7/%%a0-%%a6\n"
-        "    rts\n" % (foam, pieces),
-        why="geyser foam: bubbles spawned when a geyser starts")
+    spawn = rom.place_code("""
+    move.b #1,41(%%a5)
+    movem.l %%d0-%%d7/%%a0-%%a6,-(%%sp)
+    lea 0x104000,%%a0                   | (its old bubbles, if any: cleared)
+2:  cmp.l #0x%(foam)X,4(%%a0)
+    bne.s 3f
+    cmp.l 0x70(%%a0),%%a5
+    bne.s 3f
+    clr.b 0x28(%%a0)
+    clr.l 0x70(%%a0)
+3:  lea 0x80(%%a0),%%a0
+    cmp.l #0x107000,%%a0
+    bcs.s 2b
+%(pieces)s1:  movem.l (%%sp)+,%%d0-%%d7/%%a0-%%a6
+    rts
+""" % {"foam": foam, "pieces": pieces}, why="geyser foam: bubbles spawned when a geyser starts")
     rom.write(GEYSER_FIRST_RUN, bytes.fromhex("4EB9") + spawn.to_bytes(4, "big"), expect=bytes.fromhex("1B7C00010029"),
               why="geyser: spawn its bubbles on its first run")

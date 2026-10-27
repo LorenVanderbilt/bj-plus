@@ -13,11 +13,11 @@ P2_INVINCIBLE = 0x107409
 
 
 def apply(rom):
-    wrapper = rom.place_code(
-        "    jsr 0x%X\n"
-        "    clr.b 0x%X\n"
-        "    rts\n" % (CREATE_P2, P2_INVINCIBLE),
-        why="how-to-play hero: create as usual, then no invincibility blink")
+    wrapper = rom.place_code("""
+    jsr 0x%(create)X
+    clr.b 0x%(blink)X
+    rts
+""" % {"create": CREATE_P2, "blink": P2_INVINCIBLE}, why="how-to-play hero: create as usual, then no invincibility blink")
     rom.write(CINEMA_CREATE, bytes.fromhex("4EB9") + wrapper.to_bytes(4, "big"),
               expect=bytes.fromhex("4EB9") + CREATE_P2.to_bytes(4, "big"),
               why="how-to-play cinema: set up the hero without the blink")

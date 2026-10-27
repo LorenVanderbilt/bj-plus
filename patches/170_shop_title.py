@@ -52,13 +52,12 @@ def apply(rom):
             else:
                 word = BLANK
             writes += "    move.w #0x%04X,0x3C0000\n    move.w #0x%04X,0x3C0002\n" % (addr, word)
-    code = rom.place_code(
-        "    move.w %%sr,-(%%sp)\n"
-        "    or.w #0x0700,%%sr\n"
-        "%s"
-        "    move.w (%%sp)+,%%sr\n"
-        "    rts\n" % writes,
-        why="shop title SHOP on the top plate")
+    code = rom.place_code("""
+    move.w %%sr,-(%%sp)
+    or.w #0x0700,%%sr                   | (no interrupt between the VRAM address and its writes)
+%(writes)s    move.w (%%sp)+,%%sr
+    rts
+""" % {"writes": writes}, why="shop title SHOP on the top plate")
     if bytes(rom.data[SITE:SITE + 8]) != bytes.fromhex("303C71C24E714E71"):
         raise SystemExit("shop-title needs no-shop-timer (the countdown digit call at 0x1F7F4 must be gone)")
     rom.write(SITE, bytes.fromhex("4EB9") + code.to_bytes(4, "big") + bytes.fromhex("4E71"),

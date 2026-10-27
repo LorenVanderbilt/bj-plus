@@ -18,14 +18,15 @@ def apply(rom):
     original_vblank = rom.u32(0x64)
     # The game keeps its own copy of the register at 0x1002C2 and sets bit 3 in it (auto-animation
     # off) while paused, so keep everything except the speed byte from that copy.
-    hook = rom.place_code(
-        "    move.l %%d0,-(%%sp)\n"
-        "    move.w 0x1002C2,%%d0\n"
-        "    and.w #0x00FF,%%d0\n"
-        "    or.w #0x%04X,%%d0\n"
-        "    move.w %%d0,0x3C0006\n"
-        "    move.l (%%sp)+,%%d0\n"
-        "    jmp 0x%X\n" % ((FRAMES_PER_STEP - 1) << 8, original_vblank),
+    hook = rom.place_code("""
+    move.l %%d0,-(%%sp)
+    move.w 0x1002C2,%%d0                | (the game's copy of the LSPC mode: its other bits kept)
+    and.w #0x00FF,%%d0
+    or.w #0x%(timer)04X,%%d0            | the animation clock: FRAMES_PER_STEP
+    move.w %%d0,0x3C0006
+    move.l (%%sp)+,%%d0
+    jmp 0x%(vblank)X
+""" % {"timer": (FRAMES_PER_STEP - 1) << 8, "vblank": original_vblank},
         why="sets the animation clock every frame (keeping the game's other mode bits), then continues to the original VBlank handler")
     rom.write(0x64, hook.to_bytes(4, "big"), expect=original_vblank.to_bytes(4, "big"),
               why="VBlank vector now goes through the hook")

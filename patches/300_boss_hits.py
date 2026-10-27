@@ -26,18 +26,18 @@ def apply(rom):
     for at, n, row, who in HITS:
         if row[3] != n:
             raise SystemExit("boss-hits: %s - LEVEL 4 should keep the original %d" % (who, n))
-        code = rom.place_code(
-            "    move.l %%a0,-(%%sp)\n"
-            "    move.w %%d0,-(%%sp)\n"
-            "    moveq #0,%%d0\n"
-            "    move.b 0x%X,%%d0\n"
-            "    and.w #7,%%d0\n"
-            "    lea 1f(%%pc),%%a0\n"
-            "    move.b (%%a0,%%d0.w),0x4013(%%a5)\n"
-            "    move.w (%%sp)+,%%d0\n"
-            "    move.l (%%sp)+,%%a0\n"
-            "    rts\n"
-            "1:  .byte %s\n" % (DIFFICULTY, ",".join(str(h) for h in row)),
-            why="boss hits by difficulty: %s" % who)
+        code = rom.place_code("""
+    move.l %%a0,-(%%sp)
+    move.w %%d0,-(%%sp)
+    moveq #0,%%d0
+    move.b 0x%(difficulty)X,%%d0        | the hits for this difficulty
+    and.w #7,%%d0
+    lea 1f(%%pc),%%a0
+    move.b (%%a0,%%d0.w),0x4013(%%a5)
+    move.w (%%sp)+,%%d0
+    move.l (%%sp)+,%%a0
+    rts
+1:  .byte %(hits)s
+""" % {"difficulty": DIFFICULTY, "hits": ",".join(str(h) for h in row)}, why="boss hits by difficulty: %s" % who)
         rom.write(at, bytes.fromhex("4EB9") + code.to_bytes(4, "big"),
                   expect=bytes.fromhex("1B7C%04X4013" % n), why="%s: hits by difficulty" % who)

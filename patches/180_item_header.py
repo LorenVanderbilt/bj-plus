@@ -58,13 +58,12 @@ def apply(rom):
                 if any(any(r) for r in pixels) else BLANK
             writes += "    move.w #0x%04X,0x3C0000\n    move.w #0x%04X,0x3C0002\n" % (
                 0x7000 + (FIRST_COLUMN + col) * 32 + ROW + row, word)
-    code = rom.place_code(
-        "    move.w %%sr,-(%%sp)\n"
-        "    or.w #0x0700,%%sr\n"
-        "%s"
-        "    move.w (%%sp)+,%%sr\n"
-        "    rts\n" % writes,
-        why="BLUE'S ITEM header with a snug apostrophe")
+    code = rom.place_code("""
+    move.w %%sr,-(%%sp)
+    or.w #0x0700,%%sr                   | (no interrupt between the VRAM address and its writes)
+%(writes)s    move.w (%%sp)+,%%sr
+    rts
+""" % {"writes": writes}, why="BLUE'S ITEM header with a snug apostrophe")
     for site, orig in SITES:
         rom.write(site, bytes.fromhex("4EB9") + code.to_bytes(4, "big") + bytes.fromhex("4E71") * 4,
                   expect=bytes.fromhex(orig), why="item screen: draw the re-spaced header")
