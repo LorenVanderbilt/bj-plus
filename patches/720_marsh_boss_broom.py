@@ -5,7 +5,8 @@ DESCRIPTION = "Empire Marsh boss's death: the broom cracks, breaks in a puff, an
 # 0x1740: 8 frames each) and splits: the handle (a new object: 8 turning frames) and the bristles (the broom, as
 # BRISTLES). But its step's countdown looped back inside the same frame (CRACK_LOOP: bne to its own start) - the crack
 # frames passed in one frame, unseen; now it waits a frame at a time (bne to the rts).
-# As it cracks (PUFF_AT: its step - STEP_CHECK - or the split, SPLIT: the broom becomes BRISTLES) a puff of dust comes up
+# As it cracks (PUFF_AT: its step - STEP_CHECK - or the split, SPLIT: the broom becomes BRISTLES) a puff of dust
+# comes up
 # where it breaks: an object of its own
 # billowing through the final boss's dust frames (DUST, PUFF_STEP frames each - PUFF_LIFE in all), drifting up
 # (PUFF_RISE), then gone; its colours DUST_COLOURS (the final hall's 0x4F) made a warm grey (GREY) and written into

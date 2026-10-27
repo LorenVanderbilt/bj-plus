@@ -14,8 +14,10 @@ DESCRIPTION = "Final boss: Blue's answer bubbles appear with their text (YES / N
 # (ANSWER's code, wrapped through the templates' code fields ANSWER_TEMPLATES).
 # While the YES / NO bubble is up (from its creation), Blue ignores the stick - pressing Down to NO made him duck: its
 # code sets ANSWERING each frame (not the opening answer's: Blue is walked into the hall then, by the game moving his
-# stick, and the question comes up before he's there), and his direction check (DIRECTIONS: the stick's direction, 0x103908, to
-# an action; Down ducks) acts as if the stick were still while it's set (counted down there, so it ends with the bubble).
+# stick, and the question comes up before he's there), and his direction check (DIRECTIONS: the stick's direction,
+# 0x103908, to
+# an action; Down ducks) acts as if the stick were still while it's set (counted down there, so it ends with the
+# bubble).
 # (Tried and dropped: the scream played again a few frames later as an echo; the puffs' frames there and back -
 # smoother spacing, but the billow rocked.)
 SCREAM_AT = 0x36712            # (the move.w's operand)
