@@ -12,7 +12,8 @@ DESCRIPTION = "Acorn bomb: levels 2 / 3 thrown further; level 3 keeps level 2's 
 #     (POOL, as enemies' shots use) - only one there per player (an acorn of theirs already in the pool: no);
 #   * level 3: the thrower's throw (THROWING's states, both weapons') no longer holds up the second - a new press of
 #     A during it, with the acorn in hand and a second allowed, throws again at once (the acorn's attack); the same
-#     for level 3's boomerang (the boomerang patch puts its second in the pool: BOOMERANG_ATTACKS, its level / code).
+#     for the boomerang (its attack: BOOMERANG_ATTACKS) when `second_boomerang` allows it - a stand-in here (never),
+#     which boomerang-feel fills in with its own rule (the code's fifth entry).
 SPEEDS = (0x47BAC, 0x47BBC, 0x47BCC)
 RANGE = 1.15
 LOOK_SITE = 0x47A8E          # move.w #200,d0 ; add.b 0x2C(a4),d0
@@ -31,7 +32,6 @@ POOL = (0x4480, 0x5B00)      # (first slot, last)
 ACORN_CODE = (0x47946, 0x47BAC)   # its routines: an object running one of them (+4) is an acorn
 OWNER = 0x7E
 BOOMERANG_ATTACKS = (0x3DA96, 0x3DB3C)   # its attack: on the ground, in the air
-BOOMERANG_LEVEL, BOOMERANG_CODE = 0x2B, (0x4770A, 0x47946)
 BUTTONS = (0x10FD96, 0x10FD9C)    # BIOS: each player's buttons now (bit 4: A)
 FRAME = 0x100207             # the game's frame counter (a byte)
 SEEN = 0x10E9F8              # per player: the frame the throw was last seen, A down then (bytes; spare RAM) - a press
@@ -84,16 +84,20 @@ def apply(rom):
         data = bytes(rom.data[at + 6 + 4: at + 6 + 4 + 26])
         blocks.append(", ".join("0x%02X" % b for b in data))
     first, last = POOL
-    seconds = ""
-    for name, level, (lo, hi) in (("second", LEVEL, ACORN_CODE), ("second_boomerang", BOOMERANG_LEVEL, BOOMERANG_CODE)):
-        seconds += (SECOND.replace("second:", name + ":") % {
-            "owner": OWNER, "own1": OWN_SLOT[0], "own2": OWN_SLOT[1], "block1": BLOCK[0], "block2": BLOCK[1],
-            "level": level, "first": first, "last": last, "code_lo": lo, "code_hi": hi})
+    seconds = SECOND % {"owner": OWNER, "own1": OWN_SLOT[0], "own2": OWN_SLOT[1], "block1": BLOCK[0],
+                        "block2": BLOCK[1], "level": LEVEL, "first": first, "last": last, "code_lo": ACORN_CODE[0],
+                        "code_hi": ACORN_CODE[1]}
     code = rom.place_code(r"""
     bra.w spawn
     bra.w look
     bra.w throwing_ground
     bra.w throwing_air
+    bra.w second_boomerang
+
+| Z set if player d0 may throw another boomerang now: never, unless boomerang-feel puts its rule here (a jmp)
+second_boomerang:
+    andi.b #0xFB,%%ccr
+    rts
 
 | the throw: the player's own slot; level 3 with it taken - a pool slot (one there per player)
 spawn:

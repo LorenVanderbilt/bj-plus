@@ -13,12 +13,7 @@ STAGE = 0x103005
 
 
 def apply(rom):
-    import importlib.util
-    import os
-    spec = importlib.util.spec_from_file_location("anim_speed", os.path.join(os.path.dirname(__file__),
-                                                                             "010_anim_speed.py"))
-    anim_speed = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(anim_speed)
+    anim_speed = rom.other_patch("anim-speed")
     normal = (anim_speed.FRAMES_PER_STEP - 1) << 8
     clock_write = bytes.fromhex("0040%04X33C0003C0006" % normal)
     at = bytes(rom.data).find(bytes.fromhex("3039001002C2024000FF") + clock_write)

@@ -121,6 +121,14 @@ class Rom:
     def start_patch(self, name):
         self.patch, self.block = name, 0
 
+    def other_patch(self, name):
+        """Another patch's module, by its NAME, for its settings and helpers - a fresh copy (changing it changes
+        nothing else)."""
+        spec = importlib.util.spec_from_file_location(name, self.patch_files[name])
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
     def use_pins(self, pins):
         """Place blocks at their pinned addresses (see alloc); blocks that don't fit go after the last pinned one."""
         self.pins = pins
@@ -600,6 +608,7 @@ def main():
     s1 = next(d for i, d in entries if i.filename == S1_NAME)
     m1 = next(d for i, d in entries if i.filename == M1_NAME)
     rom = Rom(swap_pairs(p1), s1, {i.filename: d for i, d in entries if i.filename in C_NAMES}, m1)
+    rom.patch_files = {n: m.__file__ for n, m in patches.items()}
 
     if not args.original and os.path.exists(PINS_FILE):
         import json

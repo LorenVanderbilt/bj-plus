@@ -5,22 +5,13 @@ DESCRIPTION = "The cabbage: its 10000 points pop-up in invincible-points' style,
 # invincible-points' pop-up: "+10000" in the small gold font, from above the head of the hero who got it (lower over a
 # shrunk one), rising, slowing, thinned out, gone. 4 tiles - after dev-tiles, which made the room. fruit-popup's hook
 # at the pop-up set-up's end (SET_UP_END) now calls ours first.
-import importlib.util
-import os
-
 SET_UP_END = 0x5E1C6           # jsr <fruit-popup's>
 CABBAGE_FRAME, TEXT = 0x3200, "+10000"
 
 
-def load(name):
-    spec = importlib.util.spec_from_file_location(name, os.path.join(os.path.dirname(__file__), name + ".py"))
-    m = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(m)
-    return m
-
-
 def apply(rom):
-    inv, one, fruit = load("740_invincible_points"), load("850_one_up_popup"), load("870_fruit_popup")
+    inv, one, fruit = (rom.other_patch("invincible-points"), rom.other_patch("one-up-popup"),
+                       rom.other_patch("fruit-popup"))
     inv.GLYPHS.update(one.GLYPHS)
     popup = rom.u32(one.POINTS_SITE + 2) - 4
     assert rom.u16(SET_UP_END) == 0x4EB9

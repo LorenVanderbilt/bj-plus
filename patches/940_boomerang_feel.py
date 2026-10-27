@@ -3,15 +3,15 @@ DESCRIPTION = "Boomerang: each level's reach, speed and size retuned; level 2 th
 
 # The boomerang (player block +0x2B: level 1-3) flies one turn of a loop round a point LOOP[level] ahead (radius that
 # + 0x800; 0x4793E), its angle stepping 0x0A00 a frame - a 26-frame trip - and is drawn as animation 197 + level.
-# `boomerang` (470) let level 3 have a second out (a pool slot: POOL) and drew levels 2 / 3 at 88%; `acorn-bomb`
-# (480) let that second be thrown at once - a new press of A during the throw (its check: SECOND_BOOMERANG).
+# `acorn-bomb` (480) lets a second one be thrown at once - a new press of A during the throw - when its
+# `second_boomerang` says so (its code's fifth entry, SECOND_ENTRY: a stand-in that says no, until filled in here).
 # The user's tuning (tools/probes/boomerang_tune.lua, 2026-10-25), by level - reach (px ahead of Blue), trip (frames,
 # out and back), size, how many out at once:
 #   1: 60 px, 35 frames, 90%, one;  2: 65 px, 40 frames, 75%, two;  3: as 2, three - every third throw bigger (BIG:
 #   full size).
-# So: the throw (SPAWN - 470's hook there replaced) takes the player's own slot, or with it taken a pool slot while
+# So: the throw (SPAWN) takes the player's own slot, or with it taken a pool slot (POOL, as enemies' shots use) while
 # fewer than EXTRA[level] of theirs are in the pool; 480's check answers the same; each boomerang as it starts
-# (LOOK_SITES - 470's calls replaced) gets its level's drawing, size and angle step (its direction kept). The
+# (LOOK_SITES) gets its level's drawing, size and angle step (its direction kept). The
 # reach is the loop table: reach = LOOP / 128 + (LOOP + 0x800) / 256 px. And it always comes back to Blue: over the
 # trip's second half (PLACE_CALLS - after its place on the loop is set) its place is drawn from the loop's toward the
 # thrower's - all the loop's at halfway, all the thrower's at the end (where it's gone) - so a throw from a jump comes
@@ -27,12 +27,12 @@ PLACE_CALLS = (0x478DC, 0x47926)  # jsr 0x4D446 - each frame: its place on the l
 PLACE = 0x4D446
 TRIP_DONE = 0x78                   # (+0x78: the angle steps so far - a whole turn ends it)
 HEROES = 0x4000                    # each player's hero object (+ 0x80 a player; offsets from 0x100000)
-LOOK_SITES = (0x478AA, 0x478F4)    # (470's) jsr <look> ; nop - d0 = the animation; a5 the boomerang, a4 the player
-SPAWN = 0x475BC                    # (470's) jmp <spawn>
+LOOK_SITES = (0x478AA, 0x478F4)    # move.w #197,d0 ; add.b 0x2B(a4),d0 - the animation; a5 the boomerang, a4 the player
+SPAWN = 0x475BC                    # move.b 0x7E(a5),d0 ; bne.s 0x47610 (player 2's)
 SPAWN_P1, SPAWN_P2 = 0x475C2, 0x47610
 SPAWN_FAIL = 0x47590
-SECOND_BOOMERANG = bytes.fromhex("48E7C0C0")   # 480's second_boomerang: found as the movem before CHECK_MARK
-CHECK_MARK = bytes.fromhex("0C290003002B")      # (its cmpi.b #3,0x2B(a1))
+ACORN_SPAWN = 0x47662              # (acorn-bomb's jmp <its code> - its fifth entry, +16: second_boomerang)
+SECOND_ENTRY = 16
 OWN_SLOT = (0x4100, 0x4180)
 BLOCK = (0x7000, 0x7400)
 LEVEL = 0x2B
@@ -225,18 +225,17 @@ sizes:
        "sizes": ",".join(str(zoom.get(lv, 255)) for lv in range(4)),
        "big_anim": BIG[0], "big_zoom": BIG[1], "throws": THROWS, "place_fn": PLACE, "done": TRIP_DONE, "heroes": HEROES},
         why="boomerang: each level's speed and size, two / three out at once")
-    assert rom.u16(SPAWN) == 0x4EF9
-    rom.write(SPAWN + 2, code.to_bytes(4, "big"), expect=rom.data[SPAWN + 2:SPAWN + 6],
+    rom.write(SPAWN, bytes.fromhex("4EF9") + code.to_bytes(4, "big"), expect=bytes.fromhex("102D007E664E"),
               why="boomerang: the throw - two out at level 2, three at level 3")
     for at in LOOK_SITES:
-        assert rom.u16(at) == 0x4EB9
-        rom.write(at + 2, (code + 4).to_bytes(4, "big"), expect=rom.data[at + 2:at + 6],
-                  why="boomerang: each level's speed, drawing and size")
+        rom.write(at, bytes.fromhex("4EB9") + (code + 4).to_bytes(4, "big") + bytes.fromhex("4E71"),
+                  expect=bytes.fromhex("303C00C5D02C002B"), why="boomerang: each level's speed, drawing and size")
     for at in PLACE_CALLS:
         rom.write(at + 2, (code + 12).to_bytes(4, "big"), expect=PLACE.to_bytes(4, "big"),
                   why="boomerang: back to the thrower over the trip's second half")
-    mark = bytes(rom.data).find(CHECK_MARK)
-    at = bytes(rom.data).rfind(SECOND_BOOMERANG, mark - 64, mark)
-    assert mark > 0 and at > 0, "boomerang-feel: acorn-bomb's boomerang check not found"
-    rom.write(at, bytes.fromhex("4EF9") + (code + 8).to_bytes(4, "big"), expect=rom.data[at:at + 6],
+    assert rom.u16(ACORN_SPAWN) == 0x4EF9, "boomerang-feel: needs acorn-bomb"
+    entry = rom.u32(ACORN_SPAWN + 2) + SECOND_ENTRY
+    assert rom.u16(entry) == 0x6000, "boomerang-feel: acorn-bomb's second_boomerang entry not found"
+    at = entry + 2 + rom.u16(entry + 2)
+    rom.write(at, bytes.fromhex("4EF9") + (code + 8).to_bytes(4, "big"), expect=bytes.fromhex("023C00FB4E75"),
               why="acorn-bomb's quick second throw: the boomerang's count by level")

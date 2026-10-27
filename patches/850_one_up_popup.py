@@ -7,9 +7,6 @@ DESCRIPTION = "1UP (the gold cocoon): its pop-up in invincible-points' style - t
 # gold font (palette 6, black outline), above the head of the hero who got it (UP / RIGHT), rising and slowing, thinned out at the
 # end, gone. Its frames: the text and its fade (two tiles each). Hooked at the pop-up set-up's last instruction
 # (SET_UP_END). The fruit's points next.
-import importlib.util
-import os
-
 SET_UP_END = 0x5E1C6           # move.w #64,0x78(a1) ; rts - the pop-up set up (a1)
 ONE_UP_FRAME = 0x2FD0
 POINTS_SITE = 0x42C9E          # invincible-points' first hook: jsr <its code + 4>
@@ -25,10 +22,7 @@ GLYPHS = {
 
 
 def apply(rom):
-    spec = importlib.util.spec_from_file_location("inv", os.path.join(os.path.dirname(__file__),
-                                                                       "740_invincible_points.py"))
-    inv = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(inv)
+    inv = rom.other_patch("invincible-points")
     inv.GLYPHS.update(GLYPHS)
     popup = rom.u32(POINTS_SITE + 2) - 4
     assert rom.u16(popup) == 0x6000, "invincible-points' code moved"

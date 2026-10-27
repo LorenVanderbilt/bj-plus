@@ -6,24 +6,14 @@ DESCRIPTION = "Fruit: its points pop-up (+100 / +150) in invincible-points' styl
 # hero who got it, rising, slowing, thinned out, gone. 8 tiles (creature-tiles freed the room). one-up-popup's hook
 # at the pop-up set-up's end (SET_UP_END) now calls ours first. Over a shrunk hero (form 0) these and the 1UP start
 # SHRUNK_DROP px lower.
-import importlib.util
-import os
-
 SET_UP_END = 0x5E1C6           # jsr <one-up-popup's> (was move.w #64,0x78(a1))
 FRUIT_FRAMES = {0x31C8: "+100", 0x31E4: "+150"}
 BLOCKS = (0x107000, 0x107400)  # players 1 / 2's blocks (+1: the form - 0 shrunk)
 SHRUNK_DROP = 26               # px lower over a shrunk hero (one-up-popup's UP is for the big one)
 
 
-def load(name):
-    spec = importlib.util.spec_from_file_location(name, os.path.join(os.path.dirname(__file__), name + ".py"))
-    m = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(m)
-    return m
-
-
 def apply(rom):
-    inv, one = load("740_invincible_points"), load("850_one_up_popup")
+    inv, one = rom.other_patch("invincible-points"), rom.other_patch("one-up-popup")
     inv.GLYPHS.update(one.GLYPHS)
     popup = rom.u32(one.POINTS_SITE + 2) - 4
     assert rom.u16(SET_UP_END) == 0x4EB9
