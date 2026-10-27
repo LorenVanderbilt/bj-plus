@@ -219,11 +219,11 @@ class Rom:
                 tile[self.FIX_COLUMN_BYTE[x] + y] |= (pixels[y][x] & 15) << (0 if x % 2 == 0 else 4)
         return tile
 
-    def fix_tile(self, index):
-        """The original 8x8 fix tile at tile number index, as pixels[y][x] (color indices)."""
-        at, col = index * 32, self.FIX_COLUMN_BYTE
-        return [[(self.fix_orig[at + col[x] + y] >> (0 if x % 2 == 0 else 4)) & 15 for x in range(8)]
-                for y in range(8)]
+    def fix_tile(self, index, built=False):
+        """The original 8x8 fix tile at tile number index, as pixels[y][x] (color indices) - or, built, as the patches
+        so far have left it (a tile one of them added)."""
+        at, col, src = index * 32, self.FIX_COLUMN_BYTE, self.fix if built else self.fix_orig
+        return [[(src[at + col[x] + y] >> (0 if x % 2 == 0 else 4)) & 15 for x in range(8)] for y in range(8)]
 
     def fix_glyph16(self, top):
         """The 16x16 pixels of a 2x2-tile fix picture (a big font letter): tiles top, top+1 above top+0x10, top+0x11."""

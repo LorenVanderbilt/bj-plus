@@ -1,11 +1,11 @@
 NAME = "turn-down-exit"
-DESCRIPTION = "NPC rooms: turning down the quiz grandpa's quiz or Red's duel leaves at once; after the quiz, a moment before the fade; the boatman throws you out when you can't pay"
+DESCRIPTION = "NPC rooms: turning down the riddle man's riddles or Red's duel leaves at once; after the riddles, a moment before the fade; the boatman throws you out when you can't pay"
 
-# Turning the quiz grandpa down a third time, or Red's duel ("I GUESS I'M A COWARD."), ends the talk with 0x25ABE
+# Turning the riddle man down a third time, or Red's duel ("I GUESS I'M A COWARD."), ends the talk with 0x25ABE
 # (from each choice table) and the room loop goes on to its wait before the fade out - which npc-wait made a wait for
 # a button (for reading a last line). Here the last thing was an answer just chosen, so it looked stuck. Now those
 # choices go through `refused` (the original action, then SKIP set), and each room's wait (`move.w #30,d0 ; jsr
-# <npc-wait's routine>`) through its own: SKIP set - cleared, a frame; else as before - except the quiz grandpa's,
+# <npc-wait's routine>`) through its own: SKIP set - cleared, a frame; else as before - except the riddle man's,
 # where the last line is already closed by a press (that press ends the talk), so npc-wait waited for a second one, up
 # to 10 s: there, the room's 30 frames and LINGER more instead (the quiz lost or won: his line stays a moment).
 # SKIP is cleared as each room starts (in its set-up: the 8 bytes at START, run as they were, then the clear).
@@ -50,12 +50,12 @@ def apply(rom):
 %(after)s""" % {"name": name, "set_up": set_up, "skip": SKIP, "wait": WAIT, "linger": linger, "after": after}
     code = rom.place_code(r"""
     bra.w refused
-%s%s
+%(table)s%(rooms)s
 refused:
-    jsr 0x%X
-    st 0x%X
+    jsr 0x%(refuse)X
+    st 0x%(skip)X
     rts
-""" % (table, rooms, REFUSE_ACTION, SKIP), why="NPC rooms: turned down, out at once")
+""" % {"table": table, "rooms": rooms, "refuse": REFUSE_ACTION, "skip": SKIP}, why="NPC rooms: turned down, out at once")
     for n, (name, entry, start, wait, keep, linger) in enumerate(ROOMS):
         start_at, wait_at = code + 4 + 8 * n, code + 8 + 8 * n      # (the table: bra.w each)
         if entry is not None:
@@ -71,6 +71,9 @@ refused:
     while rom.data[end] not in (0xFF, 0xFC, 0xFB):
         end += 1
     assert rom.data[end] == 0xFC and rom.u32(end + 1) == TALK_ENDS, "expected the line's callback to 0x%X" % TALK_ENDS
-    thrown = rom.place_code("    st 0x%X\n    jmp 0x%X\n" % (SKIP, TALK_ENDS), why="boatman: can't pay - thrown out")
+    thrown = rom.place_code("""
+    st 0x%(skip)X
+    jmp 0x%(talk_ends)X
+""" % {"skip": SKIP, "talk_ends": TALK_ENDS}, why="boatman: can't pay - thrown out")
     rom.write(end + 1, thrown.to_bytes(4, "big"), expect=TALK_ENDS.to_bytes(4, "big"),
               why="boatman's NO FLOWERS, NO BOAT, GET OUT!: out of the house after it")

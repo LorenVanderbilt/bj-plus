@@ -18,7 +18,6 @@ FIXES = [   # (string address, old phrase, new phrase)
     (0x26556, "WANT TO KNOW", "WANT TO KNOW?"),
     (0x26926, "ARE YOU INTERESTED", "ARE YOU INTERESTED?"),
     (0x269A6, "ARE YOU SURPRISED", "ARE YOU SURPRISED?"),
-    (0x26BC8, "GO BUCK", "GO BACK"),
     (0x26C0A, "HERE WE GO.", "HERE WE GO!"),
     (0x26C64, "IS SO THAT.", "IS THAT SO?"),
     (0x26DB2, "DID YOU ENJOY IT", "DID YOU ENJOY IT?"),
@@ -56,7 +55,7 @@ FIXES = [   # (string address, old phrase, new phrase)
 # Whole strings rewritten in their own space: the new lines, then the original's ending (an end byte, or a
 # callback: 0xFC + the code's address, which doesn't move), the rest padded after it (never read).
 STRINGS = [
-    # the hint about the quiz man (one per name): QUESTINS, his name, and a few words shortened to make room;
+    # the hint about the riddle man (one per name): QUESTINS, his name, and a few words shortened to make room;
     # LOVES TO QUIZ. now LOVES RIDDLES. (the user, 2026-10-24)
 ] + [(addr, ["IN THE SHABARN MARSH EMPIRE", "YOU'LL FIND AN OLD MAN WHO", "LOVES RIDDLES.", "HE'LL HELP YOU",
              "IF YOU ANSWER HIS QUESTIONS", "HIS NAME IS %s." % name])
@@ -102,6 +101,7 @@ STRINGS = [
     (0x2EA02, ["  HEH, OKAY, IT WAS ME.", "  NO, I DIDN'T!"]),   # (was FINE, I SET HIM FREE. - she asked whether he freed her)
     # the magician's opener (was LOOK MY MAGIC. / IT'S ONLY 5 FLOWERS.); his box takes 27, as the quiz hint's
     (0x26A88, ["WANT TO SEE A TRICK?", "ONLY 5 FLOWERS"], 27),
+    (0x26BC8, ["NO FLOWERS, NO SHOW. SHOO!"]),     # the magician, too few flowers (was GO BUCK IF YOU'RE NOT BUYING.)
     (0x26AEC, ["  SURE!", "  NO THANKS."]),                       # (was I'LL LOOK. / I WON'T LOOK.)
     (0x26ED4, ["YOU MAKE ME HAPPY.", "TAKE THIS NECTAR WITH YOU."]),  # (was ... HONEY ..., as the shop's NECTAR)
     # the boatman's menu (his question, YES and NO: RELOCATED, boat_ask / boat1 / boat_warn)
@@ -281,7 +281,7 @@ MOVED = [
 # boss in the last level, after his defeat (Japanese: it's not programmed into him - he was only built to fight).
 RELOCATED = [   # (name, where its address is (an lea's operand) or None, old address, new lines, the 0xFB next by name)
     # the endings (Japanese as a guide)
-    # the quiz man's house: answering that you're not Blue (was I THOUGHT IT WAS SOMEONE ELSE - 31 wide on one line)
+    # the riddle man's house: answering that you're not Blue (was I THOUGHT IT WAS SOMEONE ELSE - 31 wide on one line)
     ("quiz_not_blue", 0x22A5A, 0x22A8A, ["SORRY, I THOUGHT YOU WERE", "SOMEONE ELSE"], None),
     # his greeting, after his laugh (was I'M THE QUIZ MAN. / YOU GET TWO QUESTIONS. / YOU'LL LOSE ALL YOU FLOWERS /
     # IF YOU CAN'T ANSWER ONE.; クイズじいさん, "Quiz Grandpa"). The riddle man since (the user, 2026-10-24): his lines kept

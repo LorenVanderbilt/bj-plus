@@ -19,7 +19,7 @@ SHOPS = [
     (0x25A12, 0x25A26, "4EB9000218D4"),
 ]
 
-# Three of these are NPC yes/no screens ("SEE THE LARGE RIVER AHEAD?", "AREN'T YOU BLUE...", the quiz man)
+# Three of these are NPC yes/no screens ("SEE THE LARGE RIVER AHEAD?", "AREN'T YOU BLUE...", the riddle man)
 # whose digits went in a small box at the top right (fix-layer 0x7404). The box is part of the brick-wall
 # background map that every NPC screen shares - the ones that still count down need it - so instead of
 # editing the map, these screens paint bricks over it just before their fade-in (`jsr 0x1572C`), right
@@ -42,14 +42,14 @@ def apply(rom):
     writes = "".join(
         "    move.w #0x%X,0x3C0000\n" % addr + "".join("    move.w #0x%X,0x3C0002\n" % t for t in tiles)
         for addr, tiles in COVER)
-    cover = rom.place_code(
-        "    move.w %%sr,-(%%sp)\n"
-        "    or.w #0x0700,%%sr\n"          # no interrupt may move the VRAM address mid-way
-        "    move.w #2,0x3C0004\n"         # step 2: the next tile word down the strip (skip the attribute word)
-        "%s"
-        "    move.w #1,0x3C0004\n"
-        "    move.w (%%sp)+,%%sr\n"
-        "    jmp 0x%X\n" % (writes, FADE_IN),
+    cover = rom.place_code("""
+    move.w %%sr,-(%%sp)
+    or.w #0x0700,%%sr                   | no interrupt may move the VRAM address mid-way
+    move.w #2,0x3C0004                  | step 2: the next tile word down the strip (skip the attribute word)
+%(writes)s    move.w #1,0x3C0004
+    move.w (%%sp)+,%%sr
+    jmp 0x%(fade_in)X
+""" % {"writes": writes, "fade_in": FADE_IN},
         why="paints bricks over the empty timer box on the NPC screens without a countdown, then fades in")
     for start, draw, draw_bytes in SHOPS:
         rom.write(start + 2, bytes.fromhex("0099"), expect=bytes.fromhex("0015"),

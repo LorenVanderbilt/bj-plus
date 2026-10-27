@@ -130,14 +130,21 @@ def apply(rom):
     for site, target in CONTINUE_CALLS:
         rom.write(site + 2, (copy + target - lo).to_bytes(4, "big"), expect=target.to_bytes(4, "big"),
                   why="continue screen: its countdown keeps the original routines (a copy)")
-    win = rom.place_code(
-        "    jsr 0x%X\n    move.w #%d,0x%X\n    rts\n" % (GIVE_ITEM, WIN_HOLD, WIN_COUNT),
-        why="Red's duel won: the torch, then a hold")
+    win = rom.place_code("""
+    jsr 0x%(give)X
+    move.w #%(hold)d,0x%(count)X
+    rts
+""" % {"give": GIVE_ITEM, "hold": WIN_HOLD, "count": WIN_COUNT}, why="Red's duel won: the torch, then a hold")
     rom.write(WIN_GIVE, bytes.fromhex("4EB9") + win.to_bytes(4, "big"), expect=bytes.fromhex("4EB9") + GIVE_ITEM.to_bytes(4, "big"),
               why="Red's duel won: end the screen after a hold (it waited for the countdown)")
-    tick = rom.place_code(
-        "    tst.w 0x%X\n    beq 1f\n    subq.w #1,0x%X\n    bne 1f\n    move.b #1,0x%X\n1:  jmp 0x%X\n"
-        % (WIN_COUNT, WIN_COUNT, DONE, TICK), why="Red's duel screen: the win's hold counted down")
+    tick = rom.place_code("""
+    tst.w 0x%(count)X
+    beq 1f
+    subq.w #1,0x%(count)X
+    bne 1f
+    move.b #1,0x%(done)X                | (the hold over: the screen's done)
+1:  jmp 0x%(tick)X
+""" % {"count": WIN_COUNT, "done": DONE, "tick": TICK}, why="Red's duel screen: the win's hold counted down")
     rom.write(LOOP_TICK, bytes.fromhex("4EB9") + tick.to_bytes(4, "big"), expect=bytes.fromhex("4EB9") + TICK.to_bytes(4, "big"),
               why="Red's duel screen: its tick also counts down the win's hold")
     rom.write(TICK, bytes.fromhex("4EF9") + FLAG_RTS.to_bytes(4, "big"), expect=bytes.fromhex("0C2E0099783F"),
@@ -152,22 +159,22 @@ def apply(rom):
         "    move.w #0x%X,0x3C0002\n    move.w #0x%X,0x3C0002\n" % ta for ta in cells) for addr, cells in MAP_COVER)
     map_writes += "".join("    move.w #0x%X,0x3C0000\n" % addr + "".join(
         "    move.w #0x%X,0x3C0002\n    move.w #0xDD00,0x3C0002\n" % t for t in pair) for addr, pair in banner_tiles(rom))
-    cover = rom.place_code(
-        "    move.w %%sr,-(%%sp)\n"
-        "    or.w #0x0700,%%sr\n"
-        "    move.w #0x%X,0x3C0000\n"
-        "    cmp.w #0x%X,0x3C0002\n"          # (the box there?)
-        "    bne.s 1f\n"
-        "    move.w #2,0x3C0004\n"
-        "%s"
-        "    move.w #1,0x3C0004\n"
-        "    bra 2f\n"
-        "1:  move.w #0x%X,0x3C0000\n"
-        "    cmp.w #0x%X,0x3C0002\n"          # (the map screen's box there?)
-        "    bne 2f\n"
-        "%s"                                # (tile and attribute words, the modulo already 1)
-        "2:  move.w (%%sp)+,%%sr\n"
-        "    jmp 0x%X\n" % (BOX_TOP[0], BOX_TOP[1], writes, MAP_BOX_TOP[0], MAP_BOX_TOP[1], map_writes, FADE_IN),
+    cover = rom.place_code("""
+    move.w %%sr,-(%%sp)
+    or.w #0x0700,%%sr
+    move.w #0x%(box_at)X,0x3C0000
+    cmp.w #0x%(box_tile)X,0x3C0002      | (the box there?)
+    bne.s 1f
+    move.w #2,0x3C0004
+%(writes)s    move.w #1,0x3C0004
+    bra 2f
+1:  move.w #0x%(map_box_at)X,0x3C0000
+    cmp.w #0x%(map_box_tile)X,0x3C0002  | (the map screen's box there?)
+    bne 2f
+%(map_writes)s2:  move.w (%%sp)+,%%sr          | (map_writes: tile and attribute words, the modulo already 1)
+    jmp 0x%(fade_in)X
+""" % {"box_at": BOX_TOP[0], "box_tile": BOX_TOP[1], "writes": writes, "map_box_at": MAP_BOX_TOP[0],
+       "map_box_tile": MAP_BOX_TOP[1], "map_writes": map_writes, "fade_in": FADE_IN},
         why="NPC screens: bricks over the empty timer box, then fade in")
     for site in FADE_SITES:
         rom.write(site, bytes.fromhex("4EB9") + cover.to_bytes(4, "big"),
