@@ -16,6 +16,8 @@ import math
 SHAPE = "iris"
 SMOOTH = True                 # the iris's edge drawn with EDGE_TILES (partly black cells) instead of whole cells
 EDGE_DIRECTIONS = 8           # (the fix layer can't flip a tile: each way the edge faces needs its own)
+PRECISION = 9                 # (decimals: distances rounded before they're compared, so a near-tie comes out
+                              # the same on every Python - their math functions differ in the last bit)
 EDGE_COVERS = (0.25, 0.5, 0.75)   # how much of an edge tile is clear - 8 x 3 = 24 new fix tiles
 TURNS = 2
 CLOCKWISE = False
@@ -75,7 +77,8 @@ def edge_tiles():
     tiles = {}
     for k in range(EDGE_DIRECTIONS):
         a = 2 * math.pi * k / EDGE_DIRECTIONS
-        out = sorted(((x - 3.5) * math.cos(a) + (y - 3.5) * math.sin(a), x, y) for y in range(8) for x in range(8))
+        out = sorted((round((x - 3.5) * math.cos(a) + (y - 3.5) * math.sin(a), PRECISION), x, y)
+                     for y in range(8) for x in range(8))
         for cover in EDGE_COVERS:
             px = [[BLACK_PIXEL] * 8 for _ in range(8)]
             for _, x, y in out[:round(64 * cover)]:
@@ -97,7 +100,8 @@ def smooth_frames():
         for (c, r), was in now.items():
             if was is None:
                 continue
-            mask = [[0 if math.hypot(c * 8 + x + 0.5 - cx, r * 8 + y + 0.5 - cy) <= radius else BLACK_PIXEL
+            mask = [[0 if round(math.hypot(c * 8 + x + 0.5 - cx, r * 8 + y + 0.5 - cy) - radius, PRECISION) <= 0
+                     else BLACK_PIXEL
                      for x in range(8)] for y in range(8)]
             flat = sum(mask, [])
             if not any(flat):

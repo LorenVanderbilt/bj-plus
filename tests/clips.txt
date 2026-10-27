@@ -46,3 +46,4 @@ boomerang_feel  boomerang  the boomerang (D to switch to it, level 3): quick vol
 leaf_gusts  leaf2  the level 2 leaf thrown a few times: each gust along the ground comes as a burst, a second crescent trailing the first (leaf-gusts, 2026-10-25)
 options_level  title_banner  the options screen: DIFFICULTY stepped with Left / Right (4 to 7, back to 6), LEVEL: LOW EARTH EMP 2 picked with Right, A starts it (its title card, the wipe, the stage) (title-menu, after the area 1 audit removed the old level select, 2026-10-26)
 sold_out_stamp  shop_user  the fairy shop: the SOLD OUT stamp (the user's redrawn art) on the nectar (life full); buying it: SORRY, SOLD OUT!; the cursor on to ICE and LIGHT S (sold-out-stamp, 2026-10-26)
+hud_idle  cliff  the HUD (score and flowers by the edges, hearts, lives, TIME as a column, the 1P / 2P corners blank) while Blue stands still ~25 s: no GO sign, no bird; then he walks on (hud, no-idle-go, no-idle-bird, no-join-prompts, 2026-10-26)

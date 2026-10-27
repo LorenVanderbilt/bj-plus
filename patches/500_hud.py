@@ -3,8 +3,8 @@ DESCRIPTION = "HUD: no LIFE; score, flowers (x000) and hearts at the screen's ed
 
 # LIFE: each player's hearts routine (player 1 0x4EA7C, player 2 0x4EAA2) draws it beside them as two 2x2 blocks of
 # fix tiles (from 0x4EAC8) after the hearts: each routine now returns after the hearts (LIFE_DRAWN) - and the
-# hearts take its place at the screen's edges (HEARTS_AT: player 1's drawn rightwards from column 1, player 2's leftwards from
-# column 37; they were at 5 / 33).
+# hearts take its place at the screen's edges (HEARTS_AT: player 1's drawn rightwards from column 1, player 2's
+# leftwards from column 37; they were at 5 / 33).
 # The timer (0x4E560: as normal, or blinking when time is short) drew TIME at fix offset 0x201 (column 16; the
 # big-font printers put text 2 rows down: row 3), = at 0x281 and the time at 0x2A1: TIME=287 on one line. Now
 # TIME in the HUD's small font on the score line (2 pixels up, rows 2-3, as 1P=) and the time under it at DIGITS_AT
@@ -17,15 +17,17 @@ OLD_CELLS = ([0x7000 + c * 32 + r for c in range(16, 24) for r in (3, 4)] +     
              [0x7000 + c * 32 + 3 for c in (12, 13, 14, 25, 26, 27)] +                          # lives
              [0x7000 + c * 32 + 4 for c in (6, 10, 11, 12, 13, 14, 16, 17, 23, 25, 26, 27, 28, 29, 33)] +   # hearts, TIME=
              [0x7000 + c * 32 + 5 for c in (1, 2, 3, 4, 11, 12, 13, 14, 25, 26, 27, 28, 35, 36, 37, 38)] +   # LIFE, hearts
-             [0x7000 + c * 32 + 7 for c in list(range(1, 11)) + list(range(29, 39))] +           # (tried layouts)
+             [0x7000 + c * 32 + 7 for c in list(range(1, 11)) + list(range(29, 39))] +           # (layouts tried
+             # while it was designed - old saves still had them)
              [0x7000 + c * 32 + r for c in (2, 3, 4, 33, 34, 35) for r in (25, 26)] +
              [0x7000 + c * 32 + 29 for c in range(40)])                                          # the bar's old row
 CLEARED = 0x10E9FD           # a byte (spare RAM): 0xA5 once cleared
 BLANK_TILE = 0x0520
 # The flowers: each player's count (block +0x10) was drawn at the bottom, by the item bar (player 1's 0x4E99C at row
 # 27, columns 2-6: flower = and the number, leading zeros blank; player 2's 0x4E9D0, columns 33-37). Now under the
-# score, above the hearts (row 4), flower x and always 3 digits (000): each routine jumps to `flowers`. For 2 pixels' room above and below, the score line is drawn 2
-# pixels higher and the hearts 6 (SCORE, HEARTS_SHIFTED - their glyphs as new shifted fix tiles).
+# score, above the hearts (row 4), flower x and always 3 digits (000): each routine jumps to `flowers`. For 2
+# pixels' room above and below, the score line is drawn 2 pixels higher and the hearts 6 (SCORE, HEARTS_UP - their
+# glyphs as new shifted fix tiles).
 FLOWERS = [(0x4E99C, 0x7000 + 1 * 32 + 4), (0x4E9D0, 0x7000 + 34 * 32 + 4)]   # (routine, where its icon goes: row 4)
 FLOWER_ICON, TIMES, DIGIT_0 = 0x442F, 0x552A, 0x5530
 # The x in the flowers and the lives: the font's (TIMES) with each arm a pixel shorter, the crossing where it was.
@@ -56,11 +58,13 @@ BAR = [0x4E5EE, 0x4E5FC, 0x4E60C, 0x4E61A,                    # the frame
 # stage); `lives` also puts the colours in the palette RAM as it draws (a save state's are the old ones).
 FIX_PALETTES = 0x1000
 FACE_COLOURS = [(7, 3, "EFB0 8F91 9F70", "4FD0 6F90 8C60"), (7, 10, "BC38 0A27 1805", "B0F9 A0D4 11A1"),
-                (7, 1, "8000 8777", "8000 B08F"), (7, 9, "EFFA", "F04F"), (7, 15, "FFFF", "201E")]   # (palette, first entry, old, new)
+                (7, 1, "8000 8777", "8000 B08F"), (7, 9, "EFFA", "F04F"),
+                (7, 15, "FFFF", "201E")]   # (palette, first entry, old, new)
 FACE_TILE, FACE_PALETTE = 0x400, 7
 BLACKOUT = 0x10E600          # (screen-blackout's flag: the screen held black while it's built)
-FACE_MERGE = {9: 3, 15: 6}           # (both faces: the face uses every entry but 2, so its one yellow and one white pixel
-                                     # take the nearest colours it has - freeing 9 and 15 for player 1's suit)
+FACE_MERGE = {9: 3, 15: 6}           # (both faces: the face uses every entry but 2, so its one yellow and one
+                                     # white pixel take the nearest colours it has - freeing 9 and 15 for player
+                                     # 1's suit)
 FACE_REMAP = {10: 2, 11: 9, 12: 15}  # (player 1's face: its suit's entries)
 LIVES_SHIFT = 4
 LIFE_DRAWN = [0x4EA84, 0x4EAAA]   # lea <LIFE's tiles>(pc),a0 - after the hearts (player 1, 2): rts instead
@@ -82,8 +86,9 @@ TIMER_HIDDEN = 0x10E9FE      # a byte (spare RAM): the HUD hidden - worked out f
                              # the stage's end starts (MODE_SET: after a boss the HUD isn't run then): from a hero
                              # frozen at the goal (state GOAL_STATE), ROUND CLEAR (ROUND_CLEARS - after a boss, the
                              # lottery follows on the same stage) or the stage's end (game MODE 2) until play starts
-                             # again (MODE 1 after another: the next stage) - LATCH. Meanwhile every part of the HUD clears its cells instead of drawing
-                             # (the hearts and the timer only their own tiles)
+                             # again (MODE 1 after another: the next stage) - LATCH. Meanwhile every part of the
+                             # HUD clears its cells instead of drawing (the hearts and the timer only their own
+                             # tiles)
 MODE, STAGE = 0x103004, 0x103005
 GOAL_STATE = 45              # (the hero's state byte, object +0x68: frozen - grabbing the goal)
 HEROES = [0x104068, 0x1040E8]
@@ -100,8 +105,8 @@ HEARTS_UP = 6
 # The score line (player 1's 0x4E954: 6 digits from 0x1030A1, leading zeros blank, at column 4, then 1P= at 1;
 # player 2's 0x4E978: from 0x1030A5 at 33, 2P= at 30) drawn 2 pixels higher by `score`: each glyph as two shifted
 # tiles, its top in row 2 and the rest in row 3.
-SCORE = [(0x4E954, 0x1030A1, 0x7000 + 4 * 32 + 3, 0x7000 + 1 * 32 + 3, 0x5531),
-         (0x4E978, 0x1030A5, 0x7000 + 33 * 32 + 3, 0x7000 + 30 * 32 + 3, 0x5532)]   # (routine, BCD, digits, label, its digit)
+SCORE = [(0x4E954, 0x1030A1, 0x7000 + 4 * 32 + 3, 0x7000 + 1 * 32 + 3, 0x5531),    # (routine, BCD, digits,
+         (0x4E978, 0x1030A5, 0x7000 + 33 * 32 + 3, 0x7000 + 30 * 32 + 3, 0x5532)]   # label, its digit)
 SCORE_UP = 2
 P_TILE, EQUALS_TILE = 0x5550, 0x5508
 TIMER = [   # (the move.w #offset,d0 before each printer call, its old offset): normal, then blinking
@@ -113,15 +118,12 @@ TIME_AT = 18 * 32 + 1
 # ... and TIME half a tile right, so the 3 digits sit under its middle (the fix layer moves in 8-pixel columns): the
 # small font's letters (TIME_LETTERS, as 1P= and the scores: tile 0x500 + the character) redrawn 4 pixels right and
 # SCORE_UP higher as 5 new fix tiles a row (columns 18-22, rows 2-3), drawn by `time_word` in place of the big-font
-# printer's call
-# (TIME_PRINTS) in the HUD font's palette (TIME_PALETTE) - steady when the time is short (the digits blink).
+# printer's call (TIME_PRINTS) in the HUD font's palette (TIME_PALETTE) - steady when the time is short (the digits blink).
 TIME_LETTERS = [0x500 + ord(c) for c in "TIME"]
 TIME_PALETTE = P_TILE & 0xF000
 TIME_PRINTS = [0x4E596, 0x4E5CC]      # jsr 0x4DDEE (the big-font printer: TIME)
 TIME_COLUMN = 0x7000 + 18 * 32 + 2
 DIGITS_AT = 19 * 32 + 2
-
-
 
 
 def time_tiles(rom):
@@ -131,7 +133,6 @@ def time_tiles(rom):
     tall = [[0] * 40 for _ in range(8 - SCORE_UP)] + wide + [[0] * 40 for _ in range(SCORE_UP)]
     return [[rom.add_fix_tile([r[c * 8:c * 8 + 8] for r in tall[row:row + 8]], why="HUD: TIME on the score line",
                               share=True) for c in range(5)] for row in (0, 8)]
-
 
 
 def half_tiles(rom, word, down=LIVES_SHIFT):
@@ -156,12 +157,12 @@ def shifted(rom, px, down, what, palette, rows=2):
     return out
 
 
-
 def heart_column(rom, column, palette):
     """A heart's 16-pixel column HEARTS_UP pixels higher, as rows 5-6 from a row-6 address: two new tiles' words."""
     tall = [[0] * 8 for _ in range(8 - HEARTS_UP)] + column
     tall = (tall + [[0] * 8 for _ in range(16)])[:16]
-    return [palette | rom.add_fix_tile(tall[r * 8:r * 8 + 8], why="HUD: heart, %d pixels higher" % HEARTS_UP, share=True)
+    return [palette | rom.add_fix_tile(tall[r * 8:r * 8 + 8], why="HUD: heart, %d pixels higher" % HEARTS_UP,
+                                       share=True)
             if any(any(t) for t in tall[r * 8:r * 8 + 8]) else BLANK for r in (0, 1)]
 
 
@@ -183,8 +184,8 @@ def apply(rom):
                   expect=bytes.fromhex(old.replace(" ", "")), why="HUD: the lives face's suit, fix palette %d" % pal)
     face = rom.fix_tile(FACE_TILE)
     face = [[FACE_MERGE.get(v, v) for v in r] for r in face]
-    face1 = FACE_PALETTE << 12 | rom.add_fix_tile([[FACE_REMAP.get(v, v) for v in r] for r in face],
-                                                   why="HUD: player 1's lives face (its suit in other entries)", share=True)
+    face1 = FACE_PALETTE << 12 | rom.add_fix_tile([[FACE_REMAP.get(v, v) for v in r] for r in face], share=True,
+                                                   why="HUD: player 1's lives face (its suit in other entries)")
     face2 = FACE_PALETTE << 12 | rom.add_fix_tile(face, why="HUD: player 2's lives face", share=True)
     faces = [face1, face2]
     lives = rom.place_code(r"""

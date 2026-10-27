@@ -1,7 +1,7 @@
+import random
+
 NAME = "hud-crumble"
 DESCRIPTION = "Goal: the HUD crumbles away upwards (a ragged edge eating up each part, flecks drifting off) instead of switching off"
-
-import random
 
 # At the goal the HUD went at once: `hud` hides it from the frame a hero grabs the goal (state GOAL_STATE) - every part
 # clears its cells. Now, that frame, the HUD (its routine: HUD_ENTRY, hud's code) is skipped for STEPS frames instead -
