@@ -13,7 +13,7 @@ DESCRIPTION = "Goal stalk: when touched it arcs from a little above the ground, 
 # animation 0x118, frames 0x2D9C-0x2DB4). Each bell's routine copies its segment's position first (BELL_COPIES);
 # there, while its segment swings (0x52A0C, amplitude +0x7A), every SPARKLE_EVERY frames (staggered by bell) a new
 # object (NEW_OBJECT) is made at the bell's mouth (its last position, SPARKLE_DOWN px lower): it shows the
-# sparkle's smaller frames (SPARKLE_FRAMES, SPARKLE_HOLD frames each) falling SPARKLE_FALL / 128 px a frame, then
+# sparkle's frames (SPARKLE_FRAMES, SPARKLE_HOLD frames each) falling SPARKLE_FALL / 128 px a frame, then
 # is freed.
 SWING_PLACE = 0x52A48        # jsr 0x5E4F2 (d0, d1 = the parent's position)
 PLACE = 0x5E4F2
@@ -21,9 +21,8 @@ BELL_COPIES = [0x52B58, 0x52B86, 0x52BB4, 0x52BE2, 0x52C10, 0x52C3E]   # move.l 
 SWINGING = 0x52A0C
 NEW_OBJECT = 0xFFEC          # -> a1 (nonzero: none free)
 FREE_OBJECT = 0x43F7C        # (jmp) frees the object a5
-SMALL_SPARKLES = [0x2D9C, 0x2DA0, 0x2DB0, 0x2DB4]   # the water sparkle's smaller frames (its animation 0x118 runs
-FULL_SPARKLES = [0x2D9C, 0x2DA0, 0x2DA4, 0x2DA8, 0x2DAC, 0x2DB0, 0x2DB4]   # 0x2D9C-0x2DB4: dots, small, medium, big
-SPARKLE_FRAMES = FULL_SPARKLES                                             # crosses and back)
+SPARKLE_FRAMES = [0x2D9C, 0x2DA0, 0x2DA4, 0x2DA8, 0x2DAC, 0x2DB0, 0x2DB4]   # the water sparkle's (its animation
+                                                                          # 0x118: dots, small, medium, big crosses)
 SPARKLE_HOLD = 3             # game frames each
 FRAME = 0x100206
 SPARKLE_EVERY = 8            # frames between one bell's sparkles (a power of 2)

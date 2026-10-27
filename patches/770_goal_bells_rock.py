@@ -10,8 +10,8 @@ import math
 # a little out of step with the rest. Its angle picks a drawing: 15 degrees past TILT_15, 30 past TILT_30.
 # The hanging ones (HANGING: their routines, each starting with jsr PARENT - a0 its segment, the hook - and the frame
 # it shows, set just before), and the top one (TOP_FRAME: while it swings it runs the segments' SWINGING routine;
-# just after it's placed, TOP_PLACE - and before the stalk's touched, TOP_REST in its own routine - itself the hook, on the stalk's base; drawn as plain grids, its place shifted
-# to match each one - plain ones, one high byte and a byte a tile: the stalk's drawer reads no more (drawn in
+# just after it's placed, TOP_PLACE - and before the stalk's touched, TOP_REST in its own routine - itself the hook,
+# on the stalk's base; drawn as plain grids, its place shifted to match each one - plain ones, one high byte and a byte a tile: the stalk's drawer reads no more (drawn in
 # pieces, as the hanging ones are, it came apart). Each bell's state (STATE, 16 bytes: the frame
 # it was last updated - another means it's just come into play, and it starts hanging still - the hook's last x and
 # speed, the angle and its speed: 1/64 degree, the frames since the stalk first moved, its clapper) is spare RAM. The
@@ -58,8 +58,8 @@ CLAPPER = [".....111.....",    # (the clapper as drawn, its top at its hang poin
            "...1222221...",
            "....11111...."]
 CLAPPER_X = 6                  # (the drawing's middle column: under the hang point)
-HANG = (15, 24)                # (the upright bell's hang point, px in its frame: the clapper's top - its ball then shows
-                               # in the mouth's notch)
+HANG = (15, 24)                # (the upright bell's hang point, px in its frame: the clapper's top - its ball
+                               # then shows in the mouth's notch)
 CLAPPER_PALETTE = 0x7E         # (empty in play: the title's; pause-menu borrows it and puts it back)
 CLAPPER_COLOURS = [(96, 56, 8), (214, 160, 40), (255, 232, 128)]   # brass: outline, body, highlight
 CLAPPER_PARAMS = (30, 10, 420) # (its pull back to hanging, damping, push - as PARAMS: a short, quick pendulum)
@@ -69,8 +69,8 @@ FRAME = 0x100206               # (a word counted each frame)
 FRAME_TABLE = 0x60772
 ART = "art/goal_bells/bell_%04X_%+d.png"   # (a shape's first frame, the angle) - 64 x 56: the frame's (0, 0) at (16, 8)
 ART_ORIGIN = (16, 8)
-UPRIGHT = "art/goal_bells/upright_%04X.png"   # (a shape's first frame) - the bell hanging still, as ART: painted over, its
-                                             # own tiles (only the bells use them) are redrawn in place
+UPRIGHT = "art/goal_bells/upright_%04X.png"   # (a shape's first frame) - the bell hanging still, as ART: painted
+                                             # over, its own tiles (only the bells use them) are redrawn in place
 DRAWN = False                  # True: each build draws ART with RotSprite (and rewrites it) - False once painted
 ART_COLOURS = {                # (the bells' palettes, as the goal loads them)
     0x74: "0444 8EFF BDEE BCDD 3BCC 3ABB BBFC 08E9 76C8 BAF8 B7C5 B492 B9AA 0CDD FEFF FFFF",
@@ -292,8 +292,8 @@ def apply(rom):
     clap_frame = rom.add_frame([[rom.add_sprite_tile(clap_px, why="goal bells: the clapper")]], CLAPPER_PALETTE,
                                why="goal bells: the clapper")
     def clap_table(site, f):
-        """The bell's routine's y, x offsets (subi.w #y,0(a5) ; subi.w #x / addi.w #-x,2(a5)), then its hang point (x, y: 1/128
-        px - y down the frame) at each drawing: -30, -15, as is, 15, 30."""
+        """The bell's routine's y, x offsets (subi.w #y,0(a5) ; subi.w #x / addi.w #-x,2(a5)), then its hang point
+        (x, y: 1/128 px - y down the frame) at each drawing: -30, -15, as is, 15, 30."""
         if site is None:                                                   # (the top bell: placed as it is)
             out = [0, 0]
         else:

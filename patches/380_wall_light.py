@@ -1,5 +1,5 @@
 NAME = "wall-light"
-DESCRIPTION = "Mechanical City: one light in a row of three blinking wall lights blinks yellow"
+DESCRIPTION = "Daruma Empire 1: one light in a row of three blinking wall lights blinks yellow"
 
 # Stage 28's grey machinery wall has a row of three blinking green lights: tile 0x2320 (auto-animated) in the
 # wall's palette 0xB2, from the level's block data - the blocks whose tiles share one palette and attribute (0x80 kind) give each tile a byte, drawn by 0xD2F2

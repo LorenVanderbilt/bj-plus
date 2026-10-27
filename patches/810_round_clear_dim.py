@@ -1,46 +1,21 @@
 import hashlib
 
 NAME = "round-clear-dim"
-DESCRIPTION = ("ROUND CLEAR: the frozen level dims to half while the stats are up, so the bonus lines are easy to read; "
-               "and screen-blackout's last gaps (the story's last scene and its beam, back to the title, a room's way "
-               "out, TODAY'S BEST 5 in the attract)")
+DESCRIPTION = "ROUND CLEAR: the frozen level dims to half while the stats are up, so the bonus lines are easy to read"
 
 # ROUND CLEAR's routines (ROUTINES: after the goal, after a boss - each called once, running the whole stats
 # screen) draw its letters and bonus lines in the fix layer over the frozen level, and over the bells and leaves they
-# were hard to read. Now, as a routine starts (its first call, hud's - hooked here), every palette but
-# the text's (TEXT_PAL) is kept in BUF and eased down to DIM over STEPS steps
-# (STEP_FRAMES frames each - half the palettes each frame: a step is too much work for one) each frame of the
-# game's vblank wait (FRAME_LOOP). When the routine returns (its return address swapped for ours):
+# were hard to read. Now, as a routine starts (its first call, hud's - hooked here), every palette but the text's
+# (TEXT_PAL) is kept in BUF and eased down to DIM over STEPS steps (STEP_FRAMES frames each - half the palettes each
+# frame: a step is too much work for one) each frame of the game's vblank wait (FRAME_LOOP - tunnel-life-ball and
+# wall-light-keep run there too, before this). When the routine returns (its return address swapped for ours):
 # after the goal (GOAL_RETURN) and the final boss (FINAL_RETURN) the dim stays - the next stage, the ending, loads its
 # palettes; after another boss the level eases back up the same way, the last step the kept colours exactly (BOSS_DIM:
 # False, no dim there at all). The frozen frame before the stats is shorter too (FREEZE).
 # Each step scales each colour's 4-bit channels by a table (its low bits, bits 12-14, left out while dimmed; the dark
 # bit kept). BUF is RAM a shop / NPC room keeps the level's objects in (0x10A800-0x10CFFF) - free at ROUND CLEAR.
-# Also the reward at the end of Lower Earth Empire 2's hidden tunnel: its white lily (+10 flowers) is a life ball
-# now (+1 maximum heart). The placed white lily's start (LILY_START, in the game's object kind tables LILY_KINDS) is
-# ours: in that stage, at that spot (LILY_AT, level coordinates from the level's own camera 0x10021A / 0x10020E, as
-# wall-pocket), it starts as a life ball (pickup type 9); elsewhere as before. The game's only life ball is the
-# lottery's prize (frame LOTTERY_BALL: 32 across, in a 64 x 48 frame Blue can't pick up - he's stopped by it), so the
-# build makes a 16 x 16 one (BALL_ART - first shrunk from the lottery's ~35 px, then the user's to draw; one new
-# tile, a new frame with the lily's hit box) in BALL_PAL (empty in the stage), its colours kept there each frame in the
-# stage (not while black or dimmed). (The hardware shrink was tried: it drew well but the shrunk frame still couldn't be picked up.)
-# Also wall-light's palette (WALL_LIGHT_PAL): written only as its tile is drawn, so when the level's palettes load after
-# that (a continue there: the wall on screen as the level's built) it was left empty. Now kept each frame in its stage
-# (not while black, nor while dimmed).
-# Also screen-blackout's last gap: the story's last scene (STORY_LAST) loads no colours (it keeps the scene before's) so
-# it couldn't be blacked out - its sprites came on as the screen was drawn (one torn frame). Now the colours are kept in
-# BUF, the screen's blacked out like the other scenes (screen-blackout's story path) and BUF noted as a load: the
-# reveal puts them back with the scene whole. And the third room's way out (ROOM_OUT3: the room at 0x130EC
-# - its way in is screen-blackout's, its way out was missed; the attract demo's walk into it too) goes through
-# screen-blackout's room_out like the others: the level shown whole after its first frames of play. elevator-spin's
-# colour cycling (ELEVATOR_PAL) wrote its palette while black (the cone alone on the black screen): now, while black,
-# into spare RAM. And the attract's TODAY'S BEST 5 (BEST_IN) is blacked out at a vblank as it starts (it came in in
-# pieces), held, and shown whole as its loop starts (BEST_LOOP - the one after a game over too). And the title's set-up
-# (TITLE_SETUP - the story over jumps into it): black at once first (the story's last frames were cleared in strips
-# over their colours), the title shown whole by screen-blackout's fallback. And the last scene's cut to the beam
-# (BEAM_CUT, as its last text box goes - story-last-line's hook there): its layers are redrawn over ~3 frames, so
-# black first (the colours kept as for the scene's start) and shown whole once drawn.
-# Also the C of ROUND CLEAR (C_TILES): its bottom curl's tip had a lone pixel sticking up - touched up (C_ART, the user's).
+# Also the C of ROUND CLEAR (C_TILES): its bottom curl's tip had a lone pixel sticking up - touched up (C_ART, the
+# user's).
 ROUTINES = [0x54CD0, 0x54FD8]  # jsr <hud's> ; nop - each ROUND CLEAR routine's first call
 GOAL_RETURN = 0x11658          # (after the goal's routine: the dim stays - the next stage loads its palettes)
 FINAL_RETURN = 0x36F94         # (after the final boss's: the dim stays too - the ending comes next)
@@ -54,7 +29,8 @@ FRAME_LOOP_TOP, FRAME_LOOP_END = 0xE85C, 0xE8B2
 DIM = 0.5
 STEPS, STEP_FRAMES = 8, 2
 FIRST_PAL, PALS = 0, 256
-TEXT_PAL = 6                   # (the stats' text: fix palette 6 - left as it is; every other palette dims, the crowns' too)
+TEXT_PAL = 6                   # (the stats' text: fix palette 6 - left as it is; every other palette dims, the
+                               # crowns' too)
 BUF = 0x10B000                 # 256 x 32 bytes: to 0x10CFFF
 C_TILES = [0x906, 0x907, 0x916, 0x917]  # fix tiles: the C's top left, top right, bottom left, bottom right (palette 6)
 C_SHA = "8e6d755c"                 # (the original four)
@@ -76,91 +52,11 @@ f333aaf.........
 ....fffaaaaa7faf
 .......ffffff.f.
 """
-STORY_LAST = (0x1552E, 0x3533E)  # jsr <screen-blackout's story_last> - its last scene; (the scene)
-BLACKOUT_STORY2 = 60           # screen-blackout's jump table: its story's 3rd scene (pea <scene>; jsr 0xE856; bra blackout)
-BLACKOUT_RAM = 0x10E600        # screen-blackout's REVEAL (+1), COUNT (+6), LIST (+16: 10 bytes a load), MAX_LOADS
-BLACKOUT_COUNT, BLACKOUT_LIST, BLACKOUT_MAX = BLACKOUT_RAM + 6, BLACKOUT_RAM + 16, 16
-BLACKOUT_REVEAL = BLACKOUT_RAM + 1  # (its REVEAL: shown at the next vblank)
-ROOM_OUT3 = 0x1316A             # jsr 0x13660 - out of the room at 0x130EC: its sprites cleared, the level rebuilt
-BLACKOUT_ROOM_OUT = 36          # screen-blackout's jump table: room_out
-ELEVATOR_PAL = bytes.fromhex("41F900401EE2720E30D9")   # elevator-spin: lea 0x401EE2,a0 ; moveq #14,d1 ; move.w (a1)+,(a0)+
-BLACKOUT_BLACK = BLACKOUT_RAM   # (its BLACK)
-BEST_IN = 0x10854               # jsr 0x152FE (its music) - the attract's TODAY'S BEST 5 starting
-BEST_LOOP = 0x549D0             # move.w #512,0x3800(a6) - TODAY'S BEST 5 set up, its loop starting
-BEST_HOLD = 120                 # (frames screen-blackout's fallback waits, at most)
-BLACKOUT_HOLD_AT = BLACKOUT_RAM + 8
-BEAM_CUT = 0x35494              # jsr <story-last-line's> - the story's last scene: the beam's layers about to be drawn
-TITLE_SETUP = 0x1AE76           # move.b #32,0x3005(a6) - the title being set up (the story over: bra here)
-WALL_LIGHT_STAGE, WALL_LIGHT_PAL = 28, 0xC7   # wall-light's (patches/380_wall_light.py: its stage, palette, COLOURS)
-WALL_LIGHT_COLOURS = [0x8000, 0x8DDD, 0x8CCC, 0x8BBB, 0x8AAA, 0x8999, 0x8888, 0x8777, 0x8666, 0x8555, 0x8444,
-                      0x8EC2, 0x0CA0, 0x0980, 0x0760, 0x8540]
-STAGE = 0x103005
-LILY_START = 0x50CB8            # move.b #1,0x4D(a5) ; move.w #0x20A0,8(a5) ... bra 0x51872 - a placed white lily
-LILY_KINDS = [0x5F4DC, 0x5FCDC]   # (the kind tables' entries pointing at it)
-LILY_PICKUP = 0x51872           # (the pickups' code)
-LILY_STAGE, LILY_AT = 4, (1072, -784)   # Lower Earth Empire 2; level x, y (y = y field / 128 + 0x10020E)
-LIFE_BALL, LOTTERY_BALL, LILY_FRAME = 9, 0x326C, 0x20A0
-BALL_PAL = 0xA8
-BALL_ART = "art/life_ball/life_ball.png"   # 16 x 16, up to 15 colours (its own) - edit it, the build remakes the tile
-BALL_REFERENCE = "art/life_ball/lottery_ball_reference.png"   # (the lottery's, full size)
-BALL_COLOURS = [0x0000, 0xE37D, 0xB58D, 0xF69D, 0xA8AE, 0xF9BE, 0x3BCE, 0x6CDF, 0x2EEF, 0x7FFF, 0x5FBC, 0x1F9B,
-                0x1E7A, 0x6D49, 0x6C28, 0x0000]   # (the lottery's palette 0xB2: the first BALL_ART's)
-BOXES = 0x64772                 # hit boxes: a pointer per frame number
 RAM = 0x10D500                 # spare RAM: ACTIVE (byte), DIR (byte: 1 down, -1 up, 0 holding), STEP (byte), HALF
 ACTIVE, DIR, STEP, HALF, RET = RAM, RAM + 1, RAM + 2, RAM + 3, RAM + 4   # (byte), RET: the routine's return (long)
-NOWHERE = RAM + 16              # (30 bytes: elevator-spin's colours while black)
-
-
-def small_life_ball(rom):
-    """The small life ball from BALL_ART (made from the lottery's ball, shrunk, if it isn't there yet - with the big
-    one beside it as BALL_REFERENCE): one tile, a frame (returned) in BALL_PAL; its colours (up to 15) are the
-    picture's own."""
-    import os
-    import sys
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    sys.path.insert(0, os.path.join(root, "tools"))
-    from png_tiles import read_rgba, write_indexed, neo_to_rgb, rgb_to_neo
-    art, reference = os.path.join(root, BALL_ART), os.path.join(root, BALL_REFERENCE)
-    if not os.path.exists(art):
-        tiles, _ = rom.frame_tiles(LOTTERY_BALL)
-        big = [[0] * (16 * len(tiles[0])) for _ in range(16 * len(tiles))]
-        for r, row in enumerate(tiles):
-            for c, t in enumerate(row):
-                if t is not None:
-                    for y, line in enumerate(rom.sprite_tile(t)):
-                        big[r * 16 + y][c * 16:c * 16 + 16] = line
-        ys = [y for y, line in enumerate(big) if any(line)]
-        xs = [x for x in range(len(big[0])) if any(line[x] for line in big)]
-        top, left = ys[0], xs[0]
-        h, w = ys[-1] - top + 1, xs[-1] - left + 1
-        f = max(w, h) / 16              # (each new pixel: its block's most common colour, if it's mostly solid)
-        top -= (max(w, h) - h) / 2
-        left -= (max(w, h) - w) / 2
-        px = [[0] * 16 for _ in range(16)]
-        for y in range(16):
-            for x in range(16):
-                block = [big[sy][sx] if 0 <= sy < len(big) and 0 <= sx < len(big[0]) else 0
-                         for sy in range(int(top + y * f), int(top + (y + 1) * f + 0.999))
-                         for sx in range(int(left + x * f), int(left + (x + 1) * f + 0.999))]
-                solid = [v for v in block if v]
-                if 2 * len(solid) >= len(block):
-                    px[y][x] = max(set(solid), key=solid.count)
-        palette = [neo_to_rgb(c) for c in BALL_COLOURS]
-        os.makedirs(os.path.dirname(art), exist_ok=True)
-        write_indexed(art, px, palette)
-        write_indexed(reference, [line[xs[0]:xs[-1] + 1] for line in big[ys[0]:ys[-1] + 1]], palette)
-    pixels = read_rgba(art)
-    assert (len(pixels[0]), len(pixels)) == (16, 16), "%s: not 16 x 16" % BALL_ART
-    colours = sorted({rgb for row in pixels for rgb, a in row if a})
-    assert len(colours) <= 15, "%s: %d colours (15 at most)" % (BALL_ART, len(colours))
-    px = [[colours.index(rgb) + 1 if a else 0 for rgb, a in row] for row in pixels]
-    words = [0] + [rgb_to_neo(c) for c in colours]
-    tile = rom.add_sprite_tile(px, why="the small life ball (the hidden tunnel's reward)")
-    return rom.add_frame([[tile]], BALL_PAL, why="the small life ball"), words + [0] * (16 - len(words))
 
 
 def apply(rom):
-    ball_frame, ball_colours = small_life_ball(rom)
     assert all(rom.u16(a) == 0x4EB9 for a in ROUTINES)
     hud = rom.u32(ROUTINES[0] + 2)
     assert rom.u32(ROUTINES[1] + 2) == hud
@@ -171,32 +67,13 @@ def apply(rom):
         tables.append((bytes(s[b >> 4] << 4 | s[b & 15] for b in range(256)), bytes(s)))
     tab_src = "".join("tab%d_lo:\n    .byte %s\ntab%d_r:\n    .byte %s\n" % (
         k, ",".join(str(v) for v in lo), k, ",".join(str(v) for v in r)) for k, (lo, r) in enumerate(tables))
-    blackout_code = rom.u32(STORY_LAST[0] + 2) - 64
-    assert rom.u16(blackout_code + BLACKOUT_STORY2) == 0x6000
-    d = rom.u16(blackout_code + BLACKOUT_STORY2 + 2)
-    story2 = blackout_code + BLACKOUT_STORY2 + 2 + (d - 0x10000 if d & 0x8000 else d)
-    assert rom.u16(story2) == 0x4879 and rom.u16(story2 + 6) == 0x4EB9, "screen-blackout's story path moved"
-    bra = rom.u16(story2 + 12)        # bra blackout
-    if bra == 0x6000:
-        d = rom.u16(story2 + 14)
-        blackout = story2 + 14 + (d - 0x10000 if d & 0x8000 else d)
-    else:
-        assert bra >> 8 == 0x60
-        blackout = story2 + 14 + ((bra & 0xFF) - 0x100 if bra & 0x80 else bra & 0xFF)
-    assert rom.u16(blackout) == 0x4A39, "screen-blackout's blackout moved"   # tst.b <BLACK>
-    assert bytes(rom.data).find(b"".join(c.to_bytes(2, "big") for c in WALL_LIGHT_COLOURS)) > 0, "wall-light's colours changed"
-    assert rom.u16(BEAM_CUT) == 0x4EB9
-    beam_hook = rom.u32(BEAM_CUT + 2)
+    no_boss_dim = "" if BOSS_DIM else """
+    cmpi.l #0x%X,4(%%sp)              | (no dim after a boss: switched off)
+    bne 0f
+    jmp 0x%X""" % (BOSS_RETURN, hud)
     code = rom.place_code("""
     bra.w entry                         | (+0)
     bra.w frame                         | (+4)
-    bra.w story_last                    | (+8)
-    bra.w elevator_pal                  | (+12)
-    bra.w best_in                       | (+16)
-    bra.w best_loop                     | (+20)
-    bra.w title_setup                   | (+24)
-    bra.w beam_cut                      | (+28)
-    bra.w lily_start                    | (+32)
 
 | a ROUND CLEAR routine starting: the palettes kept, the dim on; its return swapped for ours
 entry:
@@ -237,29 +114,7 @@ frame:
 1:  jmp 0x%(loop_top)X
 
 tick:
-    cmpi.b #%(wl_stage)d,0x%(stage)X    | (wall-light's palette kept)
-    bne 0f
-    tst.b 0x%(b_black)X
-    bne 0f
     tst.b 0x%(active)X
-    bne 0f
-    lea wall_light(%%pc),%%a0
-    lea 0x%(wl_pal)X,%%a1
-    moveq #7,%%d1
-1:  move.l (%%a0)+,(%%a1)+
-    dbf %%d1,1b
-0:  cmpi.b #%(lily_stage)d,0x%(stage)X    | (the small life ball's palette kept)
-    bne 0f
-    tst.b 0x%(b_black)X
-    bne 0f
-    tst.b 0x%(active)X
-    bne 0f
-    lea ball_colours(%%pc),%%a0
-    lea 0x%(ball_pal)X,%%a1
-    moveq #7,%%d1
-1:  move.l (%%a0)+,(%%a1)+
-    dbf %%d1,1b
-0:  tst.b 0x%(active)X
     beq 9f
     move.b 0x%(dir)X,%%d1
     beq 9f
@@ -323,125 +178,15 @@ tick:
 8:  clr.b 0x%(active)X
 9:  rts
 
-| the story's last scene: its colours kept, then black (the screen-blackout's way) and the kept colours noted as a load
-story_last:
-    bsr keep_colours
-    pea 0x%(scene_last)X
-    pea story_noted(%%pc)
-    jmp 0x%(story_black)X               | (a vblank, black: its rts to story_noted)
-
-| the beam's cut in the last scene: the same - black while its layers are drawn
-beam_cut:
-    bsr keep_colours
-    jsr 0xE856
-    jsr 0x%(blackout)X
-    bsr story_noted
-    jmp 0x%(beam_hook)X
-
-keep_colours:
-    movem.l %%d0/%%a0-%%a1,-(%%sp)
-    lea 0x400000,%%a0
-    lea 0x%(buf)X,%%a1
-    move.w #256*8-1,%%d0
-1:  move.l (%%a0)+,(%%a1)+
-    dbf %%d0,1b
-    movem.l (%%sp)+,%%d0/%%a0-%%a1
-    rts
-
-story_noted:
-    movem.l %%d0/%%a0,-(%%sp)
-    move.w 0x%(b_count)X,%%d0
-    cmpi.w #%(b_max)d,%%d0
-    bcc 1f
-    addq.w #1,0x%(b_count)X
-    mulu #10,%%d0
-    lea 0x%(b_list)X,%%a0
-    adda.w %%d0,%%a0
-    move.l #0x400000,(%%a0)+            | (to: every palette)
-    move.l #0x%(buf)X,(%%a0)+           | (from: the kept colours)
-    move.w #255,(%%a0)
-    move.b #1,0x%(b_reveal)X            | (shown at its first vblank wait: the scene's set up whole before it)
-1:  movem.l (%%sp)+,%%d0/%%a0
-    rts                                 | (into the scene)
-
-| elevator-spin's colours: into palette 0xF7 - while black, nowhere
-elevator_pal:
-    lea 0x401EE2,%%a0
-    tst.b 0x%(b_black)X
-    beq 1f
-    lea 0x%(nowhere)X,%%a0
-1:  rts
-
-| the attract's TODAY'S BEST 5 starting: black at once (at a vblank)
-best_in:
-    jsr 0xE856
-    jsr 0x%(blackout)X
-    move.w #%(best_hold)d,0x%(b_hold_at)X
-    jmp 0x152FE
-
-| TODAY'S BEST 5 set up: shown at its loop's first vblank
-best_loop:
-    move.w #512,0x3800(%%a6)
-    tst.b 0x%(b_black)X
-    beq 1f
-    move.b #1,0x%(b_reveal)X
-1:  rts
-
-| the title being set up: black at once (at a vblank) first
-title_setup:
-    jsr 0xE856
-    jsr 0x%(blackout)X
-    move.b #32,0x3005(%%a6)
-    rts
-
-wall_light:
-    .word %(wl_colours)s
-ball_colours:
-    .word %(ball_colours)s
-
-| a placed white lily starting: at the hidden tunnel's end, a life ball
-lily_start:
-    cmpi.b #%(lily_stage)d,0x%(stage)X
-    bne 9f
-    move.l %%d0,-(%%sp)
-    move.w 2(%%a5),%%d0                 | level x
-    sub.w #0x4000,%%d0
-    asr.w #7,%%d0
-    add.w 0x10021A,%%d0
-    sub.w #%(lily_x)d-8,%%d0
-    cmp.w #16,%%d0
-    bhi 8f
-    move.w (%%a5),%%d0                  | level y
-    asr.w #7,%%d0
-    add.w 0x10020E,%%d0
-    sub.w #%(lily_y)d-8,%%d0
-    cmp.w #16,%%d0
-    bhi 8f
-    move.l (%%sp)+,%%d0
-    move.b #%(life_ball)d,0x4D(%%a5)
-    move.w #0x%(ball_frame)X,8(%%a5)
-    move.b #0x40,0x28(%%a5)
-    move.l #0x%(lily_pickup)X,4(%%a5)
-    jmp 0x%(lily_pickup)X
-8:  move.l (%%sp)+,%%d0
-9:  jmp 0x%(lily_start)X
-
 tables:
     .long %(table_ptrs)s
 %(tab_src)s
     .even
 """ % {"first": FIRST_PAL, "buf": BUF, "longs": PALS * 8, "dir": DIR, "step": STEP, "half": HALF, "active": ACTIVE,
-       "ret": RET, "hud": hud, "goal": GOAL_RETURN, "final": FINAL_RETURN, "no_boss_dim": "" if BOSS_DIM else
-       "    cmpi.l #0x%X,4(%%sp)              | (no dim after a boss: switched off)\n    bne 0f\n    jmp 0x%X" % (BOSS_RETURN, hud), "steps": STEPS, "half_bytes": PALS * 32 // STEP_FRAMES,
-       "half_pals": PALS // STEP_FRAMES, "text_pal": TEXT_PAL, "halves": STEP_FRAMES, "loop_top": FRAME_LOOP_TOP, "loop_end": FRAME_LOOP_END,
-       "table_ptrs": ",".join("tab%d_lo,tab%d_r" % (k, k) for k in range(STEPS + 1)), "tab_src": tab_src,
-       "scene_last": STORY_LAST[1], "story_black": story2 + 6, "b_count": BLACKOUT_COUNT, "b_list": BLACKOUT_LIST,
-       "b_max": BLACKOUT_MAX, "b_reveal": BLACKOUT_REVEAL, "b_black": BLACKOUT_BLACK,
-       "nowhere": NOWHERE, "blackout": blackout, "best_hold": BEST_HOLD, "lily_stage": LILY_STAGE, "lily_x": LILY_AT[0], "lily_y": LILY_AT[1],
-       "life_ball": LIFE_BALL, "ball_frame": ball_frame, "lily_pickup": LILY_PICKUP, "lily_start": LILY_START,
-       "ball_pal": 0x400000 + BALL_PAL * 32, "ball_colours": ",".join("0x%04X" % c for c in ball_colours), "wl_stage": WALL_LIGHT_STAGE, "stage": STAGE,
-       "wl_pal": 0x400000 + WALL_LIGHT_PAL * 32, "wl_colours": ",".join("0x%04X" % c for c in WALL_LIGHT_COLOURS), "beam_hook": beam_hook,
-       "b_hold_at": BLACKOUT_HOLD_AT},
+       "ret": RET, "hud": hud, "goal": GOAL_RETURN, "final": FINAL_RETURN, "no_boss_dim": no_boss_dim,
+       "steps": STEPS, "half_bytes": PALS * 32 // STEP_FRAMES, "half_pals": PALS // STEP_FRAMES, "text_pal": TEXT_PAL,
+       "halves": STEP_FRAMES, "loop_top": FRAME_LOOP_TOP, "loop_end": FRAME_LOOP_END,
+       "table_ptrs": ",".join("tab%d_lo,tab%d_r" % (k, k) for k in range(STEPS + 1)), "tab_src": tab_src},
         why="ROUND CLEAR: the level dimmed behind the stats")
     rom.write(FREEZE_WAIT, bytes.fromhex("303C") + FREEZE.to_bytes(2, "big"), expect=bytes.fromhex("303C0030"),
               why="the stage's end: a shorter freeze before ROUND CLEAR")
@@ -449,28 +194,6 @@ tables:
         rom.write(at + 2, code.to_bytes(4, "big"), expect=hud.to_bytes(4, "big"), why="ROUND CLEAR: the dim on")
     rom.write(FRAME_LOOP, bytes.fromhex("4EF9") + (code + 4).to_bytes(4, "big"), expect=bytes.fromhex("301F51C8FFAC"),
               why="vblank wait, each frame: ROUND CLEAR's dim")
-    rom.write(STORY_LAST[0] + 2, (code + 8).to_bytes(4, "big"), expect=(blackout_code + 64).to_bytes(4, "big"),
-              why="story cinema: its last scene blacked out too")
-    rom.write(ROOM_OUT3 + 2, (blackout_code + BLACKOUT_ROOM_OUT).to_bytes(4, "big"), expect=(0x13660).to_bytes(4, "big"),
-              why="out of the room at 0x130EC: black at once, the level shown whole")
-    rom.write(BEST_IN, bytes.fromhex("4EB9") + (code + 16).to_bytes(4, "big"), expect=bytes.fromhex("4EB9000152FE"),
-              why="attract: TODAY'S BEST 5 blacked out at once")
-    rom.write(BEST_LOOP, bytes.fromhex("4EB9") + (code + 20).to_bytes(4, "big"), expect=bytes.fromhex("3D7C02003800"),
-              why="TODAY'S BEST 5: shown whole as its loop starts")
-    rom.write(BEAM_CUT + 2, (code + 28).to_bytes(4, "big"), expect=beam_hook.to_bytes(4, "big"),
-              why="story: the beam's cut blacked out while its layers are drawn")
-    assert rom.data[LILY_START:LILY_START + 10] == bytes.fromhex("1B7C0001004D3B7C20A0")
-    rom.write(BOXES + ball_frame, rom.u32(BOXES + LILY_FRAME).to_bytes(4, "big"),
-              expect=rom.data[BOXES + ball_frame:BOXES + ball_frame + 4], why="the small life ball: the lily's hit box")
-    for at in LILY_KINDS:
-        rom.write(at, (code + 32).to_bytes(4, "big"), expect=LILY_START.to_bytes(4, "big"),
-                  why="a placed white lily: a life ball at the hidden tunnel's end")
-    rom.write(TITLE_SETUP, bytes.fromhex("4EB9") + (code + 24).to_bytes(4, "big"), expect=bytes.fromhex("1D7C00203005"),
-              why="the title's set-up: black at once first")
-    at = bytes(rom.data).find(ELEVATOR_PAL)
-    assert at > 0 and bytes(rom.data).find(ELEVATOR_PAL, at + 1) < 0, "elevator-spin's palette copy not found"
-    rom.write(at, bytes.fromhex("4EB9") + (code + 12).to_bytes(4, "big"), expect=ELEVATOR_PAL[:6],
-              why="elevator-spin: its colours nowhere while the screen's black")
     old = b"".join(bytes(rom.fix[t * 32:t * 32 + 32]) for t in C_TILES)
     assert hashlib.sha1(old).hexdigest()[:8] == C_SHA, "ROUND CLEAR's C: not the original tiles"
     art = [[int(c, 16) if c != "." else 0 for c in row] for row in C_ART.split()]
