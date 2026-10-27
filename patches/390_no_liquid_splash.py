@@ -1,5 +1,5 @@
 NAME = "liquid-sink"
-DESCRIPTION = "Mechanical City's yellow liquid: no splash when Blue falls in; sinking (in it or water) he keeps his size"
+DESCRIPTION = "Daruma Empire 1's yellow liquid: no splash when Blue falls in; sinking (in it or water) he keeps his size"
 
 # Falling into the yellow liquid (hero state 0x25; sta/aes/liquid_fall.sta: walk right off the ledge) the hero is
 # hidden and two objects are made: a splash at the surface (palette 0x54) and Blue sinking (animation 0x33, with

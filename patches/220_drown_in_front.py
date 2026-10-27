@@ -57,10 +57,9 @@ RAM = 0x10EB80               # +0 2 entries (object offset word, first y word), 
 # half speed and the screen broke up.)
 LAVA1, LAVA2 = RAM + 96, RAM + 102
 APPLIED = RAM + 118           # 2 bytes, per entry: a burning hero's shift added as he was drawn (see shift_now)
-STRIPS = 0x10ED00
+STRIPS = 0x10ED00             # 64 x 8 bytes: the front layer's strips, read once a frame for the cover (see strips)
 FULL = 0x10EF60              # up to 24 x (sprite, y, x) words, then -1: the full-height strips among them (see strips)
 HIDE = 0x10EF00              # up to 16 x (object long, draw byte, pad): objects hidden from the behind group's drawing
-FOAM_CODE = 0                # geyser-foam's object code (set by that patch before this one is applied, if enabled)            # 64 x 8 bytes: the front layer's strips, read once a frame for the cover (see strips)
 GROUP_START = 0xA3BC         # lea 0x3C0002,a2 - the drawing loop, starting a group (d1 = its first sprite)
 OBJECT_DONE = 0xA3FE         # move.w 656(a6),d0 ; dbf d0,0xA3D8 - the drawing loop, after each object
 
@@ -1127,10 +1126,31 @@ pass2:
 90: move.w (%sp)+,%sr
     rts
 """
-    consts = {"DRAW_BEHIND": "0x%X" % DRAW_BEHIND, "DROWN_CODE": "0x%X" % DROWN_CODE,
-              "SPLASH_CODE": "0x%X" % SPLASH_CODE, "GEYSER_CODE": "0x%X" % GEYSER_CODE, "GEYSER_ROWS": str(GEYSER_ROWS), "GEYSER_COVER_ROWS": str(GEYSER_COVER_ROWS), "BUBBLE_UP": str(BUBBLE_UP), "STALK_SHOWS": str(STALK_SHOWS), "WATER_LINE": str(WATER_LINE), "COVER_ROWS": str(COVER_ROWS), "SPLASH_UP": str(SPLASH_UP), "POOL_DOWN": str(POOL_DOWN),
-              "RAM": "0x%X" % RAM, "STRIPS": "0x%X" % STRIPS, "FULL": "0x%X" % FULL, "HIDE": "0x%X" % HIDE, "FOAM_CODE": "0x%X" % (getattr(rom, "geyser_foam_code", 0) or 1), "LAVA1": "0x%X" % LAVA1, "APPLIED": "0x%X" % APPLIED, "LAVA2": "0x%X" % LAVA2, "LAVA_LINE": str(LAVA_LINE), "FRAME": "0x%X" % FRAME,
-              "BLANK_TILE": "0x%X" % rom.add_sprite_tile([[0] * 16 for _ in range(16)], why="drowning: a blank tile")}
+    consts = {   # (each name in the source above replaced - the longest first)
+        "DRAW_BEHIND": "0x%X" % DRAW_BEHIND,
+        "DROWN_CODE": "0x%X" % DROWN_CODE,
+        "SPLASH_CODE": "0x%X" % SPLASH_CODE,
+        "GEYSER_CODE": "0x%X" % GEYSER_CODE,
+        "GEYSER_ROWS": str(GEYSER_ROWS),
+        "GEYSER_COVER_ROWS": str(GEYSER_COVER_ROWS),
+        "BUBBLE_UP": str(BUBBLE_UP),
+        "STALK_SHOWS": str(STALK_SHOWS),
+        "WATER_LINE": str(WATER_LINE),
+        "COVER_ROWS": str(COVER_ROWS),
+        "SPLASH_UP": str(SPLASH_UP),
+        "POOL_DOWN": str(POOL_DOWN),
+        "RAM": "0x%X" % RAM,
+        "STRIPS": "0x%X" % STRIPS,
+        "FULL": "0x%X" % FULL,
+        "HIDE": "0x%X" % HIDE,
+        "FOAM_CODE": "0x%X" % (getattr(rom, "geyser_foam_code", 0) or 1),   # (geyser-foam sets it as it's applied; 1: none)
+        "LAVA1": "0x%X" % LAVA1,
+        "APPLIED": "0x%X" % APPLIED,
+        "LAVA2": "0x%X" % LAVA2,
+        "LAVA_LINE": str(LAVA_LINE),
+        "FRAME": "0x%X" % FRAME,
+        "BLANK_TILE": "0x%X" % rom.add_sprite_tile([[0] * 16 for _ in range(16)], why="drowning: a blank tile"),
+    }
     for k in sorted(consts, key=len, reverse=True):
         src = src.replace(k, consts[k])
     base = rom.place_code("    bra.w post\n    bra.w grp_start\n    bra.w after_obj\n" + src,

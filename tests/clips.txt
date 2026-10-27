@@ -58,3 +58,7 @@ how_to_play  how_to_play_in  the how-to-play cinema: its new look (buttons, text
 lottery_song  lotto_ocarina  the lottery with an ocarina: the gnomes' lines (their text box covering the hearts behind it - lottery-box-hearts), the host asks for a song, Blue plays it, 1ST PRIZE - the life ball; then the path map (ocarina-song, no-lotto-prompt-timer, 2026-10-27)
 house_no_timer  magician_house  the magician's house: WANT TO SEE A TRICK? left unanswered ~40 s - no countdown (no-house-timer); SURE! with 3 flowers: NO FLOWERS, NO SHOW. SHOO! (2026-10-27)
 card_game  marsh3_cards  the card game: DO YOU HAVE TIME FOR CARDS? left a while - no countdown (no-house-timer); the rules (TELL ME), 10 flowers bet, a card picked, YOU LOSE (2026-10-27)
+drown  water2  Jungle 1's water pit: Blue sinks in front of the water, the water line swallowing him (drown-in-front, 2026-10-27)
+geyser  geyser_bubbles  Empire Marsh 1's geysers: drawn in front of the water, their foam and bubbles at the waterline (geyser-foam, drown-in-front, 2026-10-27)
+liquid_sink  liquid_fall  Daruma Empire 1's yellow liquid: no splash, Blue sinks at his own size (liquid-sink, 2026-10-27)
+lava  lava  Lower Earth Empire 2's lava: Blue burning, the lava swallowing him (drown-in-front, 2026-10-27)
