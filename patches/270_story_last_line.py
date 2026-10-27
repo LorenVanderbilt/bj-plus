@@ -76,80 +76,82 @@ def apply(rom):
     rom.write(SCENE3_NEXT_LINE, bytes.fromhex("4EF9") + AFTER_LAST_LINE.to_bytes(4, "big"),
               expect=bytes.fromhex("41F90003591E"), why="story scene 3: no last line, straight to the leap")
 
-    setup = rom.place_code(
-        "    jsr 0x9FBE\n"
-        "    st 0x%X\n"
-        "    lea 0x%X,%%a0\n"
-        "    tst.b 0x10FD83\n"
-        "    beq.s 1f\n"
-        "    lea 0x%X,%%a0\n"
-        "1:  move.w #0x%X,%%d0\n"
-        "    jmp 0x2152C\n" % (BOX_ON, jp, en, TEXT_POS),
-        why="story scene 4: print the last line")
+    setup = rom.place_code(r"""
+    jsr 0x9FBE
+    st 0x%(box_on)X
+    lea 0x%(jp)X,%%a0
+    tst.b 0x10FD83                      | (the BIOS's language: Japanese, else English)
+    beq.s 1f
+    lea 0x%(en)X,%%a0
+1:  move.w #0x%(pos)X,%%d0
+    jmp 0x2152C
+""" % {"box_on": BOX_ON, "jp": jp, "en": en, "pos": TEXT_POS}, why="story scene 4: print the last line")
     rom.write(SCENE4_SETUP, bytes.fromhex("4EB9") + setup.to_bytes(4, "big"), expect=bytes.fromhex("4EB900009FBE"),
               why="story scene 4: set-up prints the last line")
 
-    loop = rom.place_code(
-        "    jsr 0xCAF2\n"
-        "    jsr 0x21562\n"
-        "    tst.b 0x%X\n"
-        "    beq 9f\n"
-        "    movem.l %%d0-%%d3/%%a0,-(%%sp)\n"
-        "    move.w %%sr,-(%%sp)\n"
-        "    or.w #0x0700,%%sr\n"
-        "    move.w #1,0x3C0004\n"
-        "    lea box(%%pc),%%a0\n"
-        "    move.w #%d,%%d1\n"
-        "    moveq #19,%%d2\n"
-        "1:  move.w %%d1,%%d0\n"
-        "    lsl.w #6,%%d0\n"
-        "    move.w %%d0,0x3C0000\n"
-        "    moveq #7,%%d3\n"
-        "2:  move.w (%%a0)+,0x3C0002\n"
-        "    dbf %%d3,2b\n"
-        "    move.w %%d1,%%d0\n"
-        "    add.w #0x8000,%%d0\n"
-        "    move.w %%d0,0x3C0000\n"
-        "    move.w #0x0FFF,0x3C0002\n"          # SCB2: full size
-        "    move.w %%d1,%%d0\n"
-        "    add.w #0x8200,%%d0\n"
-        "    move.w %%d0,0x3C0000\n"
-        "    move.w #0x%X,0x3C0002\n"            # SCB3: y, 4 tiles high
-        "    move.w %%d1,%%d0\n"
-        "    add.w #0x8400,%%d0\n"
-        "    move.w %%d0,0x3C0000\n"
-        "    move.w %%d1,%%d0\n"
-        "    sub.w #%d,%%d0\n"
-        "    lsl.w #8,%%d0\n"
-        "    lsl.w #3,%%d0\n"                    # x = column * 16, in the SCB4 x field
-        "    move.w %%d0,0x3C0002\n"
-        "    addq.w #1,%%d1\n"
-        "    dbf %%d2,1b\n"
-        "    move.w (%%sp)+,%%sr\n"
-        "    movem.l (%%sp)+,%%d0-%%d3/%%a0\n"
-        "9:  rts\n"
-        "box:\n    .word %s\n" % (BOX_ON, BOX_SPRITE, ((496 - BOX_Y) << 7) | 4, BOX_SPRITE,
-                                ",".join("0x%X" % w for w in box_table())),
+    loop = rom.place_code(r"""
+    jsr 0xCAF2
+    jsr 0x21562
+    tst.b 0x%(box_on)X
+    beq 9f
+    movem.l %%d0-%%d3/%%a0,-(%%sp)
+    move.w %%sr,-(%%sp)
+    or.w #0x0700,%%sr
+    move.w #1,0x3C0004
+    lea box(%%pc),%%a0
+    move.w #%(sprite)d,%%d1
+    moveq #19,%%d2
+1:  move.w %%d1,%%d0
+    lsl.w #6,%%d0
+    move.w %%d0,0x3C0000
+    moveq #7,%%d3
+2:  move.w (%%a0)+,0x3C0002
+    dbf %%d3,2b
+    move.w %%d1,%%d0
+    add.w #0x8000,%%d0
+    move.w %%d0,0x3C0000
+    move.w #0x0FFF,0x3C0002             | SCB2: full size
+    move.w %%d1,%%d0
+    add.w #0x8200,%%d0
+    move.w %%d0,0x3C0000
+    move.w #0x%(scb3)X,0x3C0002         | SCB3: y, 4 tiles high
+    move.w %%d1,%%d0
+    add.w #0x8400,%%d0
+    move.w %%d0,0x3C0000
+    move.w %%d1,%%d0
+    sub.w #%(sprite)d,%%d0
+    lsl.w #8,%%d0
+    lsl.w #3,%%d0                       | x = column * 16, in the SCB4 x field
+    move.w %%d0,0x3C0002
+    addq.w #1,%%d1
+    dbf %%d2,1b
+    move.w (%%sp)+,%%sr
+    movem.l (%%sp)+,%%d0-%%d3/%%a0
+9:  rts
+box:
+    .word %(box)s
+""" % {"box_on": BOX_ON, "sprite": BOX_SPRITE, "scb3": ((496 - BOX_Y) << 7) | 4,
+       "box": ",".join("0x%X" % w for w in box_table())},
         why="story scene 4: run the text engine, draw the text box")
     rom.write(SCENE4_LOOP, bytes.fromhex("4EB9") + loop.to_bytes(4, "big"), expect=bytes.fromhex("4EB90000CAF2"),
               why="story scene 4: the loop runs the text engine")
 
-    beam = rom.place_code(
-        "    move.l #0x3551C,4(%%a5)\n"
-        "    movem.l %%d0-%%d7/%%a0-%%a6,-(%%sp)\n"
-        "    clr.b 0x%X\n"                       # the box off: its sprites 0 tiles high
-        "    move.w %%sr,-(%%sp)\n"
-        "    or.w #0x0700,%%sr\n"
-        "    move.w #1,0x3C0004\n"
-        "    move.w #0x%X,0x3C0000\n"
-        "    moveq #19,%%d0\n"
-        "1:  move.w #0,0x3C0002\n"
-        "    dbf %%d0,1b\n"
-        "    move.w (%%sp)+,%%sr\n"
-        "    jsr 0x34ED4\n"
-        "    movem.l (%%sp)+,%%d0-%%d7/%%a0-%%a6\n"
-        "    rts\n" % (BOX_ON, 0x8200 + BOX_SPRITE),
-        why="story scene 4: the beam clears the last line and its box")
+    beam = rom.place_code(r"""
+    move.l #0x3551C,4(%%a5)
+    movem.l %%d0-%%d7/%%a0-%%a6,-(%%sp)
+    clr.b 0x%(box_on)X                  | the box off: its sprites 0 tiles high
+    move.w %%sr,-(%%sp)
+    or.w #0x0700,%%sr
+    move.w #1,0x3C0004
+    move.w #0x%(scb3)X,0x3C0000
+    moveq #19,%%d0
+1:  move.w #0,0x3C0002
+    dbf %%d0,1b
+    move.w (%%sp)+,%%sr
+    jsr 0x34ED4
+    movem.l (%%sp)+,%%d0-%%d7/%%a0-%%a6
+    rts
+""" % {"box_on": BOX_ON, "scb3": 0x8200 + BOX_SPRITE}, why="story scene 4: the beam clears the last line and its box")
     rom.write(BEAM_START, bytes.fromhex("4EB9") + beam.to_bytes(4, "big") + bytes.fromhex("4E71"),
               expect=bytes.fromhex("2B7C0003551C0004"), why="story scene 4: clear the line as the beam starts")
 

@@ -5,7 +5,8 @@ DESCRIPTION = "How-to-play cinema: more time for the longer text boxes (WHEN BLU
 # consoles 0x544E2 shows each text box when that count reaches its start: JUMP 896, CHANGE SIZE 832, WHEN BLUE IS
 # LITTLE... 640, BUT HE CANNOT ATTACK 576, THROW DOWN... 448, YOU CAN THROW... 320, THE FLOWERS... 192. The four-line
 # WHEN BLUE IS LITTLE... got only 64 frames (about a second) and BUT HE CANNOT ATTACK 128, while CHANGE SIZE (two
-# words) had 192. Now: CHANGE SIZE 96, WHEN BLUE IS LITTLE... 144, BUT HE CANNOT ATTACK 128, THROW DOWN... 176 (was 128),
+# words) had 192. Now: CHANGE SIZE 96, WHEN BLUE IS LITTLE... 144, BUT HE CANNOT ATTACK 128, THROW DOWN... 176 (was
+# 128),
 # YOU CAN THROW... 144 (was 128), THE FLOWERS ARE... 144 to the end (was 192). (The Japanese
 # schedule, 0x542C8 - Japanese consoles - is unchanged.)
 STARTS = [  # (address of the cmpi.w's immediate, old start, new start)

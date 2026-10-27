@@ -17,7 +17,8 @@ SOUND_CREDIT = 0x257B2         # jsr CLEAR ; jsr PRINT ; its text ... ; then the
 SOUND_WAS, SOUND = b"SOUND EFFECT", b"SOUND EFFECTS"
 HARD_AT, HARD_WAS, HARD = 0x25810, b"HARD WEARER", b"HARDWARE   "
 BEFORE_THE_END = 14            # (the step PLUS_CREDIT goes in at)
-ROLE_AT, NAME_AT = 0x724A, 0x724D   # (as the other credits: the role at column 18 row 10; a 20-letter name, column 18 row 13)
+ROLE_AT, NAME_AT = 0x724A, 0x724D   # (as the other credits: the role at column 18 row 10; a 20-letter name, column
+                                    # 18 row 13)
 PLUS_CREDIT = (b"PLUS VERSION", b"LOREN VANDERBILT III")
 
 

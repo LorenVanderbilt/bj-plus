@@ -59,11 +59,11 @@ def order():
     def key(c, r):
         d = math.hypot(c - cx, r - cy) / far
         if SHAPE == "iris":
-            return d
+            return round(d, PRECISION)
         turn = (math.atan2(r - cy, c - cx) / (2 * math.pi)) % 1
         turn = turn if CLOCKWISE else 1 - turn
         reach = d * TURNS                       # (in turns: when the blade first reaches this far)
-        return reach + (turn - reach) % 1       # ... then the next time it points this way
+        return round(reach + (turn - reach) % 1, PRECISION)   # ... then the next time it points this way
     cells = sorted(((c, r) for c in COLUMNS for r in ROWS), key=lambda cr: key(*cr))
     keys = [key(c, r) for c, r in cells]
     # how many are cleared by each frame: the edge moves at a steady pace (a cell count per frame would open the

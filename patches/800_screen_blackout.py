@@ -31,11 +31,13 @@ DESCRIPTION = "Screen changes: the old screen goes black at once and the new one
 #     (held off while how-to-play sets up - HTP_START - for HOLD frames at most), so nothing stays black.
 TITLE_END = 0x1B026            # jsr <title's clean-up, title-banner's> ; jsr 0xA136 ; rts
 PLAYERS = 0x106800
-LOAD_WAIT = 0xBCAA             # jsr 0xE856 - the loader's wait, a0 = the palettes' address, a1 = the source, d2 = count-1
+LOAD_WAIT = 0xBCAA             # jsr 0xE856 - the loader's wait, a0 = the palettes' address, a1 = the source, d2 =
+                               # count-1
 VBLANK_END = 0xE8B2            # movem.l (sp)+,d1-a5 ; rts - the vblank wait's end
 HTP_END = 0x1124A              # clr.b 0x3005(a6) ; clr.b 0x309B(a6) - how-to-play over, before it's taken down
 ROOM_INS = [0x12FDE, 0x130F2, 0x131BA]   # jsr 0x15566 - a shop / room entered: the level taken down
-DOOR_IN = 0x13098              # jsr 0x13660 - through a door: the sprites cleared (a few hundred a frame), then the room
+DOOR_IN = 0x13098              # jsr 0x13660 - through a door: the sprites cleared (a few hundred a frame), then the
+                               # room
 FADE_IN = 0x1572C              # lea 0x1576A,a4 ; (bra 0x15732) - the fix layer's fade-in, as a room opens
 ROOM_OUTS = [0x1303E, 0x1324C] # jsr 0x13660 - leaving a shop / an NPC room: its sprites cleared, the level rebuilt
 GAME_FRAME = 0x11720           # jsr <weapon-switch's> - a frame of play (the gameplay loop's, how-to-play's)
@@ -48,7 +50,8 @@ CONT_IN = 0x10E24              # jsr 0xA1BC - no lives left: every sprite cleare
 CONT_OUTS = [0x3475C, 0x34816] # jsr 0xA37A - the continue screen answered (no / time up, yes): its layers cleared
 CARD_ENDS = [0x13AFA, 0x13B1C] # jsr <stage-wipe's: the fix layer cleared> - a stage's title card over (held out /
                                # a button pressed)
-FADE_WAIT = 0x1573A            # jsr 0xE858 - the fix layer's fade, a step's wait (a4: its table - FADE_OUT_TABLE fading out)
+FADE_WAIT = 0x1573A            # jsr 0xE858 - the fix layer's fade, a step's wait (a4: its table - FADE_OUT_TABLE
+                               # fading out)
 FADE_OUT_TABLE = 0x15784
 CLEAR_STEPS = 0x13676          # moveq #0,d0 ; move.w #99,d1 - every sprite cleared, 100 a frame (0x13660)
 STEP_WAITS = [0x5AEE6, 0x5AEFE]   # jsr 0xE856 - the palettes loaded in brightness steps (0x5AED2)
@@ -69,8 +72,10 @@ RAM = 0x10E600                 # spare RAM (0x10D000-0x10E6FF: the game only cle
 BLACK, REVEAL, SINCE, HTP, COUNT, HOLD_AT = RAM, RAM + 1, RAM + 2, RAM + 4, RAM + 6, RAM + 8
 PHASE = RAM + 11               # (a byte: the reveal's sprites hidden - its second vblank next)
 GAME_ARM = RAM + 10            # (a byte: 1 + frames of play counted; 0 = not armed)
-REQUEST = RAM + 12             # (a byte: pause-menu's pick, 1 RESTART LEVEL / 2 QUIT TO TITLE - black at the next vblank)
-MENU_CURSOR = 0x10E816         # (pause-menu's cursor: its pick is `move.b cursor,d0 ; beq.w resume ; bsr.w close`, found
+REQUEST = RAM + 12             # (a byte: pause-menu's pick, 1 RESTART LEVEL / 2 QUIT TO TITLE - black at the next
+                               # vblank)
+MENU_CURSOR = 0x10E816         # (pause-menu's cursor: its pick is `move.b cursor,d0 ; beq.w resume ; bsr.w close`,
+                               # found
                                # in its code - left as it is, its size unchanged: later patches' code doesn't move)
 LIST = RAM + 16                # (10 bytes a load)
 

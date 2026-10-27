@@ -53,3 +53,5 @@ vine_slide  vine_swing  big Blue on a swinging vine: Up / Down slide him along i
 swim  swim_flippers  big Blue swimming with the flippers: the big swim poses, no stray leg or dash (swim-art, hero-big-art, 2026-10-26)
 carry  carry1  big Blue picks up an enemy and carries it (drawn higher, over his big art) and throws it (hero-big-art, 2026-10-26)
 acorn_second  acorn3  the level 3 acorn bomb: a quick second press of A throws a second one at once (two out - its own slot and one in the pool), level 2's size and range (acorn-bomb, 2026-10-26)
+story_start  title_banner  no input: the title, then the story cinema - its scenes come in whole, the opening's BUT... types its dots one at a time (text-pause, screen-blackout, 2026-10-27)
+how_to_play  how_to_play_in  the how-to-play cinema: its new look (buttons, text timing - how-to-play-look, how-to-play-timing), no blink at its start - change size, little Blue, throwing, carrying, the flowers - and round again (2026-10-27)

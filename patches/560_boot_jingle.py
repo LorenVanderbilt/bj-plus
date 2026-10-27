@@ -25,7 +25,8 @@ TEMPO = 0x88               # (the jingle's own: a 16th ~6.5 frames, as 3 Count B
 # 32nd later, the melody's long notes step by step); the bell panned left / centre / right / centre; each part
 # doubled on a second channel a hair later, the melody's 2 levels quieter. The
 # driver's streams are MML-like (the dispatcher at 0xD678): ? voice, T tempo, V volume (a carrier's level is
-# 0x7F - V), O octave (block), A-G a note (+ # sharp), length bytes (0x20 a 32nd, 0x08 an 8th, . dotted), R rest, Q gate,
+# 0x7F - V), O octave (block), A-G a note (+ # sharp), length bytes (0x20 a 32nd, 0x08 an 8th, . dotted), R rest, Q
+# gate,
 # l / s / r pan, d hi lo a frequency with no new attack (0xDAFF: key on without key off - a slide), 0xFF the end.
 # MELODY / BELL are its events (frame, MIDI note, carrier level, L/R; its pitch is written just after the key on); the
 # doubles (its second channels) start with a short rest (DOUBLE_DELAYS) - the bell's is its own stream entered early,
@@ -35,7 +36,8 @@ POINTERS = 0x240
 STREAMS_AT = 0xF48C            # (free up to 0xF800; this window shows the same ROM bytes while the jingle plays)
 FRAMES_PER_32ND = 3.27
 DOUBLE_AT = 0x014B             # (free, after FINE_SLIDE, to 0x0200)
-DOUBLE_DELAYS = {"melody": 0x40, "bell": 0x30}   # a 64th / a triplet 32nd (~2 frames: the opening swells as 3 Count Bout's)
+DOUBLE_DELAYS = {"melody": 0x40, "bell": 0x30}   # a 64th / a triplet 32nd (~2 frames: the opening swells as 3 Count
+                                                 # Bout's)
 FNUMS = 0xE745 + 0x20          # the driver's frequency table: C, then 8 bytes a semitone
 DOUBLE_QUIETER = 2
 LAST_LENGTH = 0x08

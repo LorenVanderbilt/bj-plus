@@ -14,7 +14,8 @@ import math
 # Moving is measured, not read from its fields (the cone's three objects keep them differently; the one rising to the
 # top keeps its speed after it parks): its height in the level, its y (+0, 8.8, up from the screen's bottom) plus the
 # camera's (CAMERA_Y: one of its steps is 0x80 of an object's y), against last frame's (LAST, while SEEN) - so the
-# camera scrolling (Blue walking up to it, jumping) isn't taken for the cone moving. A stripe's three positions are three
+# camera scrolling (Blue walking up to it, jumping) isn't taken for the cone moving. A stripe's three positions are
+# three
 # tones of its level's colour (TONES, from CONTRAST).
 CONE = 0x4D74
 CONE_DEFINITION = 0x7363A      # 03 01 00 F7 4D 74 7C 75 7D 76 7E 77 7F FF
@@ -31,7 +32,8 @@ OBJECTS, OBJECT_SIZE, LAST_OBJECT = 0x104000, 0x80, 0x107F80
 ACTIVE, FRAME = 0x28, 8
 CAMERA_Y = 0x10020A
 STAGE = 0x103005
-STAGES = [28, 29, 31]          # the stages with the cone (the elevators - 28 up, 29 down; the final stage's mini-boss and boss
+STAGES = [28, 29, 31]          # the stages with the cone (the elevators - 28 up, 29 down; the final stage's
+                               # mini-boss and boss
                                # platforms) - elsewhere the scan's cost (128 objects a frame) slowed busy scenes
 TICK = 0x10EA7A                # bytes (spare RAM): frames since the last step, the stripes' step (0-2)
 LAST = 0x10EA7C                # a long: the cone's height in the level last frame (8.8)
