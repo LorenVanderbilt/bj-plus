@@ -4,7 +4,7 @@ DESCRIPTION = "The cabbage: its 10000 points pop-up in invincible-points' style,
 # The cabbage (pickup type 10) shows the score pop-ups' 10000 (CABBAGE_FRAME). Like fruit-popup's, it now goes to
 # invincible-points' pop-up: "+10000" in the small gold font, from above the head of the hero who got it (lower over a
 # shrunk one), rising, slowing, thinned out, gone. 4 tiles - after dev-tiles, which made the room. fruit-popup's hook
-# at the pop-up set-up's end (SET_UP_END) now calls ours first. (Its own patch, last, so its code moves nothing.)
+# at the pop-up set-up's end (SET_UP_END) now calls ours first.
 import importlib.util
 import os
 

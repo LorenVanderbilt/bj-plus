@@ -7,7 +7,7 @@ DESCRIPTION = "Leaf level 2: its gust of wind along the ground comes as a burst 
 # high byte, the low bytes) further out each frame, cycling through 3 drawings. A thin crescent, it was easy to miss.
 # Now each frame has TRAIL more crescents behind it - each SPACING further back, a drawing behind (so they spin out
 # of step), RISE higher, coming in DELAY frames apart - a burst of wind; the leaf's hit (the object) is as before.
-# Data only: the frames' definitions copied with the pieces added. (Its own patch, last: nothing moves.)
+# Data only: the frames' definitions copied with the pieces added.
 GUST = [0x2A0, 0x2A4, 0x2A8, 0x2AC, 0x2B0, 0x2B4]
 FRAME_TABLE = 0x60772
 TRAIL = 1

@@ -31,7 +31,6 @@ import math
 # every drawing of a bell, hanging still too (its own tiles, a frame of its own), padded with blank ones: a sprite
 # dropped from one frame to the next lingers (the top bell's knob came adrift). The bells hanging still are
 # their own art - or UPRIGHT's pictures where they've been painted over (their 32 x 32: the rest stays clear).
-# (Its own patch, last, so its code moves nothing.)
 PARENT = 0x5E036               # a0 = the object's parent (+0x4E); tst.b 0x28(a0)
 HANGING = [0x52B52, 0x52B80, 0x52BAE, 0x52BDC, 0x52C0A, 0x52C38]
 TOP_FRAME = 0x20D0

@@ -22,7 +22,6 @@ PERIOD = 120                       # frames from one bounce to the next while sh
 # own, see BLOCK_REFERENCE - the rest clear). Without it, ELLIPSES pick them.
 MASK = "art/shop/bounce_mask.png"
 BLOCK_REFERENCE = "art/shop/bounce_block.png"   # (the BLOCK area as it is: for drawing the mask over)
-PALETTE_COLOURS = "0000 7FFF 5FFD 527B 535B 6F50 19EF 07CE 45AD 538B 6FFC 7FF7 1DC6 1006 1003 4111"   # (her 0x83)
 
 
 def frame_body(rom, frame):
@@ -132,8 +131,9 @@ anim:
     rts
 seq:
 TABLE"""
-    for k, v in (("FRAME_COUNTER", "0x%X" % FRAME_COUNTER), ("GRID_RAM", "0x%X" % GRID_RAM), ("BASE_FRAME", "0x%X" % BASE_FRAME),
-                 ("SEQ_LEN", str(len(SEQUENCE))), ("PERIOD", str(PERIOD)), ("STEP", str(STEP)), ("RAM", "0x%X" % RAM), ("TABLE", table)):
+    for k, v in (("FRAME_COUNTER", "0x%X" % FRAME_COUNTER), ("GRID_RAM", "0x%X" % GRID_RAM),
+                 ("BASE_FRAME", "0x%X" % BASE_FRAME), ("SEQ_LEN", str(len(SEQUENCE))), ("PERIOD", str(PERIOD)),
+                 ("STEP", str(STEP)), ("RAM", "0x%X" % RAM), ("TABLE", table)):
         src = src.replace(k, v)
     code = rom.place_code(src, why="shop: shopkeeper animation")
     rom.write(CODE_FIELD, code.to_bytes(4, "big"), expect=(0x1FA34).to_bytes(4, "big"),

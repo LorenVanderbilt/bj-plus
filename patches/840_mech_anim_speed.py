@@ -6,7 +6,7 @@ DESCRIPTION = "Mechanical City: the hardware tile animation (conveyor belts, whe
 # More frames would need ~160-320 free sprite tiles; instead the clock runs at FAST frames a step in STAGES. The
 # clock is one for the whole screen, so the stages' other animated tiles (lights, machinery) run faster too.
 # anim-speed's `or.w #<speed>,d0 ; move.w d0,0x3C0006` (CLOCK_WRITE, found by its bytes) calls ours instead -
-# the same size, so its code doesn't move. (Its own patch, last, so its code moves nothing.)
+# the same size, so its code doesn't move.
 STAGES = (16, 17, 18, 19)      # Mechanical City 1-4
 FAST = 5                       # frames a step there (anim-speed's elsewhere)
 STAGE = 0x103005

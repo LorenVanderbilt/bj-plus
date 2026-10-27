@@ -5,7 +5,7 @@ DESCRIPTION = "Continue screen: CONTINUE? with a question mark (and a space befo
 # top row's address 0x7085, 0xFC 0x56, its characters, 0xFE, the bottom row's address, its characters, 0xFF) - the big
 # font's tiles are 0x600 + a character byte, the bottom half 0x10 on; its ? is 0xCE / 0xDE. The countdown is drawn on
 # its own from column 13. There's no room for a ? in place, so the print is now a call to TEXT (the same, with the ?,
-# one column left: CONTINUE? 08) and a branch past the old text. (Its own patch, last, so its code moves nothing.)
+# one column left: CONTINUE? 08) and a branch past the old text.
 PRINT = 0x346A2
 OLD = bytes.fromhex("4EB900009FE67085FC56838F8EA4898EA585FE7086939F9EB4999EB595FF")
 AFTER = PRINT + len(OLD)              # (just past the old text's end: the code after it)

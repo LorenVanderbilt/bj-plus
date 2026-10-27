@@ -8,7 +8,6 @@ DESCRIPTION = "Hit the goal vine at the very top (its top score) and flowers spr
 # a 1-pixel line, full width), waits its delay, then stretches up through ZOOMS - the hero's crush in reverse - out
 # of the ground, a little bounce at the end - and stays till the stage ends. It never moves: the drawer keeps a
 # shrunken sprite's bottom where the full-size one's is (its y is the full-size top, GROUND below the base).
-# (Its own patch, last, so its code moves nothing.)
 ENABLED = False                # set aside (2026-10-18): the user isn't sold on it yet - True to try it again
 TOUCH = 0x52994                # jsr 0x5E036
 TOUCH_FIRST = 0x5E036

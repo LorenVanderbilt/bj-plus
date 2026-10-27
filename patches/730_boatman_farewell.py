@@ -7,7 +7,6 @@ DESCRIPTION = "Boatman: a parting line as you leave - BON VOYAGE, LAD! after ren
 # handler, when it did end the room, takes that back and types a parting line (FAREWELLS) the same way, its callback
 # holding it HOLD frames and then ending the room - no button wait (boatman-close's PICKED stays: the room closes by
 # itself).
-# (Its own patch, last, so its code moves nothing.)
 MENU_TABLE_REF = 0x222FC       # (the operand of lea <the handlers>,a1 at 0x222FA)
 END_ROOM = 0x22502
 CLEAR_BOX, TYPE = 0x21CD2, 0x2152C

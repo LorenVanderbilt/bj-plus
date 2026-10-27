@@ -1,16 +1,11 @@
 NAME = "jungle2-card-house"
 DESCRIPTION = "Jungle Zone 2: a path of falling ice blocks up from the top of the icy climb leads to a second card game house"
 
-# A level's front layer (the one the hero stands on) is a map per 256 x 256 px block: MAP_TABLE has 4 pointers a block
-# (block N at 16 * N: +0 top left, +4 bottom left, +8 top right, +12 bottom right quarter), each to an 8 x 8 grid of
-# 16 px cells, row by row, packed (the decoder: 0xC280 / 0xC620). A cell is an attribute word (palette, flips) and a
-# tile word. Each entry starts with a byte - its low 6 bits n, its top 2 a kind - and a whole cell (attr, tile: 4
-# bytes); n more cells follow it, each changing only some bytes: kind 0xC0 attr word + tile low byte (3 bytes), 0x80
-# tile low byte (1), 0x40 palette + tile low byte (2), 0x00 attr low byte + tile low byte (2) - or, if the first
-# cell's attr low byte has bits 0x0C set (masked off), the same cell n more times (no bytes). Quarters can be shared
-# (the empty ones all are), so block BLOCK's quarters that get platforms are packed again into free space and
-# re-pointed. The platform is the stage's own floating one (block 7: PLATFORM_FROM, PLATFORM_SIZE cells), copied.
-# It's reached by ICE_BLOCKS - kind 0xB8, an ice block that shakes once stood on and falls (0x18FD4, shared with
+# A level's front layer (the one the hero stands on) is a map per 256 x 256 px block (MAP_TABLE: its quarters' packed
+# 8 x 8 grids of 16 px cells - the format: tools/hackbuild.py, Rom.map_quarter). Quarters can be shared (the empty
+# ones all are), so block BLOCK's quarters that get platforms are packed again into free space and re-pointed. The
+# platform is the stage's own floating one (block 7: PLATFORM_FROM, PLATFORM_SIZE cells), copied. It's reached by
+# ICE_BLOCKS - kind 0xB8, an ice block that shakes once stood on and falls (0x18FD4, shared with
 # the previous stage's falling grass platforms, whose palette isn't loaded here).
 # Objects come from per-stage lists (0x60502: 16 bytes a stage - +0 a byte a block, its positions' count; +4 a table of
 # a pointer a block - block N at N-1; the spawner, 0xFC46): a word 0x8000 | kind starts a kind's run, each word after it
@@ -18,7 +13,6 @@ DESCRIPTION = "Jungle Zone 2: a path of falling ice blocks up from the top of th
 # kinds 0x40-0x5F are house doors, their room the kind's low 5 bits; it draws itself, frame 0x2074, sign above) goes on
 # the top platform. Its room is new: ROOM (an unused slot of the room table, 0x132BC) set to the card game's routine
 # (room 9's) - each room has a visited flag that makes its door vanish, so this one doesn't share Empire Marsh 3's.
-# (Its own patch, last: data, no code.)
 STAGE_TABLE = 0x60502
 STAGE = 3
 MAP_TABLE = 0x7C432            # Jungle Zone 2's front layer
@@ -37,61 +31,10 @@ ROOM_TABLE, ROOM, CARD_ROOM = 0x132BC, 10, 9
 EMPTY_ROOM = 0x1333C           # (the unused slots' bare rts)
 
 
-def decode(rom, p):
-    cells = []
-    while len(cells) < 64:
-        h = rom.data[p]
-        n, kind = h & 63, h & 0xC0
-        attr, tile = rom.u16(p + 1), rom.u16(p + 3)
-        p += 5
-        if n and kind == 0 and attr & 0xC == 0xC:
-            cells += [(attr & 0xFFF3, tile)] * (n + 1)
-            continue
-        cells.append((attr, tile))
-        for _ in range(n):
-            b = rom.data[p:p + 3]
-            if kind == 0xC0:
-                attr, tile, p = (b[0] << 8) | b[1], (tile & 0xFF00) | b[2], p + 3
-            elif kind == 0x80:
-                tile, p = (tile & 0xFF00) | b[0], p + 1
-            elif kind == 0x40:
-                attr, tile, p = (b[0] << 8) | (attr & 0xFF), (tile & 0xFF00) | b[1], p + 2
-            else:
-                attr, tile, p = (attr & 0xFF00) | b[0], (tile & 0xFF00) | b[1], p + 2
-            cells.append((attr, tile))
-    assert len(cells) == 64
-    return cells
-
-
-def encode(cells):
-    out, i = bytearray(), 0
-    while i < 64:
-        k = 1
-        while i + k < 64 and cells[i + k] == cells[i]:
-            k += 1
-        attr, tile = cells[i]
-        if k > 1 and attr & 0xC == 0:          # a repeat: n = k - 1, the flag in the attr's low byte
-            out += bytes([k - 1]) + (attr | 0xC).to_bytes(2, "big") + tile.to_bytes(2, "big")
-        else:                                  # a single cell
-            k = 1
-            out += bytes([0]) + attr.to_bytes(2, "big") + tile.to_bytes(2, "big")
-        i += k
-    return bytes(out)
-
-
-def grid(rom, block):
-    g = [[None] * 16 for _ in range(16)]
-    for q in range(4):
-        cells = decode(rom, rom.u32(MAP_TABLE + 16 * block + 4 * q))
-        for i, c in enumerate(cells):
-            g[(8 if q & 1 else 0) + i // 8][(8 if q & 2 else 0) + i % 8] = c
-    return g
-
-
 def apply(rom):
     # the platforms, into the map
-    src = grid(rom, PLATFORM_FROM[0])
-    g = grid(rom, BLOCK)
+    src = rom.map_block(MAP_TABLE, PLATFORM_FROM[0])
+    g = rom.map_block(MAP_TABLE, BLOCK)
     empty = g[0][0]
     pr, pc = PLATFORM_FROM[1:]
     rows, cols = PLATFORM_SIZE
@@ -105,13 +48,8 @@ def apply(rom):
     for q in sorted(touched):
         oy, ox = (8 if q & 1 else 0), (8 if q & 2 else 0)
         cells = [g[oy + i // 8][ox + i % 8] for i in range(64)]
-        body = encode(cells)
-        at = rom.alloc(len(body))
-        rom.data[at:at + len(body)] = body
-        assert decode(rom, at) == cells
-        old = rom.u32(MAP_TABLE + 16 * BLOCK + 4 * q)
-        rom.write(MAP_TABLE + 16 * BLOCK + 4 * q, at.to_bytes(4, "big"), expect=old.to_bytes(4, "big"),
-                  why="Jungle Zone 2: block %d's quarter %d with floating platforms" % (BLOCK, q))
+        rom.put_map_quarter(MAP_TABLE, BLOCK, q, cells,
+                            why="Jungle Zone 2: block %d's quarter %d with floating platforms" % (BLOCK, q))
 
     # the door, into the objects
     sections = rom.u32(STAGE_TABLE + 16 * STAGE + 4)

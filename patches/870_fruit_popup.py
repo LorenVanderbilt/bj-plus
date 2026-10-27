@@ -5,7 +5,7 @@ DESCRIPTION = "Fruit: its points pop-up (+100 / +150) in invincible-points' styl
 # 1UP, those now go to invincible-points' pop-up: "+100" / "+150" in its small gold font, from above the head of the
 # hero who got it, rising, slowing, thinned out, gone. 8 tiles (creature-tiles freed the room). one-up-popup's hook
 # at the pop-up set-up's end (SET_UP_END) now calls ours first. Over a shrunk hero (form 0) these and the 1UP start
-# SHRUNK_DROP px lower. (Its own patch, last, so its code moves nothing.)
+# SHRUNK_DROP px lower.
 import importlib.util
 import os
 

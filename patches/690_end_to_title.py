@@ -7,7 +7,6 @@ DESCRIPTION = "Home console (AES): after a game over or the ending, back to the 
 # scores, the items), and after a game it was cycle 2's turn: the demo. Now, as START_GAME ends (GAME_END: clr.b
 # 0x306E(a6) ; moveq #-1,d0 ; rts), bit 0 is cleared - the title next - as the pause menu's QUIT TO TITLE does. Home
 # console only (SYSTEM_MODE 0); the arcade's cycle 1 opens with the story cinema, so it keeps its flow.
-# (Its own patch, last, so its code moves nothing.)
 GAME_END = 0x10D18
 GAME_END_BYTES = "422E306E70FF"
 ATTRACT_TOGGLE = 0x1033CA      # bit 0 clear: the attract cycle with the title runs next

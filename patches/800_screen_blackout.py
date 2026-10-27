@@ -29,7 +29,6 @@ DESCRIPTION = "Screen changes: the old screen goes black at once and the new one
 #     (PAL_ANIM), hud's lives (its face colours - the stage's fix palettes have them), how-to-play-look's buttons.
 #   * Anything else (a stage's title card, OPTIONS, a picked level ...): FALLBACK frames after the last noted load
 #     (held off while how-to-play sets up - HTP_START - for HOLD frames at most), so nothing stays black.
-# (Its own patch, last, so its code moves nothing.)
 TITLE_END = 0x1B026            # jsr <title's clean-up, title-banner's> ; jsr 0xA136 ; rts
 PLAYERS = 0x106800
 LOAD_WAIT = 0xBCAA             # jsr 0xE856 - the loader's wait, a0 = the palettes' address, a1 = the source, d2 = count-1

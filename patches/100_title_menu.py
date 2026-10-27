@@ -23,15 +23,20 @@ DESCRIPTION = "Title menu (AES): Start opens (CONTINUE /) NEW GAME / OPTIONS on 
 # stage into the stage bytes (0x103005 and each player's +0xF0) the way the developers' own stage select did.
 #
 # ---- The options screen: a black screen list (Up / Down, A or Start selects, B goes back)
-#   LEVEL SELECT - the stage list; picking a stage starts it
-#   SOUND TEST   - Left / Right step the sound command by 1, Up / Down by 16, A plays, B stops all, Start back.
-#                  Commands go straight into the game's sound queue (0xA27A); Z80 driver ranges: 0x04-0x23
-#                  music, 0x24-0xEF sound effects, 0xFF stop all.
-#   DIFFICULTY   - LEVEL 1-8 (the game's soft-DIP 0x10FD8C: time limit, starting hearts), A steps it; kept like AUTO SAVE
-#   AUTO SAVE    - OFF / ON, A switches it (see the memory card notes below)
-#   MEMORY CARD  - the card's state and every save on it; DELETE SAVE (the hack's), FORMAT CARD
-#   BACK TO TITLE - ends the "game" the way a finished one ends (mode 8: START_GAME's mode loop at 0x10D20 cleans
-#                   up and returns to the attract sequence), with the attract toggle set so the title comes next
+#   LEVEL: <stage>  - Left / Right pick a stage (the short names, SHORT_NAMES), A starts it
+#   SOUND TEST      - three lines, Up / Down between them: MUSIC: nn and SOUND FX: nn NAME (Left / Right step
+#                     through the music, and the sound effects the user kept - SFX_LABELS), A plays the line,
+#                     B stops all; EXIT (A) stops everything and goes back. Commands go straight into the game's
+#                     sound queue (0xA27A); Z80 driver ranges: 0x04-0x23 music, 0x24-0xEF sound effects, 0xFF
+#                     stop all. (sound-test-names, a later patch, shows the user's latest names instead.)
+#   DIFFICULTY: n   - LEVEL 1-8 (the game's soft-DIP 0x10FD8C: time limit, starting hearts), Left / Right; kept
+#                     like AUTO SAVE
+#   AUTO SAVE       - OFF / ON, A switches it (see the memory card notes below)
+#   MEMORY CARD     - the card's state and every save on it; DELETE SAVE (the hack's), FORMAT CARD
+#   BACK TO TITLE   - ends the "game" the way a finished one ends (mode 8: START_GAME's mode loop at 0x10D20
+#                     cleans up and returns to the attract sequence), with the attract toggle set so the title
+#                     comes next
+# (For the beta, beta-no-card-options - the last patch - leaves AUTO SAVE and MEMORY CARD out of the list.)
 # Both screens take either player's controls (0x10FD96 / 0x10FD9C and both Start bits of 0x10FDAC).
 #
 # ---- Memory card: CONTINUE, and an optional auto-save; the hack's save never touches the original game's
@@ -73,11 +78,6 @@ OPTIONS = ["LEVEL: " + " " * LEVEL_WIDTH, "SOUND TEST", "DIFFICULTY: 4", "AUTO S
 # stage names in the user's approved short forms.
 SHORT_NAMES = {"JUNGLE ZONE": "JUNGLE", "THE LOWER EARTH EMPIRE": "LOW EARTH EMP", "EMPIRE MARSH": "EMP MARSH",
                "MECHANICAL CITY": "MECH CITY", "STRANGE SPACE": "STRANGE SP", "DARUMA EMPIRE": "DARUMA EMP"}
-
-
-def short_name(name):
-    head, num = name.rsplit(" ", 1)
-    return (SHORT_NAMES[head] + " " + num).ljust(LEVEL_WIDTH)
 OPT_DIFFICULTY, OPT_AUTO_SAVE = 2, 3         # (their values are filled in when the screen is drawn)
 CARD_ACTIONS = ["DELETE SAVE", "FORMAT CARD", "BACK"]
 CONFIRM = ["NO", "YES"]
@@ -125,14 +125,20 @@ QUEUE_SOUND = 0xA27A         # the game's sound command queue (d0 = command)
 ATTRACT_TOGGLE = 0x1033CA   # bit 0: which attract cycle runs next (0x106A0: 0 = the one with the title)
 FIRST_SOUND, LAST_SOUND, FIRST_EFFECT = 0x04, 0xEF, 0x24
 # spare RAM: 0x10E700-0x10EFFF (see 030_pause_start.py)
-CURSOR = 0x10E900            # the level select's last choice
+CURSOR = 0x10E900            # the LEVEL: line's stage
 SOUND_NO = 0x10E901          # the sound test's last number (its SOUND FX: line)
 MUSIC_NO = 0x10E931          # its MUSIC: line's
 # The SOUND FX: line steps through the sound effects the user kept (docs/sfx_labels.csv, a grid exported from their
 # sheet: row = the code's high digit, column = its low digit; "E" = not used - blank or a synthesiser sample;
 # "?" / "??" = unnamed): each shown as its code and name. SOUND_NO holds the line's place in that list.
-SFX_LABELS = "docs/sfx_labels_title_menu.csv"   # (frozen: the names as of 2026-10-24, so this patch's size never
-                                                # changes - sound-test-names shows docs/sfx_labels.csv's, the live ones)
+SFX_LABELS = "docs/sfx_labels_title_menu.csv"   # (frozen: the names as of 2026-10-24, so this patch's size
+                                                # doesn't follow the sheet - sound-test-names shows the live
+                                                # docs/sfx_labels.csv's)
+
+
+def short_name(name):
+    head, num = name.rsplit(" ", 1)
+    return (SHORT_NAMES[head] + " " + num).ljust(LEVEL_WIDTH)
 
 
 def sfx_list():
@@ -159,7 +165,7 @@ MENU_PREV = 0x10E904         # (word) the menu's last frame's buttons
 ON_TITLE = 0x10E906          # FRAME when the title was last on screen
 START_BITS = 0x10E907        # which players pressed the Start that opened the menu
 CHOICE = 0x10E908
-STAGE_PICK = 0x10E909        # a stage picked in the level select (0 = none)
+STAGE_PICK = 0x10E909        # a stage picked on the LEVEL: line (0 = none)
 COLOURS_DUE = 0x10E91F       # the framed look's colours to put in at the next frame (framed_setup / frame_wait)
 SELECT_REQ = 0x10E90A        # Start pressed while the menu was open
 OPT_CURSOR = 0x10E90B
@@ -283,17 +289,10 @@ def push_start_copy(rom):
     return addr
 
 
-def fix_pixels(rom, index):
-    """An original S ROM fix tile as pixels[y][x] (put_fix_tile's layout, read back)."""
-    at = index * 32
-    return [[(rom.fix_orig[at + rom.FIX_COLUMN_BYTE[x] + y] >> (0 if x % 2 == 0 else 4)) & 15 for x in range(8)]
-            for y in range(8)]
-
-
 def apply(rom):
     # the big font's colon: its full stop's lower tile (the dot at its foot) twice, one above the other
     stop = rom.u16(FONT_TABLE + (ord(".") - 0x20) * 2)
-    colon = rom.add_fix_tile(fix_pixels(rom, ((stop >> 8) & 0xF) << 8 | ((stop + 0x10) & 0xFF)),
+    colon = rom.add_fix_tile(rom.fix_tile(((stop >> 8) & 0xF) << 8 | ((stop + 0x10) & 0xFF)),
                              why="options font: a colon's dot")
     arrow = [rom.add_fix_tile(t, why="options font: the selection arrow") for t in arrow_tiles()]
     question = [rom.add_fix_tile(t, why="options font: a question mark") for t in question_tiles()]
@@ -931,9 +930,9 @@ opt_build:
 
 | ================= the memory card screen: the actions (DELETE SAVE - the hack's -, FORMAT CARD, BACK), the card's
 | state and every save on it. The card is read directly (as the BIOS does: 0x3A0019 / 0x380011 cleared, then card
-| byte n = the low byte of the word at 0x800000 + 2n; word reads only - MAME answers byte reads with 0xFF): the "formatted" signature at 0x20, the directory at 0x40 (32 entries: slot or 0xFF =
-| free, the game's id, first 64-byte block), the block chain at 0xC0 (0 = free block); a save's first bytes are its
-| label. Deleting and formatting are the BIOS's card commands 4 and 0.
+| byte n = the low byte of the word at 0x800000 + 2n; word reads only - MAME answers byte reads with 0xFF): the
+| "formatted" signature at 0x20, the directory at 0x40 (32 entries: slot or 0xFF = free, the game's id, first
+| 64-byte block), the block chain at 0xC0 (0 = free block); a save's first bytes are its label. Deleting and formatting are the BIOS's card commands 4 and 0.
 card_screen:
     bsr screen_setup
     moveq #0,%d4                     | d4 = 0 no card, 1 not formatted, 2 formatted
@@ -1095,21 +1094,6 @@ print_dec2:
     move.b %d0,1(%a0)
     clr.b 2(%a0)
     bra print
-
-level_select:
-    bsr screen_setup
-    lea ls_title(%pc),%a0
-    lea stage_t(%pc),%a1
-    moveq #0,%d6
-    move.b CURSOR,%d6
-    moveq #STAGE_COUNT,%d7
-    bsr list
-    tst.w %d0
-    bne 1f                           | B: back
-    move.b %d6,CURSOR
-    lea stage_ids(%pc),%a0
-    move.b (%a0,%d6.w),STAGE_PICK
-1:  rts
 
 | black screen, white text in palette PAL - its colours from a vblank, after the clearing (which takes most of a
 | frame): the screen changes in one frame, not torn partway down
@@ -1438,29 +1422,6 @@ buttons:
 27: moveq #0,%d4
 28: rts
 
-| d0 = byte, d1 = fix-layer address: two hex digits
-print_hex:
-    move.w %sr,-(%sp)
-    or.w #0x0700,%sr
-    move.w #32,0x3C0004
-    move.w %d1,0x3C0000
-    move.w %d0,%d2
-    lsr.w #4,%d2
-    bsr 29f
-    move.w %d0,%d2
-    bsr 29f
-    move.w #1,0x3C0004
-    move.w (%sp)+,%sr
-    rts
-29: and.w #15,%d2
-    add.w #0x30,%d2
-    cmp.w #0x3A,%d2
-    bcs 30f
-    addq.w #7,%d2                    | A-F
-30: add.w #PAL*0x1000+0x500,%d2
-    move.w %d2,0x3C0002
-    rts
-
 | a0 = zero-terminated text, d1 = fix-layer address; print_or_blank prints spaces instead when d2 != 0;
 | print_attr uses the attribute (palette | tile base) in d7 instead of PAL's
 print:
@@ -1665,32 +1626,6 @@ push_blank:
 opt_title:
     .ascii "OPTIONS"
     .byte 0
-ls_title:
-    .ascii "LEVEL SELECT"
-    .byte 0
-st_title:
-    .ascii "SOUND TEST"
-    .byte 0
-st_number:
-    .ascii "NUMBER"
-    .byte 0
-st_music:
-    .ascii "MUSIC       "
-    .byte 0
-st_effect:
-    .ascii "SOUND EFFECT"
-    .byte 0
-st_help:
-    .ascii "LEFT RIGHT   STEP 1"
-    .byte 0
-    .ascii "UP DOWN      STEP 16"
-    .byte 0
-    .ascii "A            PLAY"
-    .byte 0
-    .ascii "B            STOP ALL"
-    .byte 0
-    .ascii "START        BACK"
-    .byte 0, 0
     .even
 stage_ids:
     .byte STAGE_IDS
@@ -1701,7 +1636,7 @@ TABLES
               + string_table("menu_save_t", [m.ljust(width) for m, c in MENU_SAVE])
               + "menu_ids:\n    .byte %s\nmenu_save_ids:\n    .byte %s\n    .even\n" % (
                   ",".join(str(c) for m, c in MENU), ",".join(str(c) for m, c in MENU_SAVE))
-              + string_table("opt_t", OPTIONS) + string_table("stage_t", [n for i, n in STAGES])
+              + string_table("opt_t", OPTIONS)
               + string_table("card_t", CARD_ACTIONS) + string_table("confirm_t", CONFIRM))
     consts = {
         "MENU_SAVE_COUNT": str(len(MENU_SAVE)), "MENU_COUNT": str(len(MENU)), "OPT_COUNT": str(len(OPTIONS)), "STAGE_COUNT": str(len(STAGES)),
@@ -1766,13 +1701,15 @@ TABLES
               enumerate(("menu_frame", "start_pressed", "new_game", "how_to_play", "mode3_end",
                          "title_enter", "title_leave", "autosave", "save_over", "save_p1", "save_p2",
                          "game_save_prep", "ram_keep", "diff_dip"))}
-    rom.write(TITLE_PUSH_START, bytes.fromhex("4EB9") + labels["menu_frame"].to_bytes(4, "big") + bytes.fromhex("4E714E71"),
-              expect=bytes.fromhex("4A6E7B7066044EBA0098"), why="title: the menu instead of PUSH START once Start is pressed")
+    nops = bytes.fromhex("4E714E71")
+    rom.write(TITLE_PUSH_START, bytes.fromhex("4EB9") + labels["menu_frame"].to_bytes(4, "big") + nops,
+              expect=bytes.fromhex("4A6E7B7066044EBA0098"),
+              why="title: the menu instead of PUSH START once Start is pressed")
     rom.write(PLAYER_START_CALL, bytes.fromhex("4EB9") + labels["start_pressed"].to_bytes(4, "big"),
               expect=bytes.fromhex("4EB9000108DA"), why="PLAYER_START: on the title, Start opens the menu")
     rom.write(LOAD_CALL, bytes.fromhex("4EB9") + labels["new_game"].to_bytes(4, "big"),
               expect=bytes.fromhex("4EB90000EEF2"), why="new game: the menu's choice instead of the card's LOAD prompt")
-    rom.write(HOW_TO_PLAY_CALL, bytes.fromhex("4EB9") + labels["how_to_play"].to_bytes(4, "big") + bytes.fromhex("4E714E71"),
+    rom.write(HOW_TO_PLAY_CALL, bytes.fromhex("4EB9") + labels["how_to_play"].to_bytes(4, "big") + nops,
               expect=bytes.fromhex("1D6E6800789E6100FDE8"), why="new game: the how-to-play unless a stage was picked")
     rom.write(MODE3_END, bytes.fromhex("4EB9") + labels["mode3_end"].to_bytes(4, "big"),
               expect=bytes.fromhex("1D7C00003004"), why="new game: start a stage picked in the level select")

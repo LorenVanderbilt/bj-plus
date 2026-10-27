@@ -12,7 +12,7 @@ DESCRIPTION = "Sound test: the MUSIC: line names each track and skips the ones t
 # sheet so title-menu's size never changes) is replaced by one from the live docs/sfx_labels.csv (a grid: row = the
 # code's high digit, column = its low digit; "E" = not used, "?" = unnamed) - SFX_NAME (st2_sfx, d0 = the code and a2
 # = the name of the list's SOUND_NO-th) jumps to a copy reading the new list, and the list's length in its range
-# checks (SFX_FIRST_CHECK, SFX_STEP) is the new one. (Its own patch, last, so its code moves nothing.)
+# checks (SFX_FIRST_CHECK, SFX_STEP) is the new one.
 LABELS = "docs/music_labels.csv"
 FIRST, END = 0x04, 0x24        # the music range: 0x04 .. 0x23 (title-menu's FIRST_SOUND .. FIRST_EFFECT-1)
 MUSIC_NO = 0x10E931            # title-menu's MUSIC: line's number (RAM)
@@ -73,7 +73,8 @@ def sfx_labels():
                 name = "?"
             bad = [c for c in name if not ("A" <= c <= "Z" or "0" <= c <= "9" or c in " !'(),-.?/")]
             if bad:
-                raise SystemExit("sound-test-names: %s's name %r has characters the font lacks: %r" % (hex(hi << 4 | lo), name, bad))
+                raise SystemExit("sound-test-names: %s's name %r has characters the font lacks: %r"
+                                 % (hex(hi << 4 | lo), name, bad))
             out.append((hi << 4 | lo, name))
     return sorted(out)
 

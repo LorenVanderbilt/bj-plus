@@ -14,7 +14,6 @@ DESCRIPTION = "Empire Marsh boss's death: the broom cracks, breaks in a puff, an
 # fall (FALLS: each piece's speeds and gravity set - +0x0C y speed, +0x0E x speed, +0x10 y gravity, as the mover
 # 0xA258 has them), they now hop up first (HOP; was none), go half as fast sideways (X_SPEED, was 0x50) and fall a
 # little slower (GRAVITY, was -0x10).
-# (Its own patch, last, so its code moves nothing.)
 CRACK_LOOP = 0x2B8B2           # bne 0x2B8A8 (its countdown, again in the same frame) -> bne 0x2B8D6 (rts)
 SPLIT = 0x2B916                # move.l #BRISTLES,4(a5) - then move.l a1,0x4010(a5) (a1: the handle)
 BRISTLES = 0x2B924

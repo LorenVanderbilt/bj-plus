@@ -124,15 +124,9 @@ DIGITS_AT = 19 * 32 + 2
 
 
 
-def fix_pixels(rom, tile):
-    at = tile * 32
-    return [[rom.fix_orig[at + rom.FIX_COLUMN_BYTE[x] + y] >> (0 if x % 2 == 0 else 4) & 15 for x in range(8)]
-            for y in range(8)]
-
-
 def time_tiles(rom):
     """TIME 4 pixels right and SCORE_UP higher, over 2 rows: 5 new fix tiles each (top row, then bottom)."""
-    letters = [fix_pixels(rom, t) for t in TIME_LETTERS]
+    letters = [rom.fix_tile(t) for t in TIME_LETTERS]
     wide = [[0] * 4 + sum((letters[i][y] for i in range(4)), []) + [0] * 4 for y in range(8)]   # 40 across
     tall = [[0] * 40 for _ in range(8 - SCORE_UP)] + wide + [[0] * 40 for _ in range(SCORE_UP)]
     return [[rom.add_fix_tile([r[c * 8:c * 8 + 8] for r in tall[row:row + 8]], why="HUD: TIME on the score line",
@@ -143,7 +137,7 @@ def time_tiles(rom):
 def half_tiles(rom, word, down=LIVES_SHIFT):
     """Tile word `word`'s glyph `down` pixels lower (negative: higher), as two new fix tiles' words (its palette):
     down - its row's and the next's; up - the row above's and its own."""
-    px = fix_pixels(rom, word & 0xFFF)
+    px = rom.fix_tile(word & 0xFFF)
     return shifted(rom, px, down, "glyph 0x%X" % word, word & 0xF000)
 
 
@@ -187,7 +181,7 @@ def apply(rom):
     for pal, entry, old, new in FACE_COLOURS:
         rom.write(FIX_PALETTES + pal * 32 + entry * 2, bytes.fromhex(new.replace(" ", "")),
                   expect=bytes.fromhex(old.replace(" ", "")), why="HUD: the lives face's suit, fix palette %d" % pal)
-    face = fix_pixels(rom, FACE_TILE)
+    face = rom.fix_tile(FACE_TILE)
     face = [[FACE_MERGE.get(v, v) for v in r] for r in face]
     face1 = FACE_PALETTE << 12 | rom.add_fix_tile([[FACE_REMAP.get(v, v) for v in r] for r in face],
                                                    why="HUD: player 1's lives face (its suit in other entries)", share=True)
@@ -239,7 +233,7 @@ lives2:
             if (top & 0xFFF) == 0x520:
                 block_tiles += [BLANK, BLANK]
                 continue
-            column = fix_pixels(rom, top & 0xFFF) + fix_pixels(rom, bottom & 0xFFF)
+            column = rom.fix_tile(top & 0xFFF) + rom.fix_tile(bottom & 0xFFF)
             block_tiles += heart_column(rom, column, top & 0xF000)
     blocks = rom.place_code(r"""
 | a 2x2 block of fix tiles (d0 = where, a0 = its tiles): a heart's - drawn %(up)d pixels higher (rows d0-1, d0) from

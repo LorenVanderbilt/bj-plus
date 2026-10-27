@@ -15,7 +15,7 @@ DESCRIPTION = "Boomerang: each level's reach, speed and size retuned; level 2 th
 # reach is the loop table: reach = LOOP / 128 + (LOOP + 0x800) / 256 px. And it always comes back to Blue: over the
 # trip's second half (PLACE_CALLS - after its place on the loop is set) its place is drawn from the loop's toward the
 # thrower's - all the loop's at halfway, all the thrower's at the end (where it's gone) - so a throw from a jump comes
-# back to Blue wherever he's fallen to. (Its own patch, last: nothing moves.)
+# back to Blue wherever he's fallen to.
 REACH = {1: 60, 2: 65, 3: 65}
 TRIP = {1: 35, 2: 40, 3: 40}
 SIZE = {1: 90, 2: 75, 3: 75}

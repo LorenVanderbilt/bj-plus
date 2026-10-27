@@ -10,7 +10,6 @@ DESCRIPTION = "Ending credits: SOUND EFFECTS (was SOUND EFFECT), HARDWARE (was H
 #   * the SOUND EFFECT credit (SOUND_CREDIT) replaced by a copy that prints SOUND EFFECTS, then carries on in the
 #     original after its text (the Japanese name);
 # and HARD WEARER (the Japanese ハードウェア, "hardware") reads HARDWARE, in place.
-# (Its own patch, last, so its code moves nothing.)
 TIMES, ROUTINES, STEPS = 0x253E4, 0x25404, 16
 LEAS = [(0x253BC, TIMES), (0x253D4, ROUTINES)]   # (the lea's address operand, what it loads)
 CLEAR, PRINT = 0x9FBE, 0x9FE6

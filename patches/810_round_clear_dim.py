@@ -16,7 +16,6 @@ DESCRIPTION = ("ROUND CLEAR: the frozen level dims to half while the stats are u
 # False, no dim there at all). The frozen frame before the stats is shorter too (FREEZE).
 # Each step scales each colour's 4-bit channels by a table (its low bits, bits 12-14, left out while dimmed; the dark
 # bit kept). BUF is RAM a shop / NPC room keeps the level's objects in (0x10A800-0x10CFFF) - free at ROUND CLEAR.
-# (Its own patch, last, so its code moves nothing.)
 # Also the reward at the end of Lower Earth Empire 2's hidden tunnel: its white lily (+10 flowers) is a life ball
 # now (+1 maximum heart). The placed white lily's start (LILY_START, in the game's object kind tables LILY_KINDS) is
 # ours: in that stage, at that spot (LILY_AT, level coordinates from the level's own camera 0x10021A / 0x10020E, as
@@ -476,9 +475,5 @@ tables:
     assert hashlib.sha1(old).hexdigest()[:8] == C_SHA, "ROUND CLEAR's C: not the original tiles"
     art = [[int(c, 16) if c != "." else 0 for c in row] for row in C_ART.split()]
     for n, t in enumerate(C_TILES):
-        rom.fix[t * 32:t * 32 + 32] = bytes(32)
-        for y in range(8):
-            for x in range(8):
-                b = rom.FIX_COLUMN_BYTE[x] + y
-                rom.fix[t * 32 + b] |= (art[n // 2 * 8 + y][n % 2 * 8 + x] & 15) << (0 if x % 2 == 0 else 4)
-    rom.log.append("  fix 0x%03X-0x%03X  tiles  ROUND CLEAR's C: touched up" % (C_TILES[0], C_TILES[-1]))
+        rom.replace_fix_tile(t, [row[n % 2 * 8:n % 2 * 8 + 8] for row in art[n // 2 * 8:n // 2 * 8 + 8]],
+                             why="ROUND CLEAR's C: touched up")

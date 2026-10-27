@@ -4,17 +4,16 @@ DESCRIPTION = "Title screen: the clouds drift slowly by behind the logo and clif
 # The title's background (sta/aes/how_to_play.sta) is one 21-sprite chain from sprite 100 (sky, clouds, cliffs,
 # waterfall; the foliage is another from 200, the logo sprites after it). Its rows 18-22 - the screen's top 80 px -
 # are a plain sky tile (0x2A51) and cloud tiles painted on that sky, so a cloud tile can slide sideways over the sky
-# without showing an edge. Now those rows (BANDS: one band) are drawn again, every frame, by a chain of sprites
-# of its own (drawn after the background, before the foliage and logo) whose tiles are the
-# background's (but PLAIN): scrolled left PIXELS px every FRAMES frames, looping over LOOP's columns (each a background column,
-# maybe flipped). Two chains take turns (double buffering): the tiles are written only when the scroll reaches a
-# new column, into the hidden chain, which is then shown and the other hidden in one go - rewriting the shown
-# chain's tiles while the screen was being drawn made the band jump 16 px for a frame now and then. Hooked on the title loop's per-frame call
-# (0x1AF94, title-menu's menu_frame) and on its end (0x1B026, title-menu's title_leave), where the bands are hidden
-# and their count reset (so the next title starts as drawn).
+# without showing an edge. Now those rows (ROW, ROWS: one band) are drawn again, every frame, by a chain of sprites
+# of its own (drawn after the background, before the foliage and logo) whose tiles are the background's (but
+# PLAIN): scrolled left PIXELS px every FRAMES frames, looping over LOOP's columns (each a background column, maybe
+# flipped). Two chains take turns (double buffering): the tiles are written only when the scroll reaches a new
+# column, into the hidden chain, which is then shown and the other hidden in one go - rewriting the shown chain's
+# tiles while the screen was being drawn made the band jump 16 px for a frame now and then. Hooked on the title
+# loop's per-frame call (0x1AF94, title-menu's menu_frame) and on its end (0x1B026, title-menu's title_leave),
+# where the chains are hidden and their count reset (so the next title starts as drawn).
 FRAME_CALL = 0x1AF94         # jsr (title-menu's menu_frame)
 LEAVE_CALL = 0x1B026         # jsr (title-menu's title_leave)
-BACKGROUND = 100             # the background chain's first sprite (column 0 at x 0)
 COLUMNS = 20
 CHAIN = 21                   # 320 px and one to spare
 CHAINS = (150, 171)          # the two chains (21 sprites each)
@@ -40,27 +39,6 @@ ART = "art/title_sky.png"
 ART_COLUMNS = range(15, 20)
 PALETTE = [0x3060, 0xB06E, 0xB05E, 0xB04E, 0xB03E, 0x803E, 0xB00D, 0x800D, 0x7FFF, 0x7FFF, 0x7CDF, 0x1ACF, 0x67AF,
            0xA59F, 0xD28E, 0x8000]   # 0xF4 as the title has it
-
-
-def find_tile(rom, px):
-    """[the number of an identical tile anywhere in the original sprite ROMs] or []."""
-    planes = []
-    for blk in range(4):                 # (hackbuild's sprite_tile layout, encoded)
-        bx, by = (8 if blk < 2 else 0), (0 if blk % 2 == 0 else 8)
-        for y in range(8):
-            row = px[by + y][bx:bx + 8]
-            planes.append([sum(((v >> k) & 1) << x for x, v in enumerate(row)) for k in range(4)])
-    a = bytes(b for p in planes for b in (p[0], p[1]))
-    b = bytes(b for p in planes for b in (p[2], p[3]))
-    for pair, base in ((0, 0), (2, rom.SPRITE_TILES_PER_PAIR)):
-        A = rom.sprites_orig[sorted(rom.sprites_orig)[pair]]
-        B = rom.sprites_orig[sorted(rom.sprites_orig)[pair + 1]]
-        at = A.find(a)
-        while at >= 0:
-            if at % 64 == 0 and B[at:at + 64] == b:
-                return [base + at // 64]
-            at = A.find(a, at + 1)
-    return []
 
 
 def shown(r, c):
@@ -93,8 +71,10 @@ def apply(rom):
                 px = [art[r * 16 + y][k * 16:k * 16 + 16] for y in range(16)]
                 if px == rom.sprite_tile(shown(r, c)):
                     continue
-                same = [t for t in existing if rom.sprite_tile(t) == px] or find_tile(rom, px)
-                tiles[(r, c)] = same[0] if same else rom.add_sprite_tile(     # (an existing tile: free)
+                same = next((t for t in existing if rom.sprite_tile(t) == px), None)
+                if same is None:
+                    same = rom.find_sprite_tile(px)
+                tiles[(r, c)] = same if same is not None else rom.add_sprite_tile(     # (an existing tile: free)
                     px, why="title clouds: %s, row %d column %d" % (ART, r, c), share=True)
     loop = ",".join("0x%04X" % (c * 2 * ROWS | flip << 15) for c, flip in LOOP)
     sky = ",".join("0x%04X" % tiles.get((r, c), shown(r, c)) for c in range(COLUMNS) for r in range(ROWS))

@@ -195,13 +195,32 @@ class Rom:
         at = index * 32
         if any(self.fix_orig[at:at + 32]):
             raise SystemExit("fix tile 0x%X is not blank in the original S ROM" % index)
+        self.fix[at:at + 32] = self._fix_bytes(pixels)
+        self.log.append("  fix 0x%03X  tile  %s" % (index, why))
+
+    def replace_fix_tile(self, index, pixels, why=""):
+        """Redraw the original fix tile at tile number index (an existing glyph touched up) with pixels[y][x]."""
+        at = index * 32
+        self.fix[at:at + 32] = self._fix_bytes(pixels)
+        self.log.append("  fix 0x%03X  tile  %s" % (index, why))
+
+    def _fix_bytes(self, pixels):
         tile = bytearray(32)
         for y in range(8):
             for x in range(8):
-                b = self.FIX_COLUMN_BYTE[x] + y
-                tile[b] |= (pixels[y][x] & 15) << (0 if x % 2 == 0 else 4)
-        self.fix[at:at + 32] = tile
-        self.log.append("  fix 0x%03X  tile  %s" % (index, why))
+                tile[self.FIX_COLUMN_BYTE[x] + y] |= (pixels[y][x] & 15) << (0 if x % 2 == 0 else 4)
+        return tile
+
+    def fix_tile(self, index):
+        """The original 8x8 fix tile at tile number index, as pixels[y][x] (color indices)."""
+        at, col = index * 32, self.FIX_COLUMN_BYTE
+        return [[(self.fix_orig[at + col[x] + y] >> (0 if x % 2 == 0 else 4)) & 15 for x in range(8)]
+                for y in range(8)]
+
+    def fix_glyph16(self, top):
+        """The 16x16 pixels of a 2x2-tile fix picture (a big font letter): tiles top, top+1 above top+0x10, top+0x11."""
+        tiles = [[self.fix_tile(top + dy * 0x10 + dx) for dx in range(2)] for dy in range(2)]
+        return [[tiles[y // 8][x // 8][y % 8][x % 8] for x in range(16)] for y in range(16)]
 
     def add_fix_tile(self, pixels, why="", share=False):
         """Store an 8x8 fix tile in the next free slot and return its tile number. share: if one added before with
@@ -244,6 +263,92 @@ class Rom:
                 for x in range(8):
                     px[by + y][bx + x] = sum(((p[k] >> x) & 1) << k for k in range(4))
         return px
+
+    def find_sprite_tile(self, pixels):
+        """The number of an original sprite tile with exactly these pixels, or None."""
+        planes = []
+        for blk in range(4):
+            bx, by = (8 if blk < 2 else 0), (0 if blk % 2 == 0 else 8)
+            for y in range(8):
+                row = pixels[by + y][bx:bx + 8]
+                planes.append([sum(((v >> k) & 1) << x for x, v in enumerate(row)) for k in range(4)])
+        a = bytes(b for p in planes for b in (p[0], p[1]))
+        b = bytes(b for p in planes for b in (p[2], p[3]))
+        for pair in range(len(C_NAMES) // 2):
+            A, B = self.sprites_orig[C_NAMES[2 * pair]], self.sprites_orig[C_NAMES[2 * pair + 1]]
+            at = A.find(a)
+            while at >= 0:
+                if at % 64 == 0 and B[at:at + 64] == b:
+                    return pair * self.SPRITE_TILES_PER_PAIR + at // 64
+                at = A.find(a, at + 1)
+        return None
+
+    # The level maps (the map engine's layers - see 0xC280 / 0xC620): a table of 4 pointers a block (block N at
+    # 16 * N: +0 top left, +4 bottom left, +8 top right, +12 bottom right quarter), each to an 8 x 8 grid of 16 px
+    # cells, row by row, packed. A cell is (attribute word, tile word). Each entry: a byte - its low 6 bits n, its top
+    # 2 a kind - and a whole cell (4 bytes); n more cells follow, each changing only some bytes: kind 0xC0 the
+    # attribute word and the tile's low byte (3 bytes), 0x80 the tile's low byte (1), 0x40 the palette and the
+    # tile's low byte (2), 0x00 the attribute's low byte and the tile's low byte (2) - or, when the first cell's
+    # attribute has bits 0x0C set (masked off), the same cell n more times (no bytes).
+    def map_quarter(self, addr):
+        """A packed map quarter at addr: its 64 cells [(attribute, tile)], row by row."""
+        cells, p = [], addr
+        while len(cells) < 64:
+            h = self.data[p]
+            n, kind = h & 63, h & 0xC0
+            attr, tile = self.u16(p + 1), self.u16(p + 3)
+            p += 5
+            if n and kind == 0 and attr & 0xC == 0xC:
+                cells += [(attr & 0xFFF3, tile)] * (n + 1)
+                continue
+            cells.append((attr, tile))
+            for _ in range(n):
+                b = self.data[p:p + 3]
+                if kind == 0xC0:
+                    attr, tile, p = (b[0] << 8) | b[1], (tile & 0xFF00) | b[2], p + 3
+                elif kind == 0x80:
+                    tile, p = (tile & 0xFF00) | b[0], p + 1
+                elif kind == 0x40:
+                    attr, tile, p = (b[0] << 8) | (attr & 0xFF), (tile & 0xFF00) | b[1], p + 2
+                else:
+                    attr, tile, p = (attr & 0xFF00) | b[0], (tile & 0xFF00) | b[1], p + 2
+                cells.append((attr, tile))
+        assert len(cells) == 64
+        return cells
+
+    @staticmethod
+    def pack_map_quarter(cells):
+        """64 cells packed (runs of the same cell as repeats, the rest one by one)."""
+        out, i = bytearray(), 0
+        while i < 64:
+            k = 1
+            while i + k < 64 and cells[i + k] == cells[i]:
+                k += 1
+            attr, tile = cells[i]
+            if k > 1 and attr & 0xC == 0:          # a repeat: n = k - 1, the flag in the attribute's low byte
+                out += bytes([k - 1]) + (attr | 0xC).to_bytes(2, "big") + tile.to_bytes(2, "big")
+            else:                                  # a single cell
+                k = 1
+                out += bytes([0]) + attr.to_bytes(2, "big") + tile.to_bytes(2, "big")
+            i += k
+        return bytes(out)
+
+    def map_block(self, table, block):
+        """A map block (table: the layer's table of quarter pointers) as a 16 x 16 grid of cells, [row][column]."""
+        g = [[None] * 16 for _ in range(16)]
+        for q in range(4):
+            for i, c in enumerate(self.map_quarter(self.u32(table + 16 * block + 4 * q))):
+                g[(8 if q & 1 else 0) + i // 8][(8 if q & 2 else 0) + i % 8] = c
+        return g
+
+    def put_map_quarter(self, table, block, q, cells, why=""):
+        """Pack cells into free space as block's quarter q (0-3, as in the table) and point the table at it."""
+        body = self.pack_map_quarter(cells)
+        at = self.alloc(len(body))
+        self.data[at:at + len(body)] = body
+        assert self.map_quarter(at) == cells
+        entry = table + 16 * block + 4 * q
+        self.write(entry, at.to_bytes(4, "big"), expect=self.data[entry:entry + 4], why=why)
 
     def put_sprite_tile(self, index, pixels, why=""):
         """Store a 16x16 sprite tile (pixels[y][x] = color index 0-15, 0 = transparent) at tile number index.

@@ -6,7 +6,6 @@ DESCRIPTION = "High score name entry typed into the table (after the ending): a 
 # the entry in first (no name yet) and then has the name typed straight into the table's row - TABLE + 16 * the rank
 # (RANKS) + 0, the name's long ($3A3A3A3A to start). So after each of those, a row still at ':::' gets ' BLU' (as the
 # table's other names: a space, then the 3 letters).
-# (Its own patch, last, so its code moves nothing.)
 ENTRIES = [(0x54934, 0x4E248, 0x1030DC), (0x5494A, 0x4E2D4, 0x1030DD)]   # (the jsr, its routine, the player's rank)
 TABLE = 0x103384               # the first row's name (rows 16 bytes apart)
 DEFAULT = 0x3A3A3A

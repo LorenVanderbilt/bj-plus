@@ -5,7 +5,7 @@ DESCRIPTION = "The zipline (the only one, in the ice world) carries Blue along i
 # calls the path routine (PATH_CALL: jsr 0x19EEE, with its tables in a0 / a1 - a step a frame, minus when the path is
 # over) and then moves itself and its rider by the difference. Now the path is stepped again on every EVERY-th frame:
 # the same route, 1 + 1 / EVERY times as fast (2: half as fast again; 1: twice). The rider and the camera follow the
-# handle, so they keep up. (Its own patch, last, so its code moves nothing.)
+# handle, so they keep up.
 PATH_CALL = 0x50592            # jsr 0x19EEE
 PATH = 0x19EEE
 TABLES = (0x50726, 0x50762)    # (lea'd into a0 / a1 just before the call)

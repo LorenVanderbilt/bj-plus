@@ -23,10 +23,7 @@ DESCRIPTION = "Travel agent's ride: the grid glides, and a diagonal chain of col
 #     which it then makes) lights one diagonal - moving one a step - and the TRAIL behind it dimmer, in a colour from
 #     COLOURS (the next each step), cycles = whole line spacings moved so far: a slot is its diagonal's place behind
 #     the chain's (chain - diagonal - cycles, mod N) - lit (0), trail, or dark.
-# The tiles are only the ride's. (Its own patch, last, so its code moves nothing.)
-import importlib.util
-import os
-
+# The tiles are only the ride's.
 MAP_TABLE = 0xABC12
 BACK_BLOCKS, FRONT_BLOCKS = (7, 8), (9, 10)
 H_TILES = [0x5560 + 8 * r for r in range(6)]          # floor row r's horizontal lines (4 frames from each)
@@ -54,14 +51,6 @@ RIDE_CALL = 0x2788A                                    # jsr 0x2790E (the ride's
 BACKDROP = 0x401FFE
 RAM = 0x10ECF0                                         # +0 on (byte), +2 the step (word), +4 frames to the next step
                                                        # (word), +6 the backdrop before (word)
-
-
-def mod910():
-    spec = importlib.util.spec_from_file_location("m910", os.path.join(os.path.dirname(__file__),
-                                                                       "910_jungle2_card_house.py"))
-    m = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(m)
-    return m
 
 
 def neo(rgb):
@@ -135,7 +124,6 @@ def tiles(rom):
 
 
 def apply(rom):
-    m = mod910()
     back, pal, front = tiles(rom)
     where = {V_TILES[r][c]: (r, c) for r in range(6) for c in range(10)}
     for (r, c), px in back.items():
@@ -146,7 +134,7 @@ def apply(rom):
     # the maps: the back blocks get the old front blocks' cells (slanted tiles), each in its square's palette; the
     # front blocks the old back blocks' (horizontal line tiles), their auto-animation off
     def quarters(block):
-        return [m.decode(rom, rom.u32(MAP_TABLE + 16 * block + 4 * q)) for q in range(4)]
+        return [rom.map_quarter(rom.u32(MAP_TABLE + 16 * block + 4 * q)) for q in range(4)]
     old = {b: quarters(b) for b in BACK_BLOCKS + FRONT_BLOCKS}
     new = {}
     for nb, ob in zip(BACK_BLOCKS, FRONT_BLOCKS):
@@ -156,13 +144,7 @@ def apply(rom):
         new[nb] = [[((a & ~0x0C) if (t & ~3) in H_TILES else a, t) for a, t in cells] for cells in old[ob]]
     for b, qs in new.items():
         for q, cells in enumerate(qs):
-            body = m.encode(cells)
-            at = rom.alloc(len(body))
-            rom.data[at:at + len(body)] = body
-            assert m.decode(rom, at) == cells
-            rom.write(MAP_TABLE + 16 * b + 4 * q, at.to_bytes(4, "big"),
-                      expect=rom.u32(MAP_TABLE + 16 * b + 4 * q).to_bytes(4, "big"),
-                      why="ride grid: map block %d quarter %d" % (b, q))
+            rom.put_map_quarter(MAP_TABLE, b, q, cells, why="ride grid: map block %d quarter %d" % (b, q))
 
     # the routine
     dark = 0x4111

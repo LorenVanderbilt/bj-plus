@@ -137,8 +137,8 @@ def apply(rom):
             table("erase_tab", erases, lambda a: "    .word 0x%04X\n" % a) +
             "anim_tab:\n" + "".join("    .word %s\n" % ",".join("0x%04X" % c for c in row) for row in animation()))
 
-    # RAM (bytes from RAM): +0/+1 each player's box (8 = the shopkeeper; +18/+19 the box she was reached from), +2/+3 last frame's joystick, +4..+11 the frame number each
-    # player's pointer last ran (long each), +12/+13 the boxes the frames are drawn on (0xFF none), +14 word
+    # RAM (bytes from RAM): +0/+1 each player's box (8 = the shopkeeper; +18/+19 the box she was reached from),
+    # +2/+3 last frame's joystick, +4..+11 the frame number each player's pointer last ran (long each), +12/+13 the boxes the frames are drawn on (0xFF none), +14 word
     # 0x5AA5 while the palettes are saved, +16 word animation step, +0x20.. the saved palettes (32 bytes each)
     src = r"""
 | ---- replaces jsr 0xB642 in the pointer's per-frame code: a5 = pointer object, a4 = player block.
@@ -367,8 +367,9 @@ DATA
         for i, pal in enumerate(palettes):
             ram, hw = "0x%X(%%a1)" % (0x20 + i * 32), "0x%X" % (0x400000 + pal * 32)
             src, dst = (hw, ram) if save else (ram, hw)
-            out += "    lea %s,%%a0\n    lea %s,%%a2\n    moveq #15,%%d0\n5%d%d: move.w (%%a0)+,(%%a2)+\n    dbf %%d0,5%d%db\n" % (
-                src, dst, int(save), i, int(save), i)
+            label = "5%d%d" % (int(save), i)
+            out += ("    lea %s,%%a0\n    lea %s,%%a2\n    moveq #15,%%d0\n%s: move.w (%%a0)+,(%%a2)+\n"
+                    "    dbf %%d0,%sb\n" % (src, dst, label, label))
         return out
 
     consts = {

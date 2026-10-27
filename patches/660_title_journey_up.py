@@ -17,12 +17,6 @@ TM_TILES = (0x554, 0x54D)
 TM_PALETTE = 5
 
 
-def fix_pixels(rom, tile):
-    at, b = tile * 32, rom.FIX_COLUMN_BYTE
-    d = rom.fix_orig[at:at + 32]
-    return [[(d[b[x] + y] >> (0 if x % 2 == 0 else 4)) & 15 for x in range(8)] for y in range(8)]
-
-
 def apply(rom):
     rom.write(GAP_AT, (GAP - UP * 0x80).to_bytes(2, "big"), expect=GAP.to_bytes(2, "big"),
               why="title: JOURNEY %d px higher" % UP)
@@ -30,7 +24,7 @@ def apply(rom):
     assert bytes(rom.data[TM_PRINT:TM_AFTER]) == bytes.fromhex("4EB900009FE6744FFC55544DFF00")
     words = []                 # (fix address, word) - each glyph's top UP rows in the row above, the rest below
     for n, tile in enumerate(TM_TILES):
-        px = fix_pixels(rom, tile)
+        px = rom.fix_tile(tile)
         above = [[0] * 8 for _ in range(8 - UP)] + px[:UP]
         below = px[UP:] + [[0] * 8 for _ in range(UP)]
         for dy, part in ((-1, above), (0, below)):

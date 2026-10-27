@@ -6,7 +6,7 @@ DESCRIPTION = "1UP (the gold cocoon): its pop-up in invincible-points' style - t
 # invincible-points' pop-up (its code's first entry; frame base in +0x52, +0x29 clear to start it): "1UP" in its small
 # gold font (palette 6, black outline), above the head of the hero who got it (UP / RIGHT), rising and slowing, thinned out at the
 # end, gone. Its frames: the text and its fade (two tiles each). Hooked at the pop-up set-up's last instruction
-# (SET_UP_END). The fruit's points next. (Its own patch, last, so its code moves nothing.)
+# (SET_UP_END). The fruit's points next.
 import importlib.util
 import os
 

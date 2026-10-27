@@ -16,7 +16,6 @@ import random
 # own, slots FLECK_SLOT on (above anything the game draws in play - drawn last, in front of everything; the pause's
 # bubble borrows the first while paused), moved here each frame - at the HUD's turn, early in the frame - its state in
 # FLECKS (8 bytes each: y, x in 1/16 px, rise, drift, age, its tiles; age 0: free).
-# (Its own patch, last, so its code moves nothing.)
 HUD_ENTRY = 0x4E4B8            # jsr <hud's frame code> ; nop
 NO_HUD = 0x10309B              # (the game's own: no HUD at all)
 HIDDEN = 0x10E9FE              # (hud's: the HUD hidden)

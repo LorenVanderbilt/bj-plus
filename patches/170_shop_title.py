@@ -25,12 +25,6 @@ PLATE_CENTER_X = 96               # screen x
 FIRST_COLUMN, COLUMNS, ROW = 7, 10, 2
 BLANK = 0x0520
 OUTLINE = 15
-FIX_COLUMN_BYTE = (16, 16, 24, 24, 0, 0, 8, 8)   # see tools/hackbuild.py
-
-
-def glyph_pixel(s1, tile, x, y):
-    b = s1[tile * 32 + FIX_COLUMN_BYTE[x] + y]
-    return b & 15 if x % 2 == 0 else b >> 4
 
 
 def apply(rom):
@@ -39,13 +33,10 @@ def apply(rom):
     text_width = 16 * len(TEXT) + LETTER_GAP * (len(TEXT) - 1)
     left = PLATE_CENTER_X - text_width // 2 - FIRST_COLUMN * 8
     for i, ch in enumerate(TEXT):
-        top = LETTERS[ch]
-        for ty, tx, tile in ((0, 0, top), (0, 1, top + 1), (1, 0, top + 0x10), (1, 1, top + 0x11)):
-            for y in range(8):
-                for x in range(8):
-                    v = glyph_pixel(rom.fix_orig, tile, x, y)
-                    if v:
-                        canvas[ty * 8 + y][left + i * (16 + LETTER_GAP) + tx * 8 + x] = v
+        for y, row in enumerate(rom.fix_glyph16(LETTERS[ch])):
+            for x, v in enumerate(row):
+                if v:
+                    canvas[y][left + i * (16 + LETTER_GAP) + x] = v
         if ch == "S":
             x0 = left + i * (16 + LETTER_GAP)
             for y in range(16):

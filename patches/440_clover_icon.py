@@ -9,32 +9,13 @@ CLOVER, BOMB = 0x403, 0x405
 BORDER_ROWS = [0, 1, 14, 15]
 
 
-def tiles_of(top_left):
-    return [top_left, top_left + 1, top_left + 0x10, top_left + 0x11]   # top left, top right, bottom left, right
-
-
-def read(rom, index):
-    at = index * 32
-    return [[(rom.fix_orig[at + rom.FIX_COLUMN_BYTE[x] + y] >> (0 if x % 2 == 0 else 4)) & 15 for x in range(8)]
-            for y in range(8)]
-
-
-def icon(rom, top_left):
-    tl, tr, bl, br = (read(rom, t) for t in tiles_of(top_left))
-    return [tl[y] + tr[y] for y in range(8)] + [bl[y] + br[y] for y in range(8)]
-
-
 def apply(rom):
-    clover, bomb = icon(rom, CLOVER), icon(rom, BOMB)
+    clover, bomb = rom.fix_glyph16(CLOVER), rom.fix_glyph16(BOMB)
     for r in BORDER_ROWS:
         clover[r] = list(bomb[r])
-    parts = [[row[:8] for row in clover[:8]], [row[8:] for row in clover[:8]],
-             [row[:8] for row in clover[8:]], [row[8:] for row in clover[8:]]]
-    for index, pixels in zip(tiles_of(CLOVER), parts):
-        tile = bytearray(32)
-        for y in range(8):
-            for x in range(8):
-                tile[rom.FIX_COLUMN_BYTE[x] + y] |= (pixels[y][x] & 15) << (0 if x % 2 == 0 else 4)
-        if tile != rom.fix_orig[index * 32:index * 32 + 32]:
-            rom.fix[index * 32:index * 32 + 32] = tile
-            rom.log.append("  fix 0x%03X  tile  item bar: the clover's border as the others'" % index)
+    for dy in range(2):
+        for dx in range(2):
+            index = CLOVER + dy * 0x10 + dx
+            pixels = [row[dx * 8:dx * 8 + 8] for row in clover[dy * 8:dy * 8 + 8]]
+            if pixels != rom.fix_tile(index):
+                rom.replace_fix_tile(index, pixels, why="item bar: the clover's border as the others'")

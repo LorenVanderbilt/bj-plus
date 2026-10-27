@@ -9,7 +9,7 @@
   "aes-title-first": [["0x0B964C", 132], ["0x0B96D0", 16], ["0x0B96E0", 66], ["0x0B9724", 18], ["0x0B9738", 40]],
   "no-idle-go": [["0x0B9760", 26]],
   "shorter-spawn-blink": [["0x0B977C", 36], ["0x0B97A0", 36], ["0x0B97C4", 36]],
-  "title-menu": [["0x0B97E8", 98], ["0x0B984C", 8478]],
+  "title-menu": [["0x0B97E8", 98], ["0x0B984C", 7760]],
   "pinecone-blink": [["0x0BB96C", 78], ["0x0BB9BC", 78]],
   "no-cinema-blink": [["0x0BBA0C", 14]],
   "high-score-title": [["0x0BBA1C", 34], ["0x0BBA40", 26], ["0x0BBA5C", 40], ["0x0BBA84", 24]],

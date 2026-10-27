@@ -30,19 +30,13 @@ S_LINES = [   # (the print call, its printer, text, column, row, palette)
 ]
 FONT_TABLE = 0x4E00E         # a word per character from ' ': its top-left tile (n, n+1 above n+0x10, n+0x11)
 OUTLINE = 15
-FIX_COLUMN_BYTE = (16, 16, 24, 24, 0, 0, 8, 8)   # see tools/hackbuild.py
 
 
 def glyph(rom, ch):
     """16x16 pixels of a character in the big title font (blank for a space)."""
     if ch == " ":
         return [[0] * 16 for _ in range(16)]
-    top = rom.u16(FONT_TABLE + 2 * (ord(ch) - 32)) & 0xFFF
-    def pixel(tile, x, y):
-        b = rom.fix_orig[tile * 32 + FIX_COLUMN_BYTE[x] + y]
-        return b & 15 if x % 2 == 0 else b >> 4
-    return [[pixel(top + (0x10 if y >= 8 else 0) + (1 if x >= 8 else 0), x % 8, y % 8) for x in range(16)]
-            for y in range(16)]
+    return rom.fix_glyph16(rom.u16(FONT_TABLE + 2 * (ord(ch) - 32)) & 0xFFF)
 
 
 def s_outlines(rom, text, col, row, palette):

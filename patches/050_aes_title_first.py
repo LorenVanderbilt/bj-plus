@@ -25,6 +25,8 @@ TITLE_CALL = 0x106D2   # jsr 0x10882 (title) ; bne 0x10DA0 (an rts either way)
 PUSH_START_CALLS = [0x34B64, 0x35050, 0x353D6, 0x356C2]   # jsr 0x1B034, one per story scene loop
 PUSH_START = 0x1B034   # jsr 0x5F050 ; beq 0x1B076 ...     (draws / blinks "PUSH START" or "INSERT COIN")
 PLAYER_START = 0x108DA  # tst.b 0x10F000 ; bne 0x10C8C ...  (BIOS calls this when a Start button is pressed)
+PUSH_START_FIRST = 0x5F050
+TITLE = 0x10882        # the arcade cycle's title call
 QUEUE_MUSIC = 0x152FE
 TITLE_BODY = 0x1AE10
 CINEMA = 0x15472
@@ -40,91 +42,94 @@ MAGIC = 0xA5
 
 
 def apply(rom):
-    cycle1 = rom.place_code(
-        "    clr.b 26624(%%a6)\n"
-        "    tst.b 0x%X\n"
-        "    bne.s arcade\n"
-        "title:\n"
-        "    moveq #21,%%d0\n"             # title music, exactly what the original title call does
-        "    jsr 0x%X\n"
-        "    clr.b 26624(%%a6)\n"
-        "    clr.b 30927(%%a6)\n"
-        "    jsr 0x%X\n"                   # title screen
-        "    tst.b 26624(%%a6)\n"
-        "    beq.s 1f\n"
-        "    jmp 0x%X\n"                   # Start pressed: play the game
-        "1:  clr.b 26624(%%a6)\n"
-        "    clr.b 0x%X\n"
-        "    jsr 0x%X\n"                   # story cinema
-        "    clr.b 0x%X\n"
-        "    tst.b 0x%X\n"
-        "    beq.s 2f\n"
-        "    clr.b 0x%X\n"                 # a button was pressed: back to the title
-        "    clr.b 26624(%%a6)\n"
-        "    jsr 0x%X\n"
-        "    bra.s title\n"
-        "2:  move.b 26624(%%a6),%%d0\n"
-        "    beq.s 3f\n"
-        "    jmp 0x%X\n"
-        "3:  moveq #0,%%d0\n"
-        "    rts\n"
-        "arcade:\n"
-        "    jsr 0x%X\n"
-        "    move.b 26624(%%a6),%%d0\n"
-        "    beq.s 4f\n"
-        "    jmp 0x%X\n"
-        "4:  moveq #0,%%d0\n"
-        "    rts\n" % (SYSTEM_MODE, QUEUE_MUSIC, TITLE_BODY, START_GAME, ABORT, CINEMA, IN_CINEMA,
-                       ABORT, ABORT, CLEAR_TEXT, START_GAME, CINEMA, START_GAME),
-        why="AES cycle 1: title, then the story cinema, back to the title on a button (arcade: unchanged)")
+    names = {"system_mode": SYSTEM_MODE, "queue_music": QUEUE_MUSIC, "title_body": TITLE_BODY, "title": TITLE,
+             "start_game": START_GAME, "abort": ABORT, "cinema": CINEMA, "in_cinema": IN_CINEMA,
+             "clear_text": CLEAR_TEXT, "push_start": PUSH_START, "push_start_first": PUSH_START_FIRST,
+             "push_start_rest": PUSH_START + 6, "magic": MAGIC, "p1": P1_CURRENT, "p2": P2_CURRENT,
+             "start_of_game": START_FLAG_OF_GAME, "start_flags": START_FLAGS, "player_start_rest": PLAYER_START + 6}
+    cycle1 = rom.place_code(r"""
+    clr.b 26624(%%a6)
+    tst.b 0x%(system_mode)X
+    bne.s arcade
+title:
+    moveq #21,%%d0                      | title music, exactly what the original title call does
+    jsr 0x%(queue_music)X
+    clr.b 26624(%%a6)
+    clr.b 30927(%%a6)
+    jsr 0x%(title_body)X                | title screen
+    tst.b 26624(%%a6)
+    beq.s 1f
+    jmp 0x%(start_game)X                | Start pressed: play the game
+1:  clr.b 26624(%%a6)
+    clr.b 0x%(abort)X
+    jsr 0x%(cinema)X                    | story cinema
+    clr.b 0x%(in_cinema)X
+    tst.b 0x%(abort)X
+    beq.s 2f
+    clr.b 0x%(abort)X                   | a button was pressed: back to the title
+    clr.b 26624(%%a6)
+    jsr 0x%(clear_text)X
+    bra.s title
+2:  move.b 26624(%%a6),%%d0
+    beq.s 3f
+    jmp 0x%(start_game)X
+3:  moveq #0,%%d0
+    rts
+arcade:
+    jsr 0x%(cinema)X
+    move.b 26624(%%a6),%%d0
+    beq.s 4f
+    jmp 0x%(start_game)X
+4:  moveq #0,%%d0
+    rts
+""" % names, why="AES cycle 1: title, then the story cinema, back to the title on a button (arcade: unchanged)")
     rom.write(CYCLE1, bytes.fromhex("4EF9") + cycle1.to_bytes(4, "big") + bytes.fromhex("4E714E71"),
               expect=bytes.fromhex("422E68004EB900015472"), why="start of the first attract cycle")
 
-    skip = rom.place_code(
-        "    tst.b 0x%X\n"
-        "    beq.s 1f\n"                   # AES: no title here
-        "    jsr 0x10882\n"
-        "1:  rts\n" % SYSTEM_MODE,
-        why="AES: skip the title at the end of the demo cycle (arcade: unchanged)")
+    skip = rom.place_code(r"""
+    tst.b 0x%(system_mode)X
+    beq.s 1f                            | AES: no title here
+    jsr 0x%(title)X
+1:  rts
+""" % names, why="AES: skip the title at the end of the demo cycle (arcade: unchanged)")
     rom.write(TITLE_CALL, bytes.fromhex("4EF9") + skip.to_bytes(4, "big") + bytes.fromhex("4E714E71"),
               expect=bytes.fromhex("4EB9000108826600" "06C6"), why="end of the second attract cycle")
 
-    check = rom.place_code(
-        "    tst.b 0x%X\n"
-        "    beq.s 1f\n"
-        "    jmp 0x%X\n"                   # arcade: the original PUSH START routine
-        "1:  move.b #0x%X,0x%X\n"          # a story scene is running
-        "    move.b 0x%X,%%d0\n"
-        "    or.b 0x%X,%%d0\n"
-        "    and.b #0xF0,%%d0\n"           # A B C D of either player
-        "    beq.s 2f\n"
-        "    move.b #1,0x%X\n"
-        "2:  tst.b 0x%X\n"
-        "    beq.s 3f\n"
-        "    move.b #1,0x%X\n"             # makes the scene loop (and the cinema) end
-        "3:  rts\n" % (SYSTEM_MODE, PUSH_START, MAGIC, IN_CINEMA, P1_CURRENT, P2_CURRENT, ABORT, ABORT,
-                       START_FLAG_OF_GAME),
-        why="cinema scenes, once per frame: watch for a button instead of drawing PUSH START")
+    check = rom.place_code(r"""
+    tst.b 0x%(system_mode)X
+    beq.s 1f
+    jmp 0x%(push_start)X                | arcade: the original PUSH START routine
+1:  move.b #0x%(magic)X,0x%(in_cinema)X | a story scene is running
+    move.b 0x%(p1)X,%%d0
+    or.b 0x%(p2)X,%%d0
+    and.b #0xF0,%%d0                    | A B C D of either player
+    beq.s 2f
+    move.b #1,0x%(abort)X
+2:  tst.b 0x%(abort)X
+    beq.s 3f
+    move.b #1,0x%(start_of_game)X       | makes the scene loop (and the cinema) end
+3:  rts
+""" % names, why="cinema scenes, once per frame: watch for a button instead of drawing PUSH START")
     for site in PUSH_START_CALLS:
         rom.write(site, bytes.fromhex("4EB9") + check.to_bytes(4, "big"),
                   expect=bytes.fromhex("4EB90001B034"), why="story scene loop: no PUSH START, check for a button")
 
-    leave = rom.place_code(
-        "    clr.b 0x%X\n"                 # any other screen is not the cinema
-        "    jsr 0x5F050\n"                # the two original instructions' worth
-        "    jmp 0x%X\n" % (IN_CINEMA, PUSH_START + 6),
-        why="the PUSH START routine (title, demo, ...) marks the cinema as over")
+    leave = rom.place_code(r"""
+    clr.b 0x%(in_cinema)X               | any other screen is not the cinema
+    jsr 0x%(push_start_first)X          | the two original instructions' worth
+    jmp 0x%(push_start_rest)X
+""" % names, why="the PUSH START routine (title, demo, ...) marks the cinema as over")
     rom.write(PUSH_START, bytes.fromhex("4EF9") + leave.to_bytes(4, "big"),
               expect=bytes.fromhex("4EB90005F050"), why="PUSH START routine entry")
 
-    start = rom.place_code(
-        "    cmp.b #0x%X,0x%X\n"
-        "    bne.s 1f\n"
-        "    and.b #0xFC,0x%X\n"           # forget the Start request
-        "    move.b #1,0x%X\n"
-        "    rts\n"
-        "1:  tst.b 0x10F000\n"             # the original first instruction
-        "    jmp 0x%X\n" % (MAGIC, IN_CINEMA, START_FLAGS, ABORT, PLAYER_START + 6),
-        why="BIOS PLAYER_START: in the cinema a Start press only ends the cinema")
+    start = rom.place_code(r"""
+    cmp.b #0x%(magic)X,0x%(in_cinema)X
+    bne.s 1f
+    and.b #0xFC,0x%(start_flags)X       | forget the Start request
+    move.b #1,0x%(abort)X
+    rts
+1:  tst.b 0x10F000                      | the original first instruction
+    jmp 0x%(player_start_rest)X
+""" % names, why="BIOS PLAYER_START: in the cinema a Start press only ends the cinema")
     rom.write(PLAYER_START, bytes.fromhex("4EF9") + start.to_bytes(4, "big"),
               expect=bytes.fromhex("4A390010F000"), why="PLAYER_START entry")

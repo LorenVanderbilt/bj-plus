@@ -24,8 +24,7 @@ import os
 #   transparent: see-through - the colours come from the tiles).
 # The state starts over on the hall's first frame (the game may not come through DRAW_CALL on its way in); out of the
 # hall, or as the next scene is set up (CLEAR_LAYER), the slots are hidden (once) and the boss forgotten - and its count as it's set up - so a leftover never reads
-# as a hit. (Its own patch, last, so its code moves
-# nothing.)
+# as a hit.
 STAGE = 40
 STAGE_AT = 0x103005
 DRAW_CALL = 0x11804            # jsr (the gameplay loop's front objects, then wall-pocket, elevator-spin)

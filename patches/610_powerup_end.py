@@ -6,8 +6,7 @@ DESCRIPTION = "Pinecone powerup's end: white flashing to the last frame, then no
 # (+0x62 = 0), the Y / X nudges back, pose 0 (+8: nothing drawn until his idle animation picks one, 4 frames later -
 # the shrink hid that), and from REST the player block's form 1 and standing. With the hero always big the shrink
 # looked like a shrink-and-pop. Now the step jumps to END at once: the same ending, the Y nudge only (`pinecone-blink`
-# keeps only the Y one at the start too) and the normal standing pose (STANDING) instead of 0. (Its own patch, last,
-# so its new code moves nothing.)
+# keeps only the Y one at the start too) and the normal standing pose (STANDING) instead of 0.
 # Before that, the powerup's countdown (0x3BDC8, each frame) flashed him white (+0x20 = 0x7F, every other frame) until
 # 128 frames were left, then switched to a flicker (WARNING: bcs to a pose swap with the blank pose 0x0C, the real one
 # kept in the player block's +0x0C) - he looked like he'd stopped blinking early. Now he flashes white to the end

@@ -8,7 +8,6 @@ DESCRIPTION = "Invincible (bamboo shoot): an enemy run through shows its points 
 # in a small font in SPEED UP's gold (palette 6, always loaded: the gold by row, a black outline - GLYPHS) - rising
 # (RISE, slowing by SLOW) for LIFE frames, its last ones thinned out to fade it (FADES: a checkerboard of half its
 # pixels - there's no see-through; a quarter step too was dropped for the leaf tornado's tiles), then gone.
-# (Its own patch, last, so its code moves nothing.)
 SCORE_SITES = [(0x42C9E, 0x5E28E), (0x42CA6, 0x5E294)]   # (jsr <add to player N's score>)
 POINTS_AT = [(0x4752C, 0x250), (0x47536, 0x50)]           # (move.l #points,d0 in 0x47526)
 NEW_OBJECT = 0xFFEC            # -> a1 (ne: none free)

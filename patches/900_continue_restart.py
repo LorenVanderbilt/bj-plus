@@ -6,7 +6,6 @@ DESCRIPTION = "A continue starts the level again from its beginning (not the las
 # RESTART_POINTS (each player's checkpoint, the way back out of a cave - longs, 0 = none). Now, unless the stage is a
 # boss fight (BOSS_STAGES), they're cleared first - as pause-menu's RESTART LEVEL and the game's own stage select do -
 # so the stage starts again from its beginning. A boss fight keeps them: the continue goes back to the boss.
-# (Its own patch, last, so its code moves nothing.)
 CONTINUE_YES = 0x34816         # jsr <screen-blackout's cont_out> ; ... moveq #1,d0 ; rts
 RESTART_POINTS = [0x107100, 0x107500, 0x103024]
 STAGE = 0x103005

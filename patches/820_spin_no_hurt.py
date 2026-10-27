@@ -6,7 +6,7 @@ DESCRIPTION = "A kicked, spinning enemy no longer hurts the hero after it bounce
 # (HURT_TEST, the hero's touch of each enemy: state 0 or 5 hurts) treats as a live enemy - so a spinning enemy stuck
 # in a ditch, bouncing wall to wall, hurt the hero forever (sta/aes/spin_ditch.sta). Now a state-5 enemy still on
 # SPIN_CODE is passed over too (as any other state but 0, 1 and 5); state 5 elsewhere (other objects set it) still
-# hurts. (Its own patch, last, so its code moves nothing.)
+# hurts.
 HURT_TEST = 0x42B54            # cmpi.b #5,d7 ; beq 0x42B9A (the hurt) - d7 the enemy's state, a0 the enemy
 HURT = 0x42B9A
 SPIN_CODE = 0x46B42

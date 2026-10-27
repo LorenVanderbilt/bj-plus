@@ -11,7 +11,7 @@ DESCRIPTION = "Options: AUTO SAVE and MEMORY CARD left out for the beta (auto-sa
 #   * the AUTO SAVE / MEMORY CARD checks compare with a line there isn't (NO_LINE), so line 4 is BACK TO TITLE;
 #   * the stage start's calls (STAGE_TITLE_CALLS) go straight to the title card again, not through title-menu's
 #     auto-save - so a card set to auto-save by an earlier build can't save in the beta either.
-# The game's own save prompts (and CONTINUE from a save) are as they were. (Its own patch, last, so nothing moves.)
+# The game's own save prompts (and CONTINUE from a save) are as they were.
 ENABLED = True
 LIST_COUNT = bytes.fromhex("7E0650F9")        # moveq #OPT_COUNT,d7 ; st BIG_FLAG
 AUTO_CHECK = bytes.fromhex("0C4600036600")    # cmp.w #OPT_AUTO_SAVE,d6 ; bne

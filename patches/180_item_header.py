@@ -26,18 +26,6 @@ FIRST_COLUMN, COLUMNS, ROW, PALETTE = 8, 24, 6, 5
 SCREEN_CENTER_X = 160
 BLANK = 0x0520
 OUTLINE = 15
-FIX_COLUMN_BYTE = (16, 16, 24, 24, 0, 0, 8, 8)   # see tools/hackbuild.py
-
-
-def glyph_pixel(s1, tile, x, y):
-    b = s1[tile * 32 + FIX_COLUMN_BYTE[x] + y]
-    return b & 15 if x % 2 == 0 else b >> 4
-
-
-def glyph(s1, top):
-    """16x16 pixels of a 2x2-tile letter."""
-    return [[glyph_pixel(s1, top + (0x10 if y >= 8 else 0) + (1 if x >= 8 else 0), x % 8, y % 8)
-             for x in range(16)] for y in range(16)]
 
 
 def apply(rom):
@@ -47,9 +35,9 @@ def apply(rom):
             pieces.append([[0] * 16 for _ in range(16)])
         elif ch == "'":
             a, b = APOSTROPHE_COLUMNS
-            pieces.append([row[a:b] for row in glyph(rom.fix_orig, FONT[ch])])
+            pieces.append([row[a:b] for row in rom.fix_glyph16(FONT[ch])])
         else:
-            pieces.append(glyph(rom.fix_orig, FONT[ch]))
+            pieces.append(rom.fix_glyph16(FONT[ch]))
     width = sum(len(p[0]) for p in pieces)
     canvas = [[0] * (COLUMNS * 8) for _ in range(16)]
     x = SCREEN_CENTER_X - width // 2 - FIRST_COLUMN * 8

@@ -18,7 +18,6 @@ import random
 #     CURLS of air burst out from its top - one curl drawing (and a thinned one), flipped for the right-hand ones,
 #     4 of them moving out and up a step at a time, CURL_HOLD frames a step - then the leaf object ends as before.
 # Drawn from the settings here (palette 0x61's greys: GREYS light to dark).
-# (Its own patch, last, so its code moves nothing.)
 OLD_DEFS = {   # (player's leaf palette) - the frames' definitions, in the order of the script
     0x56: [0x6DC00, 0x6DC1C, 0x6DC38, 0x6DC54, 0x6DC70, 0x6DC8C],
     0x57: [0x6E711, 0x6E72D, 0x6E749, 0x6E765, 0x6E781, 0x6E79D],
