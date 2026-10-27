@@ -42,33 +42,34 @@ PLAYERS = 0x106800
 
 
 def apply(rom):
-    check = rom.place_code(
-        "    move.l %%d1,-(%%sp)\n"
-        "    moveq #0,%%d0\n"
-        "    move.b 0x10FDAC,%%d0\n"      # current buttons
-        "    and.b #1,%%d0\n"              # player 1 Start
-        "    move.b 0x%X,%%d1\n"           # was it down last frame?
-        "    move.b %%d0,0x%X\n"
-        "    not.b %%d1\n"
-        "    and.b %%d1,%%d0\n"            # down now and not before = a new press
-        "    move.b 0x%X,%%d1\n"           # player 1 in the game at the previous check? (not joining now)
-        "    move.b 0x%X,0x%X\n"
-        "    and.b %%d1,%%d0\n"
-        "    move.l (%%sp)+,%%d1\n"
-        "    tst.b %%d0\n"                 # Z set = no new press (what the caller's beq tests)
-        "    rts\n" % (PREV_STATE, PREV_STATE, PREV_PLAYERS, PLAYERS, PREV_PLAYERS),
+    check = rom.place_code(r"""
+    move.l %%d1,-(%%sp)
+    moveq #0,%%d0
+    move.b 0x10FDAC,%%d0                | current buttons
+    and.b #1,%%d0                       | player 1 Start
+    move.b 0x%(prev_state)X,%%d1        | was it down last frame?
+    move.b %%d0,0x%(prev_state)X
+    not.b %%d1
+    and.b %%d1,%%d0                     | down now and not before = a new press
+    move.b 0x%(prev_players)X,%%d1      | player 1 in the game at the previous check? (not joining now)
+    move.b 0x%(players)X,0x%(prev_players)X
+    and.b %%d1,%%d0
+    move.l (%%sp)+,%%d1
+    tst.b %%d0                          | Z set = no new press (what the caller's beq tests)
+    rts
+""" % {"prev_state": PREV_STATE, "prev_players": PREV_PLAYERS, "players": PLAYERS},
         why="Start press detector (returns Z clear on a new press)")
-    for site, cmds, orig, why in ((PAUSE_ENTER, (SOUND_PAUSE, PAUSE_EFFECT), "08C00003", "pause the music, play the pause sound"),
+    for site, cmds, orig, why in ((PAUSE_ENTER, (SOUND_PAUSE, PAUSE_EFFECT), "08C00003",
+                                   "pause the music, play the pause sound"),
                                   (PAUSE_EXIT, (SOUND_RESUME,), "08800003", "resume the music")):
-        bit = "bset" if site == PAUSE_ENTER else "bclr"
         sends = "".join("    move.w #0x%02X,%%d0\n    jsr 0x%X\n" % (c, QUEUE_SOUND) for c in cmds)
-        cave = rom.place_code(
-            "    movem.l %%d0-%%d7/%%a0-%%a5,-(%%sp)\n"
-            "%s"
-            "    movem.l (%%sp)+,%%d0-%%d7/%%a0-%%a5\n"
-            "    move.w 706(%%a6),%%d0\n"       # the two original instructions
-            "    %s #3,%%d0\n"
-            "    rts\n" % (sends, bit),
+        cave = rom.place_code(r"""
+    movem.l %%d0-%%d7/%%a0-%%a5,-(%%sp)
+%(sends)s    movem.l (%%sp)+,%%d0-%%d7/%%a0-%%a5
+    move.w 706(%%a6),%%d0                | the two original instructions
+    %(bit)s #3,%%d0
+    rts
+""" % {"sends": sends, "bit": "bset" if site == PAUSE_ENTER else "bclr"},
             why="%s, then runs the original first two instructions" % why)
         rom.write(site, bytes.fromhex("4EB9") + cave.to_bytes(4, "big") + bytes.fromhex("4E71"),
                   expect=bytes.fromhex("302E02C2" + orig), why=why + " (pause / resume hook)")

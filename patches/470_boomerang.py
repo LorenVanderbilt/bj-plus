@@ -1,11 +1,11 @@
 NAME = "boomerang"
 DESCRIPTION = "Boomerang: level 2 reaches further; level 3 keeps level 2's size and range but two can be out at once"
 
-# The boomerang (player block +0x2B: level 1-3 - weapon-switch calls it the bomb; +0x2C is the acorn bomb) is an
-# object in one fixed slot per player (0x104100 / 0x104180, the acorn's too: the spawn 0x475BC asks 0xA158 for just
-# that slot, so while one is out another can't be thrown). It flies a loop round a point ahead of the thrower: the
-# point LOOP[level] out, the loop's radius that + 0x800 (so its reach ~ 2 x LOOP + 0x800); its look is animation
-# 197 + level (LOOK_SITES; level 3's is the biggest). Level 3 just reached further and was bigger.
+# The boomerang (player block +0x2B: level 1-3; +0x2C is the acorn bomb's) is an object in one fixed slot per player
+# (0x104100 / 0x104180, the acorn's too: the spawn 0x475BC asks 0xA158 for just that slot, so while one is out another
+# can't be thrown). It flies a loop round a point ahead of the thrower: the point LOOP[level] out, the loop's radius
+# that + 0x800 (so its reach ~ 2 x LOOP + 0x800); its look is animation 197 + level (LOOK_SITES; level 3's is the
+# biggest). Level 3 just reached further and was bigger.
 #   * level 2 reaches ~15% further (LOOP_LEVEL2), level 3 a little further still (LOOP_LEVEL3) - and looks like
 #     level 2; both drawn a little smaller (ZOOM);
 #   * level 3: with the player's own slot taken, a second one goes in a free slot of the game's general pool

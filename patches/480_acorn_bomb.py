@@ -1,11 +1,11 @@
 NAME = "acorn-bomb"
 DESCRIPTION = "Acorn bomb: levels 2 / 3 thrown further; level 3 keeps level 2's size but two can be out at once (thrown quickly - the boomerang's second too)"
 
-# The acorn bomb (player block +0x2C: level 1-3 - weapon-switch calls it the boomerang) is an object in one fixed
-# slot per player (0x104100 / 0x104180, the boomerang's too: the spawn 0x47662 asks 0xA158 for just that slot, so
-# while one is out another can't be thrown). Thrown, it gets a speed by level from one of three tables (by the
-# throw's direction: SPEEDS, (x, y) words for levels 0-3), its look from animation 200 + level (0x47A8E) and, when
-# it goes off, 236 + level - 1 (0x47B22: level 3's the biggest, raised 0x800). Levels 2 and 3 threw alike.
+# The acorn bomb (player block +0x2C: level 1-3) is an object in one fixed slot per player (0x104100 / 0x104180, the
+# boomerang's too: the spawn 0x47662 asks 0xA158 for just that slot, so while one is out another can't be thrown).
+# Thrown, it gets a speed by level from one of three tables (by the throw's direction: SPEEDS, (x, y) words for levels
+# 0-3), its look from animation 200 + level (0x47A8E) and, when it goes off, 236 + level - 1 (0x47B22: level 3's the
+# biggest, raised 0x800). Levels 2 and 3 threw alike.
 #   * level 2 and 3 speeds x RANGE;
 #   * level 3 looks like level 2 (thrown and going off);
 #   * level 3: with the player's own slot taken, a second one goes in a free slot of the game's general pool

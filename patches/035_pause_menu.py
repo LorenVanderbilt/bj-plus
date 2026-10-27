@@ -18,7 +18,6 @@ DESCRIPTION = "The pause has a menu: RESUME / RESTART LEVEL / QUIT TO TITLE (Up 
 # (BUBBLE_COLOURS: the bubble's black and golds) written in while the menu's up and the palette put back after.
 # Select (player 1's, 0x10FDAC bit 1 - unused in play since pause-start) hides PAUSE, the menu and the box for a clean
 # pause screen, and shows them again; Up / Down / A do nothing while hidden.
-# Meant for testing; may be switched off for release.
 PAUSE_SITE = 0x11ACC        # bsr.w 0x1541A ; jsr 0xE856 ...
 PAUSE_ENTER, PAUSE_EXIT = 0x1541A, 0x15446
 PAUSE_ADDRS = [0x15436, 0x15462]   # (the inline printer's fix address word in each)
