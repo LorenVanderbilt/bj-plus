@@ -26,7 +26,7 @@ rom.add_sprite_tile() does the same for a 16x16 sprite tile in the sprite (C) RO
 rom.add_frame() adds a sprite frame (the definition the game draws an object's +8 frame number from) built
 from such tiles, in a free frame number (0x3C00-0x3FFC), and returns that frame number.
 """
-import argparse, glob, hashlib, importlib.util, os, shutil, subprocess, sys, tempfile, zipfile, zlib
+import argparse, glob, hashlib, importlib.util, os, shutil, subprocess, tempfile, zipfile, zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ORIG_ZIP = os.path.join(ROOT, "roms", "bjourney.zip")
