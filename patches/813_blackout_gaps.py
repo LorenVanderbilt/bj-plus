@@ -2,37 +2,39 @@ NAME = "blackout-gaps"
 DESCRIPTION = ("Screen changes: screen-blackout's last gaps - the story's last scene and its beam, a room's way out, "
                "TODAY'S BEST 5 in the attract, the title after the story, elevator-spin's colours")
 
-# screen-blackout blacks the old screen out at once and shows the new one whole; these are the screens it missed:
-#   * the story's last scene (STORY_LAST) loads no colours (it keeps the scene before's), so it couldn't be blacked
-#     out - its sprites came on as the screen was drawn (one torn frame). Now the colours are kept in BUF, the screen's
-#     blacked out like the other scenes (screen-blackout's story path, its entry BLACKOUT_STORY2) and BUF noted as a
-#     load: the reveal puts them back with the scene whole;
-#   * the last scene's cut to the beam (BEAM_CUT, as its last text box goes - story-last-line's hook there): its layers
-#     are redrawn over ~3 frames, so black first (the colours kept as for the scene's start) and shown whole once drawn;
-#   * the third room's way out (ROOM_OUT3: the room at 0x130EC - its way in is screen-blackout's, its way out was
-#     missed; the attract demo's walk into it too) goes through screen-blackout's room_out like the others;
-#   * the attract's TODAY'S BEST 5 (BEST_IN) is blacked out at a vblank as it starts (it came in in pieces), held, and
-#     shown whole as its loop starts (BEST_LOOP - the one after a game over too);
-#   * the title's set-up (TITLE_SETUP - the story over jumps into it): black at once first (the story's last frames
-#     were cleared in strips over their colours), the title shown whole by screen-blackout's fallback;
-#   * elevator-spin's colour cycling (ELEVATOR_PAL) wrote its palette while black (the cone alone on the black screen):
-#     now, while black, into spare RAM (NOWHERE).
-# BUF is RAM a shop / NPC room keeps the level's objects in - free in the story (round-clear-dim uses it at ROUND
-# CLEAR).
-STORY_LAST = (0x1552E, 0x3533E)  # jsr <screen-blackout's story_last> - its last scene; (the scene)
-BLACKOUT_STORY_LAST = 64        # screen-blackout's code: its entries (bra.w each) - story_last's, story2's, room_out's
-BLACKOUT_STORY2 = 60            # (pea <scene>; jsr 0xE856; bra blackout)
+# screen-blackout blacks out the old screen at once and shows the new one only when it's complete. These are the
+# screens it missed:
+#   * The story's last scene (STORY_LAST) loads no colours of its own, keeping the previous scene's, so it couldn't
+#     be blacked out and its sprites appeared while the screen was drawn (one torn frame). Its colours are now saved
+#     to BUF, the screen is blacked out like the other scenes (screen-blackout's story path, BLACKOUT_STORY2), and
+#     BUF is registered as a palette load so the reveal puts them back once the scene is complete.
+#   * The last scene's cut to the beam (BEAM_CUT, as its last text box closes, where story-last-line also hooks)
+#     redraws its layers over about 3 frames. It now goes black first, saving the colours the same way, and is shown
+#     once drawn.
+#   * The way out of the third room (ROOM_OUT3, the room at 0x130EC) now goes through screen-blackout's room_out like
+#     the others. Its way in was already covered; the attract demo walks into it too.
+#   * The attract's TODAY'S BEST 5 (BEST_IN) appeared in pieces. It's now blacked out at a vblank as it starts, held,
+#     and shown complete as its loop starts (BEST_LOOP, also used after a game over).
+#   * The title set-up (TITLE_SETUP, which the end of the story jumps into) now blacks out at once first, since the
+#     story's last frames were cleared in strips over their colours. screen-blackout's fallback then shows the title.
+#   * elevator-spin's colour cycling (ELEVATOR_PAL) kept writing its palette while the screen was black, leaving the
+#     cone alone on a black screen. While black it now writes to spare RAM (NOWHERE) instead.
+# BUF is RAM that shops and NPC rooms use for the level's objects, free during the story; round-clear-dim uses it at
+# ROUND CLEAR.
+STORY_LAST = (0x1552E, 0x3533E)  # jsr <screen-blackout's story_last> for the last scene; the scene
+BLACKOUT_STORY_LAST = 64        # offsets of screen-blackout's entries (a bra.w each): story_last, story2, room_out
+BLACKOUT_STORY2 = 60            # pea <scene> ; jsr 0xE856 ; bra blackout
 BLACKOUT_ROOM_OUT = 36
-ROOM_OUT3 = 0x1316A             # jsr 0x13660 - out of the room at 0x130EC: its sprites cleared, the level rebuilt
+ROOM_OUT3 = 0x1316A             # jsr 0x13660, leaving the room at 0x130EC: clears its sprites, rebuilds the level
 ELEVATOR_PAL = bytes.fromhex("41F900401EE2720E30D9")   # elevator-spin: lea 0x401EE2,a0 ; moveq #14,d1 ;
                                                        # move.w (a1)+,(a0)+
-BEST_IN = 0x10854               # jsr 0x152FE (its music) - the attract's TODAY'S BEST 5 starting
-BEST_LOOP = 0x549D0             # move.w #512,0x3800(a6) - TODAY'S BEST 5 set up, its loop starting
-BEST_HOLD = 120                 # (frames screen-blackout's fallback waits, at most)
-BEAM_CUT = 0x35494              # jsr <story-last-line's> - the story's last scene: the beam's layers about to be drawn
-TITLE_SETUP = 0x1AE76           # move.b #32,0x3005(a6) - the title being set up (the story over: bra here)
-BUF = 0x10B000                  # 256 x 32 bytes: to 0x10CFFF
-NOWHERE = 0x10D510              # spare RAM (30 bytes: elevator-spin's colours while black)
+BEST_IN = 0x10854               # jsr 0x152FE (its music), as the attract's TODAY'S BEST 5 starts
+BEST_LOOP = 0x549D0             # move.w #512,0x3800(a6), as TODAY'S BEST 5's loop starts
+BEST_HOLD = 120                 # the most frames screen-blackout's fallback waits
+BEAM_CUT = 0x35494              # jsr <story-last-line>, just before the beam's layers are drawn
+TITLE_SETUP = 0x1AE76           # move.b #32,0x3005(a6) in the title set-up; the story's end branches here
+BUF = 0x10B000                  # 256 x 32 bytes, to 0x10CFFF
+NOWHERE = 0x10D510              # 30 bytes of spare RAM for elevator-spin's colours while black
 
 
 def branch_target(rom, at):
@@ -62,14 +64,14 @@ def apply(rom):
     bra.w title_setup                   | (+16)
     bra.w beam_cut                      | (+20)
 
-| the story's last scene: its colours kept, then black (the screen-blackout's way) and the kept colours noted as a load
+| the story's last scene: save its colours, black out as screen-blackout does, and register them as a load
 story_last:
     bsr keep_colours
     pea 0x%(scene_last)X
     pea story_noted(%%pc)
-    jmp 0x%(story_black)X               | (a vblank, black: its rts to story_noted)
+    jmp 0x%(story_black)X               | black at a vblank; its rts goes to story_noted
 
-| the beam's cut in the last scene: the same - black while its layers are drawn
+| the cut to the beam: the same, black while its layers are drawn
 beam_cut:
     bsr keep_colours
     jsr 0xE856
@@ -96,14 +98,14 @@ story_noted:
     mulu #10,%%d0
     lea 0x%(b_list)X,%%a0
     adda.w %%d0,%%a0
-    move.l #0x400000,(%%a0)+            | (to: every palette)
-    move.l #0x%(buf)X,(%%a0)+           | (from: the kept colours)
+    move.l #0x400000,(%%a0)+            | to: every palette
+    move.l #0x%(buf)X,(%%a0)+           | from: the saved colours
     move.w #255,(%%a0)
-    move.b #1,0x%(b_reveal)X            | (shown at its first vblank wait: the scene's set up whole before it)
+    move.b #1,0x%(b_reveal)X            | shown at its first vblank wait, once the scene is set up
 1:  movem.l (%%sp)+,%%d0/%%a0
-    rts                                 | (into the scene)
+    rts                                 | into the scene
 
-| elevator-spin's colours: into palette 0xF7 - while black, nowhere
+| elevator-spin's colours go to palette 0xF7, or nowhere while black
 elevator_pal:
     lea 0x401EE2,%%a0
     tst.b 0x%(b_black)X
@@ -111,14 +113,14 @@ elevator_pal:
     lea 0x%(nowhere)X,%%a0
 1:  rts
 
-| the attract's TODAY'S BEST 5 starting: black at once (at a vblank)
+| the attract's TODAY'S BEST 5 starting: black at once, at a vblank
 best_in:
     jsr 0xE856
     jsr 0x%(blackout)X
     move.w #%(best_hold)d,0x%(b_hold_at)X
     jmp 0x152FE
 
-| TODAY'S BEST 5 set up: shown at its loop's first vblank
+| TODAY'S BEST 5 set up: show it at its loop's first vblank
 best_loop:
     move.w #512,0x3800(%%a6)
     tst.b 0x%(b_black)X
@@ -126,7 +128,7 @@ best_loop:
     move.b #1,0x%(b_reveal)X
 1:  rts
 
-| the title being set up: black at once (at a vblank) first
+| the title being set up: black at once, at a vblank, first
 title_setup:
     jsr 0xE856
     jsr 0x%(blackout)X

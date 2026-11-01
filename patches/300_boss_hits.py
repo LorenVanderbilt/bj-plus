@@ -1,11 +1,13 @@
 NAME = "boss-hits"
 DESCRIPTION = "Bosses and mini bosses take more or fewer hits with the difficulty (LEVEL 1-8)"
 
-# Each boss counts the hits it can still take in the byte +0x4013 from its object (one off per hit), set once as
-# it starts: `move.b #N,0x4013(a5)` - the same at every difficulty. Each of those now takes N from the boss's row
-# below by the game's difficulty (0x103063: 0-7, LEVEL 1-8). LEVEL 4 (the game's default) keeps the original
-# numbers. The jungle boss's second set-up is the game's mercy rule (one hit fewer after two lost tries): one fewer
-# than his row, at least 1.
+# Each boss keeps the hits it can still take in the byte at +0x4013 of its object, counting down one per hit. It's
+# set once as the boss starts (move.b #N,0x4013(a5)), the same at every difficulty. Each of those now looks up N in
+# the boss's row of HITS by the difficulty (0x103063: 0-7, LEVEL 1-8). LEVEL 4, the game's default, keeps the
+# original numbers.
+#
+# The jungle boss's second set-up is the game's mercy rule, one hit fewer after two lost tries. It now takes one
+# fewer than his row, at least 1.
 DIFFICULTY = 0x103063
 HITS = [   # (set-up address, original N, hits at LEVEL 1..8, who)
     (0x28A3A, 5, [2, 3, 4, 5, 6, 7, 8, 9], "Jungle boss (caveman)"),

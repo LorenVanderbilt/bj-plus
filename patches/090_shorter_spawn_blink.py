@@ -1,11 +1,11 @@
 NAME = "shorter-spawn-blink"
 DESCRIPTION = "The hero blinks (can't be hurt) for 2 s after appearing at a stage's start or after dying, not 2.7 s; none in a boss room"
 
-# Appearing (a stage's start, a restart after a death) sets the hero's invincibility timer, +9 of the player's
-# data (0x107009 / 0x107409, counted down a frame at a time; the hero blinks meanwhile), to 160 frames - in three
-# places: the general set-up (9(a4)) and player 1's and player 2's. Now SPAWN_BLINK - and none in a boss room
-# (stages 33-40: you walk in from the cave, the boss isn't upon you). After a title card stage-wipe clears it: the
-# blink is only after a death.
+# When the hero appears, at a stage's start or after a death, his invincibility timer (+9 of the player data,
+# 0x107009 / 0x107409) is set to 160 frames. It counts down a frame at a time while he blinks. It's set in three
+# places: the general set-up (9(a4)) and the set-ups for players 1 and 2. It's now SPAWN_BLINK, and none at all in a
+# boss room (stages 33-40), where you walk in from the cave and the boss isn't on top of you. After a title card,
+# stage-wipe clears it, so in practice the blink only follows a death.
 SPAWN_BLINK = 120
 BOSS_STAGES = (33, 40)
 STAGE = 0x103005
@@ -17,7 +17,7 @@ def apply(rom):
     for at, old, dest in SITES:
         code = rom.place_code("""
     move.b #%(blink)d,%(dest)s
-    cmpi.b #%(first_boss)d,0x%(stage)X  | (a boss room: none)
+    cmpi.b #%(first_boss)d,0x%(stage)X  | none in a boss room
     bcs 1f
     cmpi.b #%(last_boss)d,0x%(stage)X
     bhi 1f

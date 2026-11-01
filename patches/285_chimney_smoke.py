@@ -1,16 +1,16 @@
 NAME = "chimney-smoke"
 DESCRIPTION = "Houses: the chimney smoke drifts one way - three puffs to the right, one after another - not two mirrored at once"
 
-# Each house (three kinds, the same code at three places) counts frames in +0x78 and every 64 spawns two smoke
-# puffs (object 0x4999A, its animation 270) from its chimney: one 14 px in drifting left (x speed -32), one 22 px
-# in drifting right (+32) - the same puff mirrored, both at once. Now only the right one is spawned, three times
-# a cycle, PUFFS frames apart.
+# Each house (three kinds, with the same code in three places) counts frames in +0x78. Every 64 frames it spawns two
+# smoke puffs (object 0x4999A, animation 270) from its chimney: one 14 px in drifting left (x speed -32) and one 22 px
+# in drifting right (+32), so the same puff appeared mirrored, both at once. Now only the right-hand puff spawns,
+# three times a cycle at the frames in PUFFS.
 SITES = [(0x49316, 0x493A0), (0x4969C, 0x49726), (0x4983E, 0x498C8)]   # (andi.w #63,d0 ; bne <end>), <end>
 PUFFS = [0, 12, 24]       # frames into each 64-frame cycle
-NEW_OBJECT = 0xFFEC       # -> a1 (ne: none free)
+NEW_OBJECT = 0xFFEC       # returns a1; ne if no slot is free
 SMOKE = 0x4999A
-PUFF_UP = 10              # px above the house's y (the original's 8, nudged up)
-PUFF_X = 18               # px in from the house's x (the original right-hand puff's 22, nudged left)
+PUFF_UP = 10              # px above the house's y; the original was 8
+PUFF_X = 18               # px in from the house's x; the original right-hand puff was 22
 
 
 def apply(rom):
@@ -19,14 +19,14 @@ def apply(rom):
         code = rom.place_code("""
     and.w #63,%%d0
 %(checks)s    bra 9f
-1:  jsr 0x%(new_object)X                | a puff: a new object (ne: none free)
+1:  jsr 0x%(new_object)X                | a new puff object (ne if none free)
     bne 9f
     move.l #0x%(smoke)X,4(%%a1)
     move.l (%%a5),(%%a1)                | at the house's place, PUFF_UP up and PUFF_X in
     addi.w #0x%(up)X,(%%a1)
     addi.w #0x%(x)X,2(%%a1)
     move.w #0,12(%%a1)
-    move.w #32,14(%%a1)                 | (drifting right)
+    move.w #32,14(%%a1)                 | drifting right
     move.w #4,16(%%a1)
     move.w #0,18(%%a1)
     move.b #0x90,40(%%a1)

@@ -1,34 +1,38 @@
 NAME = "jungle2-card-house"
 DESCRIPTION = "Jungle Zone 2: a path of falling ice blocks up from the top of the icy climb leads to a second card game house"
 
-# A level's front layer (the one the hero stands on) is a map per 256 x 256 px block (MAP_TABLE: its quarters' packed
-# 8 x 8 grids of 16 px cells - the format: tools/hackbuild.py, Rom.map_quarter). Quarters can be shared (the empty
-# ones all are), so block BLOCK's quarters that get platforms are packed again into free space and re-pointed. The
-# platform is the stage's own floating one (block 7: PLATFORM_FROM, PLATFORM_SIZE cells), copied. It's reached by
-# ICE_BLOCKS - kind 0xB8, an ice block that shakes once stood on and falls (0x18FD4, shared with
+# A level's front layer, the one the hero stands on, is a map per 256x256 px block (MAP_TABLE), each made of four
+# packed 8x8 grids of 16 px cells. The format is described in tools/hackbuild.py, Rom.map_quarter. Quarters can be
+# shared (all the empty ones are), so the quarters of BLOCK that get a platform are packed again into free space and
+# re-pointed. The platform is a copy of the stage's own floating one (PLATFORM_FROM, PLATFORM_SIZE cells in block 7).
+# It's reached by ICE_BLOCKS: kind 0xB8, an ice block that shakes when stood on and then falls (0x18FD4, shared with
 # the previous stage's falling grass platforms, whose palette isn't loaded here).
-# Objects come from per-stage lists (0x60502: 16 bytes a stage - +0 a byte a block, its positions' count; +4 a table of
-# a pointer a block - block N at N-1; the spawner, 0xFC46): a word 0x8000 | kind starts a kind's run, each word after it
-# a position - x (high byte) and y (low byte) in 2 px units within the block (y up, from its bottom). The door (DOOR_KIND:
-# kinds 0x40-0x5F are house doors, their room the kind's low 5 bits; it draws itself, frame 0x2074, sign above) goes on
-# the top platform. Its room is new: ROOM (an unused slot of the room table, 0x132BC) set to the card game's routine
-# (room 9's) - each room has a visited flag that makes its door vanish, so this one doesn't share Empire Marsh 3's.
+#
+# Objects come from per-stage lists at 0x60502, read by the spawner at 0xFC46. Each stage has 16 bytes: +0 points to
+# a count of positions per block, +4 to a table with a pointer per block (block N at N-1). In a block's list, a word
+# 0x8000 | kind starts a run of that kind, and each word after it is a position: x in the high byte and y in the low
+# byte, in 2 px units within the block, y up from its bottom.
+#
+# The door (DOOR_KIND) goes on the top platform. Kinds 0x40-0x5F are house doors, with the room in the kind's low 5
+# bits; a door draws itself (frame 0x2074, sign above). Its room is new: ROOM, an unused slot of the room table at
+# 0x132BC, set to the card game's routine (room 9's). Each room has a visited flag that makes its door vanish, so it
+# needs its own rather than sharing Empire Marsh 3's.
 STAGE_TABLE = 0x60502
 STAGE = 3
 MAP_TABLE = 0x7C432            # Jungle Zone 2's front layer
-BLOCK = 5                      # the top of the icy climb (blocks 7-12 are the stage's bottom row, 1-6 the top: 5 is
-                               # above 11); the summit is its bottom right, Blue standing about col 10, row 10
+BLOCK = 5                      # the top of the icy climb. Blocks 1-6 are the stage's top row and 7-12 the bottom,
+                               # so 5 is above 11; the summit is its bottom right, Blue at about col 10, row 10
 PLATFORM_FROM = (7, 8, 8)      # (block, row, col) of the stage's floating platform
 PLATFORM_SIZE = (2, 5)         # (rows, cols)
 PLATFORMS = [(3, 0)]           # (row, col) of each copy's top left in BLOCK: the house's, up and left of the summit
 ICE_KIND = 0xB8
-ICE_BLOCKS = [(0x5F, 0x49), (0x50, 0x60), (0x3D, 0x60), (0x29, 0x60)]   # (x, y - 2 px units; Blue
-                               # stands 32 px above y): up and right from the summit, then a row of them back left
-                               # to the house's platform - too high above the summit to reach any other way
-DOOR_KIND, DOOR_AT = 0x4A, (0x01, 0x78)  # (room 10: kind 0x40 + 10) on the top platform (x, y - 2 px units: its IN arrow
-                                         # overlapping the platform, as doors do on the ground)
+ICE_BLOCKS = [(0x5F, 0x49), (0x50, 0x60), (0x3D, 0x60), (0x29, 0x60)]   # (x, y) in 2 px units; Blue
+                               # stands 32 px above y. Up and right from the summit, then a row back left to the
+                               # house's platform, which is too high to reach any other way
+DOOR_KIND, DOOR_AT = 0x4A, (0x01, 0x78)  # room 10 (kind 0x40 + 10) on the top platform; (x, y) in 2 px units, with
+                                         # its IN arrow overlapping the platform as doors do on the ground
 ROOM_TABLE, ROOM, CARD_ROOM = 0x132BC, 10, 9
-EMPTY_ROOM = 0x1333C           # (the unused slots' bare rts)
+EMPTY_ROOM = 0x1333C           # the bare rts the unused slots point to
 
 
 def apply(rom):

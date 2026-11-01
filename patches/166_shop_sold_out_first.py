@@ -1,19 +1,22 @@
 NAME = "shop-sold-out-first"
 DESCRIPTION = "Shop: an item you can't have anyway (already have it, not cursed) gets that answer, not CAN'T AFFORD"
 
-# Each item's buying routine checks the price first (too few flowers: bcs 0x2008C, the can't-afford lines - one more
-# each try, the 4th sends you off) and only then whether you may have it at all (already have it: 0x203FC, SORRY,
-# SOLD OUT! - text-fixes; the magic wand without a curse: 0x2063E, YOU'RE NOT CURSED). With too few flowers for
-# something you already have, she told you you couldn't afford it. Now the can't-afford routine first finds the
-# item under the cursor - its routine, from the shop's table (0x1FF90: one per shop, 0x1078F6; a routine per cell,
-# shop object +0x4040) - and when it's one of BLOCKED and the player data (a4) says no, goes to that answer instead.
-# (Nectar checks a full life before the price already; the gold cocoon has no limit.)
-CANT_AFFORD = 0x2008C        # move.w 0x4044(a5),d0 ; jsr 0x214AC (pc-relative) ; then 0x20094
+# Each item's buying routine checks the price first and only then whether you can have the item at all. Too few
+# flowers goes to the can't-afford lines at 0x2008C, a different line each try, with the fourth sending you off.
+# Already having the item goes to 0x203FC (SORRY, SOLD OUT! in text-fixes), and the magic wand without a curse goes
+# to 0x2063E (YOU'RE NOT CURSED). So with too few flowers for something you already had, she said you couldn't
+# afford it.
+#
+# The can't-afford routine now first finds the routine of the item under the cursor, from the shop's table at
+# 0x1FF90 (indexed by shop, 0x1078F6, and cell, shop object +0x4040). If it's one of BLOCKED and the player data
+# (a4) rules it out, that answer is given instead. Nectar already checks for full hearts before the price, and the
+# gold cocoon has no limit.
+CANT_AFFORD = 0x2008C        # move.w 0x4044(a5),d0 ; jsr 0x214AC (pc-relative), then 0x20094
 SHOP_TABLES = 0x1FF90
-SHOP = 0x78F6                # (a6) word: which shop's table
-CELL = 0x4040                # (a5) byte: the cell under the cursor
+SHOP = 0x78F6                # word at (a6): which shop
+CELL = 0x4040                # byte at (a5): the cell under the cursor
 SOLD_OUT, NOT_CURSED = 0x203FC, 0x2063E
-BLOCKED = [   # (the item's routines, player byte, "no" when: "set" = nonzero, "two" = 2, "clear" = 0, answer)
+BLOCKED = [   # (item routines, player byte, refused when "set" = nonzero / "two" = 2 / "clear" = 0, answer)
     ((0x2038A, 0x20390, 0x20396), 0x15, "set", SOLD_OUT),   # flippers
     ((0x20458, 0x2045E), 0x13, "set", SOLD_OUT),      # ice shoes (spike)
     ((0x204C8,), 0x18, "set", SOLD_OUT),              # light safe (either safe)
@@ -44,7 +47,7 @@ def apply(rom):
     movea.l (%%a0,%%d0.w),%%a0
 %(checks)s    bra afford
 %(items)s
-afford:                                 | (as it was: the can't-afford lines)
+afford:                                 | as before: the can't-afford lines
     move.w 0x4044(%%a5),%%d0
     jsr 0x214AC
     jmp 0x%(back)X

@@ -1,11 +1,11 @@
 NAME = "default-name-blu"
 DESCRIPTION = "High score name entry: a name left as ... (the three default characters) goes in the table as BLU"
 
-# The name entry (0x4E0EA, per player; started at 0x1217C / 0x127D2) begins at ':::' (bytes 1-3 of the player
-# block's +0x160, a long; ':' is drawn as '.') and steps each character through 0-9, a few symbols, A-Z and space.
-# The table insert (0x5413A) copies that long into its new entry (INSERTS: move.l <name>(a6),<entry>(a6)); now a name
-# still at ':::' goes in as BLU (the first byte kept).
-INSERTS = [(0x54148, 0x7160, 0x30CA), (0x5417E, 0x7560, 0x30D4)]   # (where, the player's name, the entry's)
+# The high score name entry (0x4E0EA, per player, started at 0x1217C / 0x127D2) begins at ':::' in bytes 1-3 of the
+# long at player block +0x160. ':' is drawn as '.'. Each character steps through 0-9, a few symbols, A-Z and space.
+# The table insert (0x5413A) copies that long into the new entry (INSERTS). A name still at ':::' now goes in as
+# BLU, keeping the first byte.
+INSERTS = [(0x54148, 0x7160, 0x30CA), (0x5417E, 0x7560, 0x30D4)]   # (site, the player's name, the entry's)
 DEFAULT = 0x3A3A3A
 
 

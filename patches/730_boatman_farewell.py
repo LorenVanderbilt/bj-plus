@@ -1,25 +1,27 @@
 NAME = "boatman-farewell"
 DESCRIPTION = "Boatman: a parting line as you leave - BON VOYAGE, LAD! after renting a boat, SUIT YOURSELF, MATEY. after NO THANKS"
 
-# The boatman's menu handlers (the table MENU_TABLE_REF's lea loads - boatman-close's copy, its wrappers: leaf boat,
-# mud boat, no thanks) end his room at once (0x22502: DONE set), with no line after - but for a boat he can't pay for: NO FLOWERS, NO BOAT, GET
-# OUT!, typed (0x2152C, the box cleared first: 0x21CD2) and ending the room from its callback (0xFC 0x22502). Now each
-# handler, when it did end the room, takes that back and types a parting line (FAREWELLS) the same way, its callback
-# holding it HOLD frames and then ending the room - no button wait (boatman-close's PICKED stays: the room closes by
-# itself).
-MENU_TABLE_REF = 0x222FC       # (the operand of lea <the handlers>,a1 at 0x222FA)
+# The boatman's menu handlers (the table that MENU_TABLE_REF loads, boatman-close's wrapped copy: leaf boat, mud
+# boat, no thanks) end his room at once (0x22502 sets DONE) with no line after. The exception is a boat he can't be
+# paid for: NO FLOWERS, NO BOAT, GET OUT! is typed out (0x2152C, after clearing the box with 0x21CD2) and ends the
+# room from its callback (0xFC, 0x22502).
+#
+# Now, when a handler ended the room, it's undone and a parting line (FAREWELLS) is typed the same way. Its callback
+# holds it for HOLD frames and then ends the room. There's no button wait, since boatman-close's PICKED stays set
+# and the room closes by itself.
+MENU_TABLE_REF = 0x222FC       # the operand of lea <handlers>,a1 at 0x222FA
 END_ROOM = 0x22502
 CLEAR_BOX, TYPE = 0x21CD2, 0x2152C
-BOX_AT = 0x7092                # (the fix address his lines start at)
+BOX_AT = 0x7092                # the fix address his lines start at
 DONE = 0x107861
-PICKED = 0x10EFF8              # (boatman-close's)
-WAIT = 0xE858                  # (d0 frames)
+PICKED = 0x10EFF8              # boatman-close's flag
+WAIT = 0xE858                  # waits d0 frames
 HOLD = 60
-FAREWELLS = [["BON VOYAGE, LAD!"], ["BON VOYAGE, LAD!"], ["SUIT YOURSELF, MATEY."]]   # (leaf boat, mud boat, no thanks)
+FAREWELLS = [["BON VOYAGE, LAD!"], ["BON VOYAGE, LAD!"], ["SUIT YOURSELF, MATEY."]]   # leaf boat, mud boat, no thanks
 
 
 def record(lines, callback):
-    """A line for the text engine: its lines (0xFE between), then 0xFC and the callback - on an even byte."""
+    """Text for the text engine: the lines with 0xFE between them, then 0xFC and the callback, on an even byte."""
     text = b"\xfe".join(l.encode() for l in lines).replace(b"?", b"\x0a")
     if (len(text) + 1) % 2:
         text += b" "
@@ -43,7 +45,7 @@ def apply(rom):
         code = rom.place_code("""
     jsr 0x%(was)X
     tst.b 0x%(done)X
-    beq 1f                              | (a line instead - he can't pay: it ends the room)
+    beq 1f                              | can't pay: his line ends the room instead
     clr.b 0x%(done)X                    | the room ends after his parting line
     jsr 0x%(clear)X
     lea 0x%(text)X,%%a0

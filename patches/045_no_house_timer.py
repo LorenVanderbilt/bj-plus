@@ -1,12 +1,12 @@
 NAME = "no-house-timer"
 DESCRIPTION = "No answer countdown in the NPC houses (the travel agent, the drinker, the magician ...) or on the map screen; its banner reads SELECT A PATH, centred"
 
-# Each NPC question screen (and the card game) starts a countdown in the counter at 0x10783F - BCD seconds, 5 to 16
-# - and draws it with 0x218D4; the per-frame tick 0x218A0 counts it down a second at a time and, on expiry, sets
-# the time-up flag 0x107868, which picks an answer for you. (no-shop-timer stopped it on the shop and three screens
-# by changing their start-ups; there are dozens more.) Now the tick and the digit drawing both just return the
-# time-up flag (never set): no screen counts down or shows digits. Only the shop and the NPC screens use these
-# two; the duel mini-game and the ending's timed scene have their own copies (0x28474, 0x245C8) and keep theirs.
+# Each NPC question screen, and the card game, starts a countdown in the counter at 0x10783F (BCD seconds, 5 to 16)
+# and draws it with 0x218D4. The per-frame tick, 0x218A0, counts it down a second at a time and on expiry sets the
+# time-up flag 0x107868, which picks an answer for you. no-shop-timer stopped it on the shop and three other screens
+# by changing their start-ups, but there are dozens more. Now the tick and the digit drawing both just return the
+# time-up flag, which is never set, so no screen counts down or shows digits. Only the shop and the NPC screens use
+# these two. The duel mini-game and the ending's timed scene have their own copies (0x28474, 0x245C8) and keep them.
 #
 # The empty box the digits sat in (top right, part of the brick-wall background every NPC screen shares) is painted
 # over with bricks just before each screen fades in, as no-shop-timer does for its three - here only when the box
@@ -20,43 +20,45 @@ ROUTINES = (0x218A0, 0x2192C)
 CONTINUE_CALLS = [(0x34750, TICK), (0x3469C, DRAW)]   # jsr TICK / jsr DRAW
 FADE_IN = 0x1572C
 FADE_SITES = [0x1F7C2, 0x22EAE, 0x2340A, 0x236EE, 0x238EE, 0x23BB4, 0x26790, 0x27016, 0x27AAE, 0x285EE,
-              0x2BABA, 0x2C024, 0x2C488, 0x2D33C, 0x2DDCA, 0x2F076]   # (no-shop-timer has 0x21AA4, 0x228B0, 0x25A0C)
+              0x2BABA, 0x2C024, 0x2C488, 0x2D33C, 0x2DDCA, 0x2F076]   # no-shop-timer has 0x21AA4, 0x228B0, 0x25A0C
 BOX_TOP = (17 * 64 + 10 * 2, 0x535D)
-# The map screen ("SELECT PLEASE", between areas) used the same countdown; its empty box sits on the frame's top
-# right, sprites 16-17 rows 11-12 of its background (box tile 0x581E at sprite 16 row 11). Under it belong, as on the
-# frame's mirrored left side: the gold bar (0x5812, as beside both corner stars) and the map's top edge, whose tiles
-# run on from the neighbours (0x4A84-0x4A86 at sprites 13-15 row 12 -> 0x4A87; 0x4B45 at sprite 18 -> 0x4B44 at 17).
+# The map screen between areas ("SELECT PLEASE") used the same countdown. Its empty box sits at the frame's top
+# right, in background sprites 16-17, rows 11-12 (box tile 0x581E at sprite 16 row 11). It's replaced by what the
+# mirrored left side of the frame has there: the gold bar (0x5812, as beside both corner stars) and the map's top
+# edge, continuing its neighbours' tiles (0x4A84-0x4A86 at sprites 13-15 row 12 run on to 0x4A87; 0x4B45 at sprite
+# 18 is matched by 0x4B44 at 17).
 MAP_BOX_TOP = (16 * 64 + 11 * 2, 0x581E)
-# Red's duel (Lower Earth Empire's house, the torch): after a tie or a loss the result text's callback (0x288B8)
-# sets the screen's done flag 0x107861, but after a win its callback (0x288C0: Red's torch shown - object 0x104600 -
-# and given by 0x4BEF0) doesn't - the screen's loop (0x2865C) ended at the countdown's expiry, which never comes
-# now: the win screen stayed for good. The win now starts WIN_COUNT at WIN_HOLD; the loop counts it down a frame
-# at a time with its tick (so Red's torch animates meanwhile) and sets the done flag when it runs out.
-WIN_GIVE = 0x288E0           # jsr 0x4BEF0 ; rts (the win callback's end)
-LOOP_TICK = 0x28660          # jsr 0x218A0 (the screen's loop: its countdown tick)
+# Red's duel for the torch, in Lower Earth Empire's house: after a tie or a loss, the result text's callback
+# (0x288B8) sets the screen's done flag 0x107861. After a win, its callback (0x288C0, which shows Red's torch as
+# object 0x104600 and gives it through 0x4BEF0) doesn't. The screen's loop (0x2865C) relied on the countdown expiring,
+# which now never happens, so the win screen stayed up forever. A win now starts WIN_COUNT at WIN_HOLD, and the loop
+# counts it down once a frame in place of its tick (so Red's torch keeps animating), setting the done flag at 0.
+WIN_GIVE = 0x288E0           # jsr 0x4BEF0 ; rts, the end of the win callback
+LOOP_TICK = 0x28660          # jsr 0x218A0, the countdown tick in the screen's loop
 GIVE_ITEM, DONE = 0x4BEF0, 0x107861
-WIN_COUNT = 0x10E81C         # (word)
+WIN_COUNT = 0x10E81C         # word
 WIN_HOLD = 150
 MAP_COVER = [   # (VRAM address of the first tile word, (tile, attribute) going down)
     (16 * 64 + 11 * 2, [(0x5812, 0xDD00), (0x4A87, 0xF000)]),
     (17 * 64 + 11 * 2, [(0x5812, 0xDD00), (0x4B44, 0xF000)]),
 ]
-# The map screen's banner, SELECT PLEASE, sat left of centre to leave room for the box; it's painted letters in the
-# background (sprites 4-15, rows 10-11; screen x 52-235). It now reads SELECT A PATH and is moved one 16 px strip
-# right (centre 159.5): the area from sprite 3 to 18 (x 32-287, y 0-31) is rebuilt as one pixel canvas - the gold bar
-# over bricks (sprite 3's tiles) across, the banner pasted a strip right, its text area refilled with its diagonal
-# stripes (period 16, so the shift keeps them in step) and the letters laid out again: SELECT as it was, A, P and T
-# from PLEASE, and an H drawn in the same serif style; cut into tiles again (new ones only where needed).
+# The map screen's banner, SELECT PLEASE, sat left of centre to leave room for the box. It's painted letters in the
+# background (sprites 4-15, rows 10-11, screen x 52-235). It now reads SELECT A PATH and is moved one 16 px strip
+# right, centring it at 159.5. The area from sprite 3 to 18 (x 32-287, y 0-31) is rebuilt as one pixel canvas: the
+# gold bar over bricks (sprite 3's tiles) all the way across, the banner pasted one strip right, and its text area
+# refilled with its diagonal stripes (period 16, so the shift keeps them in step). The letters are laid out again:
+# SELECT as it was, A, P and T taken from PLEASE, and an H drawn in the same serif style. The canvas is then cut back
+# into tiles, adding new ones only where needed.
 BANNER_COLS = [(0x5813, 0x5812), (0x5802, 0x580A), (0x583A, 0x5842), (0x583B, 0x5843), (0x583C, 0x5844),
                (0x583D, 0x5845), (0x583E, 0x5846), (0x583F, 0x5847), (0x5840, 0x5848), (0x5841, 0x5849),
                (0x584C, 0x584A), (0x584D, 0x584B), (0x581D, 0x5825), (0x5813, 0x581E), (0x5813, 0x581F),
-               (0x5813, 0x5812)]          # sprites 3-18, (row 10, row 11) - with the box, as the screen draws them
+               (0x5813, 0x5812)]          # sprites 3-18, (row 10, row 11), with the box, as the screen draws them
 BANNER = (20, 203)                    # its columns in that canvas (x 52-235)
 TEXT_AREA = (27, 196, 6, 26)          # inside its frame: x0, x1 (exclusive), y0, y1 (exclusive)
 STRIPES, STRIPE_PHASE = "aaaaaaa9988999a9", 14   # the text area's background: STRIPES[(x + y + phase) % 16]
 GLYPHS = {"SELECT": (35, 106), "A": (152, 165), "P": (114, 124), "T": (95, 106)}   # columns in the canvas
 H = ["11111d.11111d", "dd1ddd.dd1ddd"] + ["..1d.....1d.."] * 4 + ["..11111111d..", "..1dddddd1d.."] + \
-    ["..1d.....1d.."] * 4 + ["11111d.11111d", "dddddd.dddddd"]     # rows 9-24 of the text area's top (y 9)
+    ["..1d.....1d.."] * 4 + ["11111d.11111d", "dddddd.dddddd"]     # rows 9-24 of the text area
 WORD_GAP, LETTER_GAP = 7, 1
 COVER = [   # as no-shop-timer: (VRAM address of the first tile word, tiles going down)
     (16 * 64 + 10 * 2, [0x535E, 0x5343, 0x5343]),
@@ -142,7 +144,7 @@ def apply(rom):
     beq 1f
     subq.w #1,0x%(count)X
     bne 1f
-    move.b #1,0x%(done)X                | (the hold over: the screen's done)
+    move.b #1,0x%(done)X                | the hold is over: the screen is done
 1:  jmp 0x%(tick)X
 """ % {"count": WIN_COUNT, "done": DONE, "tick": TICK}, why="Red's duel screen: the win's hold counted down")
     rom.write(LOOP_TICK, bytes.fromhex("4EB9") + tick.to_bytes(4, "big"), expect=bytes.fromhex("4EB9") + TICK.to_bytes(4, "big"),
@@ -163,15 +165,15 @@ def apply(rom):
     move.w %%sr,-(%%sp)
     or.w #0x0700,%%sr
     move.w #0x%(box_at)X,0x3C0000
-    cmp.w #0x%(box_tile)X,0x3C0002      | (the box there?)
+    cmp.w #0x%(box_tile)X,0x3C0002      | is the box there?
     bne.s 1f
     move.w #2,0x3C0004
 %(writes)s    move.w #1,0x3C0004
     bra 2f
 1:  move.w #0x%(map_box_at)X,0x3C0000
-    cmp.w #0x%(map_box_tile)X,0x3C0002  | (the map screen's box there?)
+    cmp.w #0x%(map_box_tile)X,0x3C0002  | is the map screen's box there?
     bne 2f
-%(map_writes)s2:  move.w (%%sp)+,%%sr          | (map_writes: tile and attribute words, the modulo already 1)
+%(map_writes)s2:  move.w (%%sp)+,%%sr          | map_writes: tile and attribute words, modulo already 1
     jmp 0x%(fade_in)X
 """ % {"box_at": BOX_TOP[0], "box_tile": BOX_TOP[1], "writes": writes, "map_box_at": MAP_BOX_TOP[0],
        "map_box_tile": MAP_BOX_TOP[1], "map_writes": map_writes, "fade_in": FADE_IN},

@@ -1,14 +1,16 @@
 NAME = "wall-moss"
 DESCRIPTION = "Lower Earth Empire 2: the moss on the brick wall by the water a row lower, and a second tuft beside it"
 
-# Lower Earth Empire 2 (stage 4; sta/aes/pocket_moss.sta) has a tuft of moss on its brick wall above the water: the
-# wall layer's tiles 0x754 / 0x755 (palette 0xBA) at level cells (78-79, 38); the wall around it is a mix of brick
-# tiles 0x740-0x74F. Now that tuft is a row lower, at (78-79, 39), with a second one beside it at (80-81, 39), and
-# plain bricks where it was. They're drawn over the wall by sprites of their own (CHAINS: free there, between the
-# wall layer, 109-131, and the next, 150-170; the objects - the hero - are drawn after them), placed each gameplay
-# frame from the camera (level x = screen x + 0x10021A, level y = screen y - 0x10020E - 384: the level's own
-# camera, CAM_X / CAM_Y) while on screen, else hidden; leaving the stage hides them once (SHOWN). Hooked on the
-# gameplay loop's front object group call (0x11804).
+# Lower Earth Empire 2 (stage 4; see sta/aes/pocket_moss.sta) has a tuft of moss on its brick wall above the water:
+# wall layer tiles 0x754 / 0x755 (palette 0xBA) at level cells (78-79, 38), surrounded by brick tiles 0x740-0x74F.
+# The tuft is now a row lower at (78-79, 39), with a second one beside it at (80-81, 39) and plain bricks where it
+# was.
+#
+# They're drawn over the wall by their own sprites (CHAINS). Those sprites are free in this stage, between the wall
+# layer (109-131) and the next layer (150-170), and objects such as the hero are drawn after them. Each gameplay
+# frame they're placed from the level camera (CAM_X / CAM_Y: level x = screen x + 0x10021A, level y = screen y -
+# 0x10020E - 384) while on screen, and hidden otherwise. Leaving the stage hides them once (SHOWN). The hook is on
+# the gameplay loop's call for the front object group (0x11804).
 FRONT_CALL = 0x11804         # jsr 0xA3A6 - the front object group
 STAGE = 4
 ATTR = 0xBA70                # the wall's tile attributes (palette 0xBA)
@@ -16,9 +18,9 @@ CHAINS = [   # (first sprite, level cell x, top cell y, each column's tiles top 
     (140, 78, 38, [[0x743, 0x754], [0x744, 0x755]]),   # the tuft moved down, bricks where it was
     (142, 80, 39, [[0x754], [0x755]]),                 # the second tuft
 ]
-SHOWN = 0x10E828             # (byte)
-CAM_X, CAM_Y = 0x10021A, 0x10020E   # (the level's own camera: 0x100216 / 0x10020A, the same until a respawn,
-                                    # can move their origin - 1024 px over and up after dying by the wall)
+SHOWN = 0x10E828             # byte
+CAM_X, CAM_Y = 0x10021A, 0x10020E   # the level's own camera. 0x100216 / 0x10020A match it until a respawn moves
+                                    # their origin, 1024 px over and up after dying by the wall
 
 
 def chain_code(i, first, cx, cy, columns):
@@ -32,13 +34,13 @@ def chain_code(i, first, cx, cy, columns):
     sticky = "".join("    move.w #0x%X,0x3C0000\n    move.w #0x40,0x3C0002\n" % (0x8200 + first + k)
                      for k in range(1, len(columns)))
     return r"""
-    move.w #%(x)d,%%d0                  | chain %(i)d: screen x = level x - the camera's
+    move.w #%(x)d,%%d0                  | chain %(i)d: screen x = level x - camera x
     sub.w 0x%(cam_x)X,%%d0
     cmp.w #-%(w)d,%%d0
     blt 6%(i)df
     cmp.w #320,%%d0
     bgt 6%(i)df
-    move.w #%(y)d+384,%%d1              | screen y = level y + the camera's + 384
+    move.w #%(y)d+384,%%d1              | screen y = level y + camera y + 384
     add.w 0x%(cam_y)X,%%d1
     cmp.w #-%(h)d,%%d1
     blt 6%(i)df
@@ -57,7 +59,7 @@ def chain_code(i, first, cx, cy, columns):
     move.w #0x%(scb4)X,0x3C0000
     move.w %%d0,0x3C0002
     bra 7%(i)df
-6%(i)d: move.w #0x%(scb3)X,0x3C0000      | (off screen: hidden)
+6%(i)d: move.w #0x%(scb3)X,0x3C0000      | off screen: hide it
     move.w #0,0x3C0002
 7%(i)d:
 """ % {"i": i, "x": cx * 16, "y": cy * 16, "w": 16 * len(columns), "h": 16 * rows, "cam_x": CAM_X, "cam_y": CAM_Y,
@@ -79,7 +81,7 @@ def apply(rom):
     move.w (%%sp)+,%%sr
     st 0x%(shown)X
     bra 9f
-8:  tst.b 0x%(shown)X                   | (another stage: hidden, once)
+8:  tst.b 0x%(shown)X                   | another stage: hide them, once
     beq 9f
     clr.b 0x%(shown)X
     move.w %%sr,-(%%sp)

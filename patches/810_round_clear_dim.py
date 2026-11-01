@@ -3,37 +3,41 @@ import hashlib
 NAME = "round-clear-dim"
 DESCRIPTION = "ROUND CLEAR: the frozen level dims to half while the stats are up, so the bonus lines are easy to read"
 
-# ROUND CLEAR's routines (ROUTINES: after the goal, after a boss - each called once, running the whole stats
-# screen) draw its letters and bonus lines in the fix layer over the frozen level, and over the bells and leaves they
-# were hard to read. Now, as a routine starts (its first call, hud's - hooked here), every palette but the text's
-# (TEXT_PAL) is kept in BUF and eased down to DIM over STEPS steps (STEP_FRAMES frames each - half the palettes each
-# frame: a step is too much work for one) each frame of the game's vblank wait (FRAME_LOOP - tunnel-life-ball and
-# wall-light-keep run there too, before this). When the routine returns (its return address swapped for ours):
-# after the goal (GOAL_RETURN) and the final boss (FINAL_RETURN) the dim stays - the next stage, the ending, loads its
-# palettes; after another boss the level eases back up the same way, the last step the kept colours exactly (BOSS_DIM:
-# False, no dim there at all). The frozen frame before the stats is shorter too (FREEZE).
-# Each step scales each colour's 4-bit channels by a table (its low bits, bits 12-14, left out while dimmed; the dark
-# bit kept). BUF is RAM a shop / NPC room keeps the level's objects in (0x10A800-0x10CFFF) - free at ROUND CLEAR.
-# Also the C of ROUND CLEAR (C_TILES): its bottom curl's tip had a lone pixel sticking up - touched up (C_ART, the
-# user's).
-ROUTINES = [0x54CD0, 0x54FD8]  # jsr <hud's> ; nop - each ROUND CLEAR routine's first call
-GOAL_RETURN = 0x11658          # (after the goal's routine: the dim stays - the next stage loads its palettes)
-FINAL_RETURN = 0x36F94         # (after the final boss's: the dim stays too - the ending comes next)
-BOSS_RETURN = 0x28E4C          # (after any other boss's: the level eases back up)
-BOSS_DIM = True                # False: no dim after a boss (the final one aside) - e.g. for a victory dance there
-FREEZE_WAIT = 0x11648          # move.w #48,d0 (then jsr 0xE858) - the stage's end: the frozen frame before the stats
-FREEZE = 12                    # frames (was 48: with the 16 before it, over a second of freeze)
-FRAME_LOOP = 0xE8AC            # move.w (sp)+,d0 ; dbf d0,0xE85C - the vblank wait's loop, once a frame (a long wait
-                               # is one call: its end would come round once in hundreds of frames)
+# The two ROUND CLEAR routines (ROUTINES: after the goal and after a boss) are each called once and run the whole
+# stats screen. They draw the letters and bonus lines on the fix layer over the frozen level, where they were hard to
+# read over the bells and leaves.
+#
+# When a routine starts (at its first call, hud's, which is hooked here), every palette except the text's (TEXT_PAL)
+# is saved to BUF and eased down to DIM over STEPS steps of STEP_FRAMES frames. That happens in the game's vblank wait
+# (FRAME_LOOP, after tunnel-life-ball and wall-light-keep), half the palettes per frame, since a whole step is too
+# much work for one frame. The routine's return address is swapped for ours. After the goal (GOAL_RETURN) and the
+# final boss (FINAL_RETURN) the dim stays, since the next stage or the ending loads its own palettes. After any other
+# boss the level eases back up the same way, ending on the saved colours exactly. BOSS_DIM = False turns off the dim
+# after bosses. The frozen pause before the stats is shorter too (FREEZE).
+#
+# Each step scales a colour's 4-bit channels through a table. The low bits (12-14) are dropped while dimmed and the
+# dark bit is kept. BUF is RAM that shops and NPC rooms use to store the level's objects (0x10A800-0x10CFFF), free
+# at ROUND CLEAR.
+#
+# The C of ROUND CLEAR (C_TILES) had a stray pixel sticking up from the tip of its bottom curl, fixed in C_ART.
+ROUTINES = [0x54CD0, 0x54FD8]  # jsr <hud> ; nop: each ROUND CLEAR routine's first call
+GOAL_RETURN = 0x11658          # after the goal: the dim stays, the next stage loads its palettes
+FINAL_RETURN = 0x36F94         # after the final boss: the dim stays, the ending is next
+BOSS_RETURN = 0x28E4C          # after any other boss: the level eases back up
+BOSS_DIM = True                # False: no dim after a boss other than the final one, e.g. for a victory dance
+FREEZE_WAIT = 0x11648          # move.w #48,d0, then jsr 0xE858: the frozen pause before the stats
+FREEZE = 12                    # frames; 48 plus the 16 before it froze for over a second
+FRAME_LOOP = 0xE8AC            # move.w (sp)+,d0 ; dbf d0,0xE85C: the vblank wait's loop, once a frame. Hooking the
+                               # wait's end wouldn't do, since one long wait can last hundreds of frames
 FRAME_LOOP_TOP, FRAME_LOOP_END = 0xE85C, 0xE8B2
 DIM = 0.5
 STEPS, STEP_FRAMES = 8, 2
 FIRST_PAL, PALS = 0, 256
-TEXT_PAL = 6                   # (the stats' text: fix palette 6 - left as it is; every other palette dims, the
-                               # crowns' too)
-BUF = 0x10B000                 # 256 x 32 bytes: to 0x10CFFF
-C_TILES = [0x906, 0x907, 0x916, 0x917]  # fix tiles: the C's top left, top right, bottom left, bottom right (palette 6)
-C_SHA = "8e6d755c"                 # (the original four)
+TEXT_PAL = 6                   # fix palette 6, the stats' text, isn't dimmed; every other palette is, the
+                               # crowns' too
+BUF = 0x10B000                 # 256 x 32 bytes, to 0x10CFFF
+C_TILES = [0x906, 0x907, 0x916, 0x917]  # fix tiles of the C: top left, top right, bottom left, bottom right
+C_SHA = "8e6d755c"                 # the original four tiles
 C_ART = """
 ....ffffff..f...
 ...ff77777ff7ff.
@@ -52,8 +56,8 @@ f333aaf.........
 ....fffaaaaa7faf
 .......ffffff.f.
 """
-RAM = 0x10D500                 # spare RAM: ACTIVE (byte), DIR (byte: 1 down, -1 up, 0 holding), STEP (byte), HALF
-ACTIVE, DIR, STEP, HALF, RET = RAM, RAM + 1, RAM + 2, RAM + 3, RAM + 4   # (byte), RET: the routine's return (long)
+RAM = 0x10D500                 # spare RAM: ACTIVE, DIR (1 down, -1 up, 0 holding), STEP, HALF (bytes)
+ACTIVE, DIR, STEP, HALF, RET = RAM, RAM + 1, RAM + 2, RAM + 3, RAM + 4   # RET: the routine's return address (long)
 
 
 def apply(rom):
@@ -68,14 +72,14 @@ def apply(rom):
     tab_src = "".join("tab%d_lo:\n    .byte %s\ntab%d_r:\n    .byte %s\n" % (
         k, ",".join(str(v) for v in lo), k, ",".join(str(v) for v in r)) for k, (lo, r) in enumerate(tables))
     no_boss_dim = "" if BOSS_DIM else """
-    cmpi.l #0x%X,4(%%sp)              | (no dim after a boss: switched off)
+    cmpi.l #0x%X,4(%%sp)              | no dim after a boss: switched off
     bne 0f
     jmp 0x%X""" % (BOSS_RETURN, hud)
     code = rom.place_code("""
     bra.w entry                         | (+0)
     bra.w frame                         | (+4)
 
-| a ROUND CLEAR routine starting: the palettes kept, the dim on; its return swapped for ours
+| a ROUND CLEAR routine starting: save the palettes, start the dim, and take over its return
 entry:
 %(no_boss_dim)s
 0:  movem.l %%d0/%%a0-%%a1,-(%%sp)
@@ -89,23 +93,23 @@ entry:
     clr.b 0x%(half)X
     st 0x%(active)X
     movem.l (%%sp)+,%%d0/%%a0-%%a1
-    move.l 4(%%sp),0x%(ret)X            | (the routine's own return: ours first)
+    move.l 4(%%sp),0x%(ret)X            | its own return, which ours goes on to
     move.l #after,4(%%sp)
     jmp 0x%(hud)X
 
-| the routine done: after the goal the dim stays (the next stage loads its palettes); after a boss, eased back up
+| the routine done: after the goal the dim stays (the next stage loads its palettes); after a boss, ease back up
 after:
     move.l 0x%(ret)X,-(%%sp)
     cmpi.l #0x%(goal)X,(%%sp)
     beq 0f
     cmpi.l #0x%(final)X,(%%sp)
     bne 1f
-0:  clr.b 0x%(active)X                  | (the dim stays)
+0:  clr.b 0x%(active)X                  | the dim stays
     rts
 1:  move.b #-1,0x%(dir)X
     rts
 
-| the vblank wait's loop, a frame over (d1-a5 free: its caller's are kept): the dim on by half a step
+| once a frame from the vblank wait (d1-a5 free; the caller's are saved): move the dim on by half a step
 frame:
     move.w (%%sp)+,%%d0
     bsr tick
@@ -123,11 +127,11 @@ tick:
     tst.b %%d1
     bmi 1f
     cmpi.b #%(steps)d,%%d2
-    bcc 9f                              | (all the way down: holding)
+    bcc 9f                              | all the way down: hold
     addq.w #1,%%d2
     bra 2f
 1:  tst.b %%d2
-    beq 8f                              | (all the way back: off)
+    beq 8f                              | all the way back up: done
     subq.w #1,%%d2
 2:  moveq #0,%%d3                       | this frame's half
     move.b 0x%(half)X,%%d3
@@ -139,14 +143,14 @@ tick:
     move.w #%(half_pals)d-1,%%d4        | the half's palettes
     moveq #0,%%d1
     move.b 0x%(half)X,%%d1
-    mulu #%(half_pals)d,%%d1            | d1 = the first's number
+    mulu #%(half_pals)d,%%d1            | d1 = the first one's number
     lea tables(%%pc),%%a2
     move.w %%d2,%%d3
     lsl.w #3,%%d3
     movea.l (%%a2,%%d3.w),%%a3          | the step's low-byte table
-    movea.l 4(%%a2,%%d3.w),%%a4         | ... its red table
+    movea.l 4(%%a2,%%d3.w),%%a4         | and its red table
 3:  moveq #15,%%d3
-    tst.w %%d2                          | (step 0, or the text's palette: the kept colours exactly)
+    tst.w %%d2                          | step 0, or the text's palette: the saved colours exactly
     beq 4f
     cmpi.w #%(text_pal)d,%%d1
     bne 5f
@@ -163,13 +167,13 @@ tick:
     move.b (%%a4,%%d7.w),%%d7           | red
     lsl.w #8,%%d7
     or.w %%d7,%%d6
-    andi.w #0x8000,%%d5                 | (the dark bit kept; the low bits left out)
+    andi.w #0x8000,%%d5                 | keep the dark bit, drop the low bits
     or.w %%d6,%%d5
     move.w %%d5,(%%a1)+
     dbf %%d3,5b
 7:  addq.w #1,%%d1
     dbf %%d4,3b
-6:  addq.b #1,0x%(half)X                | both halves done: the step's done
+6:  addq.b #1,0x%(half)X                | both halves done: the step is done
     cmpi.b #%(halves)d,0x%(half)X
     bcs 9f
     clr.b 0x%(half)X

@@ -56,12 +56,12 @@ def main():
     p1 = next(d for i, d in entries if i.filename == h.P1_NAME)
     s1 = next(d for i, d in entries if i.filename == h.S1_NAME)
     rom = h.Rom(h.swap_pairs(p1), s1, {i.filename: d for i, d in entries if i.filename in h.C_NAMES})
-    hb.ROW_OVERRIDES[hb.STANDING_ANIM] = [hb.spread_antennas(rom, f) for f in hb.BREATHE]   # (as the patch)
+    hb.ROW_OVERRIDES[hb.STANDING_ANIM] = [hb.spread_antennas(rom, f) for f in hb.BREATHE]   # as the patch does
     _, frame_map = hb.big_frame_tables(rom)
     spec = importlib.util.spec_from_file_location("export", os.path.join(HERE, "export_hero_frames.py"))
     export = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(export)
-    copies = set(export.frames(rom))            # (drawn as 1.5x copies unless redrawn)
+    copies = set(export.frames(rom))            # drawn as 1.5x copies unless redrawn
 
     cells = []                                  # (frame, pixels, label colour)
     for frame in range(0, hb.NORMAL_FRAMES, 4):
@@ -91,7 +91,7 @@ def main():
             img[oy + j][ox] = GRID
         w = max((x for x, _ in px), default=0) + 1
         hgt = max((y for _, y in px), default=0) + 1
-        bx, by = ox + (cw - w) // 2, oy + LABEL_H + PAD + (ch - LABEL_H - 2 * PAD - hgt)   # (feet on the cell's floor)
+        bx, by = ox + (cw - w) // 2, oy + LABEL_H + PAD + (ch - LABEL_H - 2 * PAD - hgt)   # feet on the cell's floor
         for (x, y), c in px.items():
             img[by + y][bx + x] = c
         for k, ch_ in enumerate("%03X" % frame):
@@ -99,7 +99,7 @@ def main():
                 if bit == "1":
                     img[oy + 2 + b // 3][ox + 3 + k * 4 + b % 3] = label
 
-    colours = [(255, 0, 255)] + sorted(set(c for row in img for c in row))   # (index 0 is transparent: unused)
+    colours = [(255, 0, 255)] + sorted(set(c for row in img for c in row))   # index 0 is transparent and unused
     if len(colours) > 256:
         raise SystemExit("too many colours for an indexed PNG")
     index = {c: i for i, c in enumerate(colours)}
