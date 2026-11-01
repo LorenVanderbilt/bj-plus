@@ -25,8 +25,8 @@ COLUMN, ROW = 6, 4
 # the cell after each S gets its left tiles redrawn with the outline back in their first column (copies: a space's
 # blank, the T's).
 S_LINES = [   # (the print call, its printer, text, column, row, palette)
-    (0x54A1A, 0x4DED6, TEXT, COLUMN, ROW, 6),            # (the title: palette 6, from d2)
-    (0x54A5A, 0x4DF88, "1ST", 4, 8, 5),                  # (the first rank: the font's own palette)
+    (0x54A1A, 0x4DED6, TEXT, COLUMN, ROW, 6),            # the title: palette 6, from d2
+    (0x54A5A, 0x4DF88, "1ST", 4, 8, 5),                  # the first rank: the font's own palette
 ]
 FONT_TABLE = 0x4E00E         # a word per character from ' ': its top-left tile (n, n+1 above n+0x10, n+0x11)
 OUTLINE = 15

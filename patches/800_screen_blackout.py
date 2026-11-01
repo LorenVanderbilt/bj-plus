@@ -1,34 +1,40 @@
 NAME = "screen-blackout"
 DESCRIPTION = "Screen changes: the old screen goes black at once and the new one appears whole (title to how-to-play)"
 
-# Changing screens, the game takes the old one down a piece a frame (the title: its text, then JOURNEY, then the
-# scenery strips - scraps on black for a couple of frames) and builds the new one the same way (how-to-play: a
-# background strip drawn partway down the screen, then the scene, the item bar, Blue - four frames). Now, as a screen
-# ends (BLACKOUT_AT), every colour goes black (palette RAM cleared: sprites, the fix layer, the backdrop) and the
-# palette loads that follow (the game's loader, 0xBC86 - each loads palettes from the ROM's palette bank after a
-# vblank; LOAD_WAIT) are only noted (LIST); when the new screen is whole they're all copied in at once, at the start
-# of a vblank (TICK: the end of the game's vblank wait, 0xE856, every frame) - the screen appears in one frame.
-#   * The title ends (TITLE_END: its last calls, the title loop over) - a game starting, or its timeout to the
-#     attract sequence (the story; the demo - DEMO_IN - shown whole after its GAME_REVEAL-th frame of play).
-#   * No lives left, to the continue screen (CONT_IN); the continue screen answered (CONT_OUTS: back to the level -
-#     shown after its GAME_REVEAL-th frame of play - or on to TODAY'S BEST 5).
-#   * A stage's title card ends (CARD_ENDS: held out, or skipped) - all but the fix layer (the card's text stays up
-#     while the level's built: skipped, the level showed round the text) - shown as the wipe starts.
-#   * Each of the story cinema's scenes starts (STORY_SCENES) - each revealed by the fallback.
-#   * How-to-play ends (HTP_END: its time up or a button pressed) - blacked out before it's taken down.
-#   * How-to-play asks for the reveal on its loop's REVEAL_HTP-th frame (HTP_FRAME: once a loop frame) - the
-#     scene, the item bar and Blue all drawn by then.
-#   * While it's black, the waits that showed something once are left out (nothing shows): the fix layer's fade-out
-#     (FADE_WAIT: 13 steps, 52 frames - in one), every sprite cleared 100 a frame (CLEAR_STEPS - in one), a level's /
-#     room's palettes loaded in brightness steps (STEP_WAITS, and the loader's own wait) - entering a house was ~95
-#     frames of black.
-#   * pause-menu's RESTART LEVEL / QUIT TO TITLE (its pick hooked: REQUEST - black at the next vblank, before the menu's
-#     taken down; a
-#     restart's level shown after its GAME_REVEAL-th frame of play - stage-wipe's iris waits while it's black).
-#   * Direct palette writes while it's black are left out where they'd show early: the game's palette animation
-#     (PAL_ANIM), hud's lives (its face colours - the stage's fix palettes have them), how-to-play-look's buttons.
-#   * Anything else (a stage's title card, OPTIONS, a picked level ...): FALLBACK frames after the last noted load
-#     (held off while how-to-play sets up - HTP_START - for HOLD frames at most), so nothing stays black.
+# When changing screens, the game takes the old one down a piece per frame (on the title: its text, then JOURNEY,
+# then the scenery strips, leaving scraps on black for a couple of frames) and builds the new one the same way (on
+# how-to-play: a background strip drawn partway down the screen, then the scene, the item bar and Blue, over four
+# frames).
+#
+# Now, as a screen ends (BLACKOUT_AT), every colour goes black: palette RAM is cleared for the sprites, the fix layer
+# and the backdrop. The palette loads that follow (the game's loader at 0xBC86, which loads palettes from the ROM's
+# palette bank after a vblank, LOAD_WAIT) are only recorded in LIST. Once the new screen is complete they're all
+# copied in at once at the start of a vblank (TICK, the end of the game's vblank wait at 0xE856, every frame), so the
+# screen appears in a single frame. The screens covered:
+#   * The title ending (TITLE_END, its last calls once the title loop is over), for a game starting or the timeout
+#     to the attract sequence: the story, or the demo (DEMO_IN), shown after its GAME_REVEAL-th frame of play.
+#   * Running out of lives, into the continue screen (CONT_IN), and answering it (CONT_OUTS): back to the level,
+#     shown after its GAME_REVEAL-th frame of play, or on to TODAY'S BEST 5.
+#   * A stage's title card ending (CARD_ENDS, timed out or skipped). Everything but the fix layer, since the card's
+#     text stays up while the level is built; without that, the level showed around the text. Shown as the wipe
+#     starts.
+#   * The start of each story cinema scene (STORY_SCENES), each revealed by the fallback.
+#   * How-to-play ending (HTP_END, timed out or a button pressed), blacked out before it's taken down.
+#   * How-to-play asks for the reveal on its loop's REVEAL_HTP-th frame (HTP_FRAME, once per loop frame), by which
+#     point the scene, the item bar and Blue are all drawn.
+#   * While it's black, waits that only existed to show something are skipped, since nothing shows: the fix layer's
+#     fade-out (FADE_WAIT, 13 steps over 52 frames, now one), clearing every sprite 100 a frame (CLEAR_STEPS, now
+#     one), and loading a level's or room's palettes in brightness steps (STEP_WAITS, and the loader's own wait).
+#     Entering a house used to be about 95 frames of black.
+#   * pause-menu's RESTART LEVEL and QUIT TO TITLE (REQUEST hooks the choice). The screen goes black at the next
+#     vblank, before the menu is taken down, and a restarted level is shown after its GAME_REVEAL-th frame of play;
+#     stage-wipe's iris waits while it's black.
+#   * Direct palette writes that would show early while it's black are skipped: the game's palette animation
+#     (PAL_ANIM), hud's lives faces (the stage's fix palettes already have their colours) and how-to-play-look's
+#     buttons.
+#   * Anything else (a stage's title card, OPTIONS, a chosen level and so on) is revealed FALLBACK frames after the
+#     last recorded load, so nothing stays black. That's held off while how-to-play sets up (HTP_START), for at most
+#     HOLD frames.
 TITLE_END = 0x1B026            # jsr <title's clean-up, title-banner's> ; jsr 0xA136 ; rts
 PLAYERS = 0x106800
 LOAD_WAIT = 0xBCAA             # jsr 0xE856 - the loader's wait, a0 = the palettes' address, a1 = the source, d2 =
@@ -59,25 +65,25 @@ PAL_ANIM = 0x4365A             # movem.l (a2)+,d0-d7 ; movem.l d0-d7,-(a1) - the
 HTP_START = 0x1111C            # jsr 0x15696 - how-to-play setting up
 HTP_FRAME = 0x111E6            # move.b #1,0x30DF(a6) - how-to-play's loop, each frame
 PALETTES, PALETTE_BYTES = 0x400000, 0x2000
-REVEAL_HTP = 5                 # (how-to-play's loop frames: its 4th frame's drawing is whole - shown on the 5th)
-FALLBACK = 5                   # (frames after the last noted load: a plain screen, e.g. a stage's title card, is up)
+REVEAL_HTP = 5                 # how-to-play's loop frames: its 4th frame's drawing is whole - shown on the 5th
+FALLBACK = 5                   # frames after the last noted load: a plain screen, e.g. a stage's title card, is up
 EMPTY = 60                     # (... or after the blackout, if nothing has loaded)
-GAME_REVEAL = 5                # (frames of play after a room: the level's drawing whole by its 4th)
-ROOM_HOLD = 300                # (a room: frames the fallback waits for its fade-in, at most)
-HOLD = 120                     # (how-to-play: frames the fallback waits for its own reveal, at most)
+GAME_REVEAL = 5                # frames of play after a room: the level's drawing whole by its 4th
+ROOM_HOLD = 300                # a room: frames the fallback waits for its fade-in, at most
+HOLD = 120                     # how-to-play: frames the fallback waits for its own reveal, at most
 MAX_LOADS = 16
-SPRITES = 380                  # (sprites 1-380: hidden for the reveal's first frame)
+SPRITES = 380                  # sprites 1-380: hidden for the reveal's first frame
 SAVED = 0x10D000               # spare RAM (see RAM): their SCB3 words, meanwhile
 RAM = 0x10E600                 # spare RAM (0x10D000-0x10E6FF: the game only clears it, at the attract cycle's start)
 BLACK, REVEAL, SINCE, HTP, COUNT, HOLD_AT = RAM, RAM + 1, RAM + 2, RAM + 4, RAM + 6, RAM + 8
-PHASE = RAM + 11               # (a byte: the reveal's sprites hidden - its second vblank next)
-GAME_ARM = RAM + 10            # (a byte: 1 + frames of play counted; 0 = not armed)
+PHASE = RAM + 11               # a byte: the reveal's sprites hidden - its second vblank next
+GAME_ARM = RAM + 10            # a byte: 1 + frames of play counted; 0 = not armed
 REQUEST = RAM + 12             # (a byte: pause-menu's pick, 1 RESTART LEVEL / 2 QUIT TO TITLE - black at the next
                                # vblank)
 MENU_CURSOR = 0x10E816         # (pause-menu's cursor: its pick is `move.b cursor,d0 ; beq.w resume ; bsr.w close`,
                                # found
                                # in its code - left as it is, its size unchanged: later patches' code doesn't move)
-LIST = RAM + 16                # (10 bytes a load)
+LIST = RAM + 16                # 10 bytes a load
 
 
 def apply(rom):
@@ -96,41 +102,41 @@ def apply(rom):
     assert rom.data[HTP_FRAME:HTP_FRAME + 6] == bytes.fromhex("1D7C000130DF")
     assert LIST + 10 * MAX_LOADS <= 0x10E700
     code = rom.place_code("""
-    bra.w title_end                     | (+0)
-    bra.w load_wait                     | (+4)
-    bra.w htp_frame                     | (+8)
-    bra.w vblank_end                    | (+12)
-    bra.w htp_end                       | (+16)
-    bra.w htp_start                     | (+20)
-    bra.w room_in                       | (+24)
-    bra.w fade_in                       | (+28)
-    bra.w door_in                       | (+32)
-    bra.w room_out                      | (+36)
-    bra.w game_frame                    | (+40)
-    bra.w pal_anim                      | (+44)
-    bra.w demo_in                       | (+48)
-    bra.w story0                        | (+52 ... +64: the story's scenes)
+    bra.w title_end                     | +0
+    bra.w load_wait                     | +4
+    bra.w htp_frame                     | +8
+    bra.w vblank_end                    | +12
+    bra.w htp_end                       | +16
+    bra.w htp_start                     | +20
+    bra.w room_in                       | +24
+    bra.w fade_in                       | +28
+    bra.w door_in                       | +32
+    bra.w room_out                      | +36
+    bra.w game_frame                    | +40
+    bra.w pal_anim                      | +44
+    bra.w demo_in                       | +48
+    bra.w story0                        | +52 ... +64: the story's scenes
     bra.w story1
     bra.w story2
-    bra.w story_last                    | (+64)
-    bra.w cont_in                       | (+68)
-    bra.w cont_out                      | (+72)
-    bra.w card_end0                     | (+76)
-    bra.w card_end1                     | (+80)
-    bra.w fade_wait                     | (+84)
-    bra.w clear_all                     | (+88)
-    bra.w step_wait                     | (+92)
-    bra.w menu_pick                     | (+96)
+    bra.w story_last                    | +64
+    bra.w cont_in                       | +68
+    bra.w cont_out                      | +72
+    bra.w card_end0                     | +76
+    bra.w card_end1                     | +80
+    bra.w fade_wait                     | +84
+    bra.w clear_all                     | +88
+    bra.w step_wait                     | +92
+    bra.w menu_pick                     | +96
 
 | the title over: black, if a game is starting
 title_end:
-    jsr 0xE856                          | (at a vblank: all of it at once)
+    jsr 0xE856                          | at a vblank: all of it at once
     bsr blackout
     jmp 0x%(cleanup)X
 
 | every colour black; palette loads noted from here
 blackout:
-    tst.b 0x%(black)X                   | (black already: as it is - its noted loads kept)
+    tst.b 0x%(black)X                   | black already: as it is - its noted loads kept
     beq 0f
     rts
 0:  movem.l %%d0-%%d7/%%a0,-(%%sp)
@@ -152,7 +158,7 @@ blackout_sprites:
     moveq #0,%%d4
     moveq #0,%%d5
     moveq #0,%%d6
-    moveq #0,%%d7                       | (a palette a step: fast enough to be done within the vblank)
+    moveq #0,%%d7                       | a palette a step: fast enough to be done within the vblank
 1:  movem.l %%d1-%%d7,(%%a0)
     clr.l 28(%%a0)
     lea 32(%%a0),%%a0
@@ -167,13 +173,13 @@ blackout_sprites:
 
 | the loader's wait: blacked out, the load is noted and the loader left (its copy skipped)
 load_wait:
-    tst.b 0x%(black)X                   | (black: no wait for a vblank - the load's only noted)
+    tst.b 0x%(black)X                   | black: no wait for a vblank - the load's only noted
     bne 1f
     jmp 0xE856
 1:  movem.l %%d0/%%a2,-(%%sp)
     move.w 0x%(count)X,%%d0
     cmpi.w #%(max)d,%%d0
-    bcc 2f                              | (no room: shown now - the rest of the screen stays black till the reveal)
+    bcc 2f                              | no room: shown now - the rest of the screen stays black till the reveal
     addq.w #1,0x%(count)X
     mulu #10,%%d0
     lea 0x%(list)X,%%a2
@@ -183,7 +189,7 @@ load_wait:
     move.w %%d2,(%%a2)
     clr.w 0x%(since)X
     movem.l (%%sp)+,%%d0/%%a2
-    addq.l #4,%%sp                      | (out of the loader)
+    addq.l #4,%%sp                      | out of the loader
     rts
 2:  clr.w 0x%(since)X
     movem.l (%%sp)+,%%d0/%%a2
@@ -243,7 +249,7 @@ story1:
 story2:
     pea 0x%(scene2)X
 1:  jsr 0xE856
-    bra blackout                        | (its rts: into the scene, which returns to the caller)
+    bra blackout                        | its rts: into the scene, which returns to the caller
 
 | the story's last scene: only started at a vblank (its own clearing then lands before the screen's drawn)
 story_last:
@@ -275,8 +281,8 @@ card_end1:
 1:  jsr 0xE856
     bsr blackout_sprites
     move.w #%(room_hold)d,0x%(hold_at)X
-    move.b #%(game_reveal)d,0x%(game_arm)X   | (shown on its first frame of play: the wipe's start - its cover whole)
-    rts                                 | (on to the card's own end)
+    move.b #%(game_reveal)d,0x%(game_arm)X   | shown on its first frame of play: the wipe's start - its cover whole
+    rts                                 | on to the card's own end
 
 | pause-menu's pick (in place of its `beq resume ; bsr close`, d0 = the line): RESTART LEVEL / QUIT TO TITLE ask
 | for black at the next vblank - and wait for it - before the menu's taken down
@@ -287,7 +293,7 @@ menu_pick:
     jmp 0x%(menu_resume)X
 1:  move.b %%d0,0x%(request)X
     jsr 0xE856
-    jmp 0x%(menu_close)X                | (its rts: back after the call)
+    jmp 0x%(menu_close)X                | its rts: back after the call
 
 | while black, the waits nothing shows any more are left out:
 | the fix layer's fade (its 13 steps, 4 frames each): fading out, all at once
@@ -365,7 +371,7 @@ htp_frame:
 
 | the vblank wait's end (d1-a5 still to be restored: free here; d0 kept): the reveal, when it's time
 vblank_end:
-    tst.b 0x%(request)X                 | (pause-menu's RESTART LEVEL / QUIT TO TITLE: black now)
+    tst.b 0x%(request)X                 | pause-menu's RESTART LEVEL / QUIT TO TITLE: black now
     beq 0f
     move.b 0x%(request)X,%%d1
     clr.b 0x%(request)X
@@ -375,19 +381,19 @@ vblank_end:
     move.w #%(room_hold)d,0x%(hold_at)X | (a restart: the level shown after its GAME_REVEAL-th frame of play - the
     move.b #1,0x%(game_arm)X            | stage wipe waits for it)
     bra 9f
-0:  tst.b 0x%(phase)X                   | (the reveal's second vblank)
+0:  tst.b 0x%(phase)X                   | the reveal's second vblank
     bne 20f
     tst.b 0x%(black)X
     beq 9f
     addq.w #1,0x%(since)X
     tst.b 0x%(reveal)X
     bne 1f
-    tst.w 0x%(hold_at)X                 | (held: how-to-play reveals itself - unless it's taking too long)
+    tst.w 0x%(hold_at)X                 | held: how-to-play reveals itself - unless it's taking too long
     beq 0f
     subq.w #1,0x%(hold_at)X
     bra 9f
 0:  move.w #%(fallback)d,%%d1
-    tst.w 0x%(count)X                   | (nothing loaded yet: a long wait - a screen that loads nothing still shows)
+    tst.w 0x%(count)X                   | nothing loaded yet: a long wait - a screen that loads nothing still shows
     bne 0f
     move.w #%(empty)d,%%d1
 0:  cmp.w 0x%(since)X,%%d1
@@ -401,7 +407,7 @@ vblank_end:
     moveq #0,%%d6
     bsr replay
     move.b #1,0x%(phase)X
-    jsr 0xE856                          | (its end comes back here: phase 2, below)
+    jsr 0xE856                          | its end comes back here: phase 2, below
     move.l (%%sp)+,%%d0
     bra 9f
 20: move.l %%d0,-(%%sp)

@@ -33,7 +33,7 @@ def apply(rom):
     code = rom.place_code(r"""
     jsr 0x542C8
     movem.l %%d0-%%d3/%%a0-%%a1,-(%%sp)
-    tst.b 0x%(black)X                   | (screen-blackout's screen black: left black)
+    tst.b 0x%(black)X                   | screen-blackout's screen black: left black
     bne 2f
     lea colours(%%pc),%%a0              | the buttons' palettes
     lea 0x%(pal_ram)X,%%a1

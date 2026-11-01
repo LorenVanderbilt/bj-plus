@@ -60,7 +60,7 @@ def apply(rom):
                 0x7000 + (FIRST_COLUMN + col) * 32 + ROW + row, word)
     code = rom.place_code("""
     move.w %%sr,-(%%sp)
-    or.w #0x0700,%%sr                   | (no interrupt between the VRAM address and its writes)
+    or.w #0x0700,%%sr                   | no interrupt between the VRAM address and its writes
 %(writes)s    move.w (%%sp)+,%%sr
     rts
 """ % {"writes": writes}, why="BLUE'S ITEM header with a snug apostrophe")

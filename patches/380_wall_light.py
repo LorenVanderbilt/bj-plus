@@ -1,20 +1,22 @@
 NAME = "wall-light"
 DESCRIPTION = "Daruma Empire 1: one light in a row of three blinking wall lights blinks yellow"
 
-# Stage 28's grey machinery wall has a row of three blinking green lights: tile 0x2320 (auto-animated) in the
-# wall's palette 0xB2, from the level's block data - the blocks whose tiles share one palette and attribute (0x80 kind) give each tile a byte, drawn by 0xD2F2
-# as the screen scrolls up or down (`move.b (a4),d1 ; move.w d1,(a0) ; swap d1 ; move.w d1,(a0) ; swap d1`: a4 its
-# byte, d1's high word the attributes) and by 0xCF10 as it scrolls sideways (the same with `move.b (a2)+,d1`).
-# The level holds the row twice, one copy for each (0xA486D... and 0xA3C74...: 46 47 5A, the lights, 5A).
-# Now the light from LIGHT_BYTES is drawn in palette LIGHT_PAL instead: the wall's colours with its greens (11-15,
-# the lights) yellow - written to the palette as it is drawn.
+# Stage 28's grey machinery wall has a row of three blinking green lights: tile 0x2320, auto-animated, in the wall's
+# palette 0xB2. They come from the level's block data. In blocks whose tiles share one palette and attribute (the
+# 0x80 kind) each tile is a byte, drawn by 0xD2F2 when the screen scrolls up or down (move.b (a4),d1 ; move.w
+# d1,(a0) ; swap d1 ; move.w d1,(a0) ; swap d1, with the attributes in d1's high word) and by 0xCF10 when it scrolls
+# sideways (the same with move.b (a2)+,d1). The level holds the row twice, one copy for each direction (0xA486D...
+# and 0xA3C74...: 46 47 5A, the lights, 5A).
+#
+# The middle light (LIGHT_BYTES) is now drawn in palette LIGHT_PAL instead: the wall's colours with its greens
+# (11-15, the lights) turned yellow, written to the palette as the tile is drawn.
 DRAW_ROW = 0xD2F2
 DRAW_COLUMN = 0xCF10
-LIGHT_BYTES = [0xA4871, 0xA3C78]   # the middle light, in each copy (0xA4870-0xA4872, 0xA3C77-0xA3C79: left to right)
+LIGHT_BYTES = [0xA4871, 0xA3C78]   # the middle light in each copy (0xA4870-0xA4872 and 0xA3C77-0xA3C79, left to right)
 STAGE, LIGHT_STAGE = 0x103005, 28
 LIGHT_PAL = 0xC7             # empty in the stage
 COLOURS = [0x8000, 0x8DDD, 0x8CCC, 0x8BBB, 0x8AAA, 0x8999, 0x8888, 0x8777, 0x8666, 0x8555, 0x8444,  # 0xB2's greys
-           0x8EC2, 0x0CA0, 0x0980, 0x0760, 0x8540]   # its greens 80C7 00A5 B083 3061 8050, now yellows
+           0x8EC2, 0x0CA0, 0x0980, 0x0760, 0x8540]   # its greens (80C7 00A5 B083 3061 8050) made yellow
 
 
 def apply(rom):
@@ -35,18 +37,18 @@ column:                                 | its byte at a2 (then the next)
     cmpi.l #0x%(byte0)X,(%%sp)
     beq 6f
     cmpi.l #0x%(byte1)X,(%%sp)
-6:  addq.l #4,%%sp                      | (flags kept)
+6:  addq.l #4,%%sp                      | flags unchanged
     bne 1f
     cmpi.b #%(stage)d,0x%(stage_at)X
     bne 1f
-    movem.l %%d0/%%a0-%%a1,-(%%sp)      | the light: its own palette ...
+    movem.l %%d0/%%a0-%%a1,-(%%sp)      | the light: write its palette
     lea colours(%%pc),%%a0
     lea 0x%(pal_ram)X,%%a1
     moveq #15,%%d0
 2:  move.w (%%a0)+,(%%a1)+
     dbf %%d0,2b
     movem.l (%%sp)+,%%d0/%%a0-%%a1
-    move.w %%d1,-(%%sp)                 | ... in its attributes
+    move.w %%d1,-(%%sp)                 | and put it in its attributes
     move.b #0x%(pal)X,(%%sp)
     move.w (%%sp)+,(%%a0)
     bra 3f

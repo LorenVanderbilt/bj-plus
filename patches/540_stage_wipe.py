@@ -40,7 +40,7 @@ STAGE_MUSIC = 0x151CE
 CARD_ENDS = [0x13AFA, 0x13B1C]   # jsr 0x9FBE: clears the title card's text (timed out, or a button pressed)
 # The top corner of a player who isn't playing is redrawn blank every 32 frames (see no-join-prompts), which would
 # punch through the cover. CORNERS (andi.w #31,d1 ; bne.w <past it>) skip that while the wipe is on.
-CORNERS = [(0x11B58, 0x11CBA), (0x11CD6, 0x11E28)]   # (site, address past the corner's drawing)
+CORNERS = [(0x11B58, 0x11CBA), (0x11CD6, 0x11E28)]   # site, address past the corner's drawing
 MODE = 0x103004
 HUD_ENTRY = 0x4E4B8           # jsr <the hud patch's frame routine> ; nop
 NO_HUD = 0x10309B

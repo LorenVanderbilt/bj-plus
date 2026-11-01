@@ -13,7 +13,7 @@ DESCRIPTION = "Shop: the prices charged match the prices shown (the original's d
 # shop-sold-out-first also refers to the 15-flower flippers routine.
 FLIPPERS_15 = 0x2038A
 FLIPPERS_CELLS = [0x1FFCC + 2 * 4, 0x1FFF8 + 2 * 4]          # shops 1 and 2, cell 2 (was 0x20390, 25 flowers)
-ICE_SHOE_PRICES = [(0x2118C, b"75", b"70"), (0x2138A, b"150", b"140")]   # (text, old price, new)
+ICE_SHOE_PRICES = [(0x2118C, b"75", b"70"), (0x2138A, b"150", b"140")]   # text, old price, new
 SAFE_DESCRIPTIONS = [(0x20F44, 0x211DA, 0x211B0), (0x20F64, 0x213D8, 0x213AE)]   # table entry, 25 / 50 text, 20 / 40 text
 
 

@@ -115,9 +115,9 @@ THROW_ART = {0xB0: 0xB0, 0xB8: 0xB0, 0xC0: 0xB0, 0xC8: 0xB0, 0x8C: 0xB0,
              0xB4: 0xB4, 0xBC: 0xB4, 0xC4: 0xB4, 0xCC: 0xB4, 0x90: 0xB4,
              0x94: 0x94, 0x98: 0x94, 0x9C: 0x9C}
 THROW_MID = 0xAC
-THROW_FOLLOW = 0x9C            # (its ART there - the user's follow-through: the four throws' last step, after the
-                               # release; 0x9C was the lying-down throw's release, a throw never seen in play -
-                               # 0x94's ART left out, 0x94 / 0x98 draw the big swim poses, FRAME_SUBSTITUTES)
+THROW_FOLLOW = 0x9C            # its ART is the follow-through, the last step of all four throws after the release.
+                               # 0x9C was the lying-down throw's release, never seen in play. 0x94's ART is left
+                               # out, since 0x94 / 0x98 draw the big swim poses (FRAME_SUBSTITUTES)
 THROW_ANIMS = [0x23, 0x24, 0x25, 0x26]
 ART_END, FRAMES_END = 0xB8C66, 0x3CB0   # where this patch's code and art always end (see the end of apply)
 HERO_UP_PX = 15
@@ -139,7 +139,7 @@ BURN_ANIMS = [0x31]
 ART = "art/hero_big/%03X.png"
 MARGIN = 16
 PALETTE_COLOURS = {
-    0x10: "4071 8222 FF96 FE74 7C52 B08F F04F 201E FA00 DB51 6830 CFB0 CF60 0E00 1B06 FFFF",   # (player 1)
+    0x10: "4071 8222 FF96 FE74 7C52 B08F F04F 201E FA00 DB51 6830 CFB0 CF60 0E00 1B06 FFFF",   # player 1
     0x5C: "3060 0222 9C82 9B71 9A60 8950 9840 E620 8900 D520 3400 2C80 DD10 7AAA 7CCC FFFF",   # (charred, in lava)
 }
 BURN_MODE = 0         # (their definitions' mode byte, as the big art's frames)
@@ -206,13 +206,13 @@ def hero_only(reg, body, tag=""):
     cmpa.l #0x%(obj)X,%%%(reg)s
     beq hero%(tag)s_%(i)d""" % {"obj": obj, "reg": reg, "tag": tag, "i": i}
     out += """
-    cmpa.l 0x%(red)X,%%%(reg)s                | (the red rival, while he's a hero)
+    cmpa.l 0x%(red)X,%%%(reg)s                | the red rival, while he's a hero
     beq hero%(tag)s_%(i)d
     bra done%(tag)s""" % {"red": RED_OBJ, "reg": reg, "tag": tag, "i": len(HERO_OBJECTS)}
     for i, ram in enumerate(PAIR_RAM + [RED_PAIR]):
         out += """
 hero%(tag)s_%(i)d:
-    tst.b 0x%(flag)X                      | (drawn with a big frame?)
+    tst.b 0x%(flag)X                      | drawn with a big frame?
     beq done%(tag)s
     bra hero%(tag)s""" % {"tag": tag, "i": i, "flag": ram + 5}
     return out + """
@@ -237,7 +237,7 @@ def x_shift(dreg, px=None, facing_left=False):
     cmp.l #0x%X,%%d1
     beq rope_found%d""" % (c, v["n"]) for c in ROPE_CODES)
         vine += """
-    tst.w 0x%(held)X                      | (lottery ropes in the room?)
+    tst.w 0x%(held)X                      | lottery ropes in the room?
     beq rope_none%(n)d
     movem.l %%d0-%%d4/%%a1,-(%%sp)
     lea 0x104000,%%a1                     | the nearest rope object: its x offset in d3
@@ -315,7 +315,7 @@ def carried_shift(dreg, tag=""):
     return """
     cmpi.l #0x%(code)X,4(%%a0)
     bne cdone%(tag)s
-    tst.b 126(%%a0)                       | (carried by player 2?)
+    tst.b 126(%%a0)                       | carried by player 2?
     bne cp2%(tag)s
     tst.b 0x%(p1)X
     bra ctest%(tag)s
@@ -355,7 +355,7 @@ def relocated(code, start, end):
         if text:
             insns.append([at, words, text])
         else:
-            insns[-1][1] += words                   # (a long instruction's further words)
+            insns[-1][1] += words                   # a long instruction's further words
     out, outside = [], {}
     for at, words, text in insns:
         out.append("L%X:" % at)
@@ -535,7 +535,7 @@ def frame_from_pixels(rom, big, palette, main_cols, main_rows, frame, what, keep
     n = rom.add_frame(out, palette, why="big hero: frame 0x%X, %s" % (frame, what), pieces=pieces)
     rom.data[rom.u32(hackbuild.FRAME_TABLE + n) + 2] = BURN_MODE
     p2_palette = rom.data[rom.u32(hackbuild.FRAME_TABLE + frame + P2_FRAMES) + 3]
-    if p2_palette != palette:                 # (player 2's copy of the frame: the same art in its own palette)
+    if p2_palette != palette:                 # player 2's copy of the frame: the same art in its own palette
         m = rom.add_frame(out, p2_palette, why="big hero: frame 0x%X, %s, player 2" % (frame, what), pieces=pieces)
         rom.data[rom.u32(hackbuild.FRAME_TABLE + m) + 2] = BURN_MODE
         P2_COPIES[n] = m
@@ -559,7 +559,7 @@ def spread_antennas(rom, frame):
         if (x, 13) in lean:
             px[x, 12] = lean[x, 13]
     p = rom.u32(hackbuild.FRAME_TABLE + frame)
-    tiles = rom.frame_tiles(frame)[0]        # (the cells left alone keep their tiles)
+    tiles = rom.frame_tiles(frame)[0]        # the cells left alone keep their tiles
     keep = {(c, r): t for r, row in enumerate(tiles) for c, t in enumerate(row) if t is not None}
     return frame_from_pixels(rom, px, palette, rom.data[p] + 1, rom.data[p + 1] + 1, frame, "antennas spread",
                              keep)
@@ -601,7 +601,7 @@ def red_boxes(rom, frame_map):
 
 
 def apply(rom):
-    original = bytes(rom.data[COPY_START:COPY_END])   # (the drawing routine before the hooks below)
+    original = bytes(rom.data[COPY_START:COPY_END])   # the drawing routine before the hooks below
     stub = rom.place_code("    jmp 0x%X\n" % 0xFFFFF0, why="hero big art: into the drawing routine's copy")
     ROW_OVERRIDES[STANDING_ANIM] = [spread_antennas(rom, f) for f in BREATHE]
     rows, frame_map = big_frame_tables(rom)
@@ -630,7 +630,7 @@ def apply(rom):
     for f in OCARINA_FRAMES + fidget:
         frame_map[f] = upscaled_frame(rom, f)
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    drawn = {}                                # (the throws: the redrawn ones)
+    drawn = {}                                # the throws: the redrawn ones
     for f, art in THROW_ART.items():
         if os.path.exists(os.path.join(root, ART % art)):
             if art not in drawn:
@@ -788,11 +788,11 @@ draw:
     beq 18f
     move.l (%a3,%d3.w),%a5
     rts
-18: st BIG_NOW_RAM                   | (a carried enemy: on in the drawing routine's copy, with the hooks)
+18: st BIG_NOW_RAM                   | a carried enemy: on in the drawing routine's copy, with the hooks
     move.l (%a3,%d3.w),%a5
     move.l #COPY_STUB,(%sp)
     rts
-15: clr.b BIG_NOW_RAM                 | (set below if this object is drawn big)
+15: clr.b BIG_NOW_RAM                 | set below if this object is drawn big
     move.l %d4,-(%sp)
     move.w %d3,%d4                  | Red (an object drawing player 2's copies, not a player's hero): noted
     and.w #0xF800,%d4
@@ -802,24 +802,24 @@ draw:
     and.w #0x7FF,%d4
     cmp.w #NORMAL_FRAMES,%d4
     bcc 11f
-    cmpi.l #RED_CODE_LO,4(%a0)      | (the ending's objects only - e.g. the title screen's green player stays small)
+    cmpi.l #RED_CODE_LO,4(%a0)      | the ending's objects only - e.g. the title screen's green player stays small
     bcs 13f
     cmpi.l #RED_CODE_HI,4(%a0)
     bcs 14f
-13: cmpi.l #RED_DUEL_LO,4(%a0)      | (... or the torch duel's)
+13: cmpi.l #RED_DUEL_LO,4(%a0)      | ... or the torch duel's
     bcs 11f
     cmpi.l #RED_DUEL_HI,4(%a0)
     bcc 11f
 14:
 HERO_ONLY_A0    move.l %a0,RED_OBJ_RAM
     bra 12f
-11: cmpa.l RED_OBJ_RAM,%a0             | (the noted object drawing something else: forgotten)
+11: cmpa.l RED_OBJ_RAM,%a0             | the noted object drawing something else: forgotten
     bne 12f
     clr.l RED_OBJ_RAM
 12: move.l (%sp)+,%d4
 HERO_A0    bra 9f
 1:  move.l %a1,-(%sp)
-PAIR_A0    clr.b 5(%a1)                    | (1 = this draw uses a big frame: the +34 fix and the position nudges)
+PAIR_A0    clr.b 5(%a1)                    | 1 = this draw uses a big frame: the +34 fix and the position nudges
     clr.b 7(%a1)
     move.w %d3,-(%sp)               | the frame in +8 (player 2's hero draws player 2's copies, 0x800 further on)
     and.w #0x7FF,%d3                | as player 1's frame
@@ -854,7 +854,7 @@ PAIR_A0    clr.b 5(%a1)                    | (1 = this draw uses a big frame: th
     st BIG_NOW_RAM
     move.w (%sp)+,%d4
     and.w #0x800,%d4
-    cmp.w #NEW_FRAMES,%d3           | (frames made here: player 2's copy from p2_tab, if it has one)
+    cmp.w #NEW_FRAMES,%d3           | frames made here: player 2's copy from p2_tab, if it has one
     bcs 46f
     tst.w %d4
     beq 8f
@@ -875,7 +875,7 @@ PAIR_A0    clr.b 5(%a1)                    | (1 = this draw uses a big frame: th
     cmpi.w #0xFFFF,38(%a0)          | being zoomed (the C-button shrink): zoom the big art further
     beq 6f
     movem.l %d0-%d2,-(%sp)
-    move.w 38(%a0),12(%a1)          | (set back after the draw)
+    move.w 38(%a0),12(%a1)          | set back after the draw
     bset #2,7(%a1)
     moveq #ZOOM_SHRINK,%d2          | shrinking (still the normal form) or growing back (+98 shrunk)
     tst.w 98(%a0)
@@ -920,7 +920,7 @@ flip:
     beq 20f
     subq.b #4,%d6
     beq 21f
-    moveq #11,%d5                   | (as 0xA50A)
+    moveq #11,%d5                   | as 0xA50A
     move.w %d4,%d6
     lsl.w %d5,%d6
     addi.w #0x780,%d6
@@ -928,7 +928,7 @@ flip:
     add.w 2(%a0),%d6
     move.w %d6,664(%a6)
     bra 22f
-20: moveq #11,%d5                   | (as 0xA522)
+20: moveq #11,%d5                   | as 0xA522
     move.w %d4,%d6
     lsl.w %d5,%d6
     addi.w #0x780,%d6
@@ -937,8 +937,8 @@ flip:
     move.w 2(%a0),%d5
     move.w %d5,664(%a6)
     add.w %d5,%d6
-    rts                             | (+34 is 0 here whatever the width)
-21: moveq #10,%d5                   | (as 0xA540)
+    rts                             | +34 is 0 here whatever the width
+21: moveq #10,%d5                   | as 0xA540
     move.w %d4,%d6
     addq.w #1,%d6
     lsl.w %d5,%d6
@@ -954,7 +954,7 @@ PAIR_A0F    tst.b 5(%a1)
     move.l %d7,-(%sp)
     moveq #0,%d7
     move.b 4(%a1),%d7
-    btst #2,33(%a0)                 | (the case above: 4 -> (w+1)<<10, 8/12 -> (w<<11)+0x780)
+    btst #2,33(%a0)                 | the case above: 4 -> (w+1)<<10, 8/12 -> (w<<11)+0x780
     beq 23f
     btst #3,33(%a0)
     bne 23f
@@ -965,7 +965,7 @@ PAIR_A0F    tst.b 5(%a1)
 23: lsl.w #8,%d7
     lsl.w #3,%d7
     addi.w #0x780,%d7
-24: move.w %d7,8(%a1)                | (set back after the draw - the drawing itself uses the big value)
+24: move.w %d7,8(%a1)                | set back after the draw - the drawing itself uses the big value
     bset #0,7(%a1)
     move.l (%sp)+,%d7
 29: move.l (%sp)+,%a1
@@ -979,7 +979,7 @@ height:
     beq 30f
     subq.b #1,%d6
     beq 31f
-    moveq #11,%d5                   | (as 0xA568)
+    moveq #11,%d5                   | as 0xA568
     move.w %d3,%d6
     lsl.w %d5,%d6
     addi.w #0x780,%d6
@@ -988,10 +988,10 @@ height:
     add.w 0(%a0),%d6
     move.w %d6,666(%a6)
     bra 32f
-30: move.w #0,36(%a0)               | (as 0xA582: +36 is 0 whatever the height)
+30: move.w #0,36(%a0)               | as 0xA582: +36 is 0 whatever the height
     move.w 0(%a0),666(%a6)
     rts
-31: moveq #10,%d5                   | (as 0xA590)
+31: moveq #10,%d5                   | as 0xA590
     move.w %d3,%d6
     addq.w #1,%d6
     lsl.w %d5,%d6
@@ -1007,7 +1007,7 @@ PAIR_A0H    tst.b 5(%a1)
     move.l %d7,-(%sp)
     moveq #0,%d7
     move.b 6(%a1),%d7
-    btst #0,33(%a0)                 | (the case above: 1 -> (h+1)<<10, 2/3 -> (h<<11)+0x780)
+    btst #0,33(%a0)                 | the case above: 1 -> (h+1)<<10, 2/3 -> (h<<11)+0x780
     beq 33f
     btst #1,33(%a0)
     bne 33f
@@ -1032,7 +1032,7 @@ RESTORES    movem.l (%sp)+,%a0-%a1
 
 DATA
 """
-    tokens = [   # (in this order: HERO_A0F / HERO_A0H before HERO_A0, PAIR_A0F / PAIR_A0H before PAIR_A0)
+    tokens = [   # in this order: HERO_A0F / HERO_A0H before HERO_A0, PAIR_A0F / PAIR_A0H before PAIR_A0
         ("HERO_ONLY_A0", "".join("    cmpa.l #0x%X,%%a0\n    beq 12f\n" % obj for obj in HERO_OBJECTS)),
         ("RED_OBJ_RAM", "0x%X" % RED_OBJ), ("BIG_NOW_RAM", "0x%X" % BIG_NOW),
         ("CARRIED_CODE_ADDR", "0x%X" % CARRIED_CODE), ("COPY_STUB", "0x%X" % stub),

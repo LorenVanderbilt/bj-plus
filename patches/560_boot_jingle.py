@@ -1,83 +1,87 @@
 NAME = "boot-jingle"
 DESCRIPTION = "The eyecatcher's jingle (the BIOS's sound code 2) played as 3 Count Bout plays it: its instruments and its echoes"
 
-# At power-on the BIOS asks the game's sound driver (the Z80, M1 ROM) for sound code 2: the eyecatcher jingle, the
-# same melody in every game, each with its own instruments. Blue's Journey's driver plays it from streams at
-# 0x586-0x6C8: two channels of the long-note melody, set to voice 106 (3F 6A), and the fast arpeggio set to voice 8
-# (3F 08). A voice is a 40-byte record at VOICES + 40 * n: for each operator in turn (the chip's OP1,
-# OP2, OP3, OP4 - its registers +0, +8, +4, +C) attack, decay, sustain rate, release, sustain level, total level,
-# key scale, multiple, detune; then feedback, algorithm, the L/R byte, and 0xFF.
-# Voices 106 and 8 are in the game's own music too, so the jingle gets its own copies of 3 Count Bout's two voices
-# in two voices nothing uses (FREE: no music or sound effect loaded them, every code played through).
-VOICES = 0xB77B            # the voice table (the driver reads its base from 0x020A)
+# At power-on the BIOS asks the game's sound driver (the Z80 in the M1 ROM) for sound code 2: the eyecatcher jingle,
+# the same melody in every game but with each game's own instruments. Blue's Journey's driver plays it from streams
+# at 0x586-0x6C8: two channels of the long-note melody on voice 106 (3F 6A), and the fast arpeggio on voice 8
+# (3F 08). A voice is a 40-byte record at VOICES + 40 * n. For each operator in turn (the chip's OP1, OP2, OP3, OP4,
+# at registers +0, +8, +4, +C) it holds attack, decay, sustain rate, release, sustain level, total level, key scale,
+# multiple and detune, followed by feedback, algorithm, the L/R byte and 0xFF.
+#
+# Voices 106 and 8 are also used by the game's music, so the jingle gets copies of 3 Count Bout's two voices in two
+# unused slots (FREE: no music or sound effect loaded them when every code was played through).
+VOICES = 0xB77B            # the voice table; the driver reads its base from 0x020A
 FREE = {"melody": 129, "bell": 130}
-# 3 Count Bout's voices as it writes them (one channel's registers: 0x30 + 4 * operator slot ...), and B0
+# 3 Count Bout's voices as it writes them: one channel's registers (0x30 + 4 * operator slot and so on) and B0
 MELODY_VOICE = {0x30: 0x33, 0x34: 0x74, 0x38: 0x78, 0x3C: 0x30, 0x40: 0x15, 0x44: 0x40, 0x48: 0x14, 0x4C: 0x14,
           0x50: 0x0F, 0x54: 0x0F, 0x58: 0x0F, 0x5C: 0x0F, 0x60: 0x0C, 0x64: 0x0C, 0x68: 0x0C, 0x6C: 0x05,
           0x70: 0x06, 0x74: 0x06, 0x78: 0x05, 0x7C: 0x00, 0x80: 0x07, 0x84: 0x97, 0x88: 0x17, 0x8C: 0x27, 0xB0: 0x04}
 BELL_VOICE = {0x30: 0x00, 0x34: 0x06, 0x38: 0x00, 0x3C: 0x01, 0x40: 0x14, 0x44: 0x1A, 0x48: 0x22, 0x4C: 0x22,
         0x50: 0x19, 0x54: 0xD9, 0x58: 0x59, 0x5C: 0x59, 0x60: 0x02, 0x64: 0x02, 0x68: 0x06, 0x6C: 0x0C,
         0x70: 0x0A, 0x74: 0x09, 0x78: 0x0A, 0x7C: 0x0F, 0x80: 0x14, 0x84: 0x02, 0x88: 0x15, 0x8C: 0xA5, 0xB0: 0x0C}
-LR = 0xC0                  # (both speakers; the streams pan as they play)
-TEMPO = 0x88               # (the jingle's own: a 16th ~6.5 frames, as 3 Count Bout's)
-# The jingle as 3 Count Bout plays it, note for note (its YM2610 writes logged in MAME, MVS set): the melody and the
-# bell arpeggio, each note struck loud and then made quieter while it rings (keyed on again, no new attack: the bell a
-# 32nd later, the melody's long notes step by step); the bell panned left / centre / right / centre; each part
-# doubled on a second channel a hair later, the melody's 2 levels quieter. The
-# driver's streams are MML-like (the dispatcher at 0xD678): ? voice, T tempo, V volume (a carrier's level is
-# 0x7F - V), O octave (block), A-G a note (+ # sharp), length bytes (0x20 a 32nd, 0x08 an 8th, . dotted), R rest, Q
-# gate,
-# l / s / r pan, d hi lo a frequency with no new attack (0xDAFF: key on without key off - a slide), 0xFF the end.
-# MELODY / BELL are its events (frame, MIDI note, carrier level, L/R; its pitch is written just after the key on); the
-# doubles (its second channels) start with a short rest (DOUBLE_DELAYS) - the bell's is its own stream entered early,
-# the melody's a copy DOUBLE_QUIETER levels down (no room for a bell copy) at DOUBLE_AT. The rest go at STREAMS_AT
-# (free: 0xFF to RAM), and the jingle's stream table (POINTERS: melody, its double, bell, its double) points at them.
+LR = 0xC0                  # both speakers; the streams pan as they play
+TEMPO = 0x88               # the jingle's own: a 16th is ~6.5 frames, as in 3 Count Bout
+# The jingle is rebuilt note for note as 3 Count Bout plays it, from its YM2610 writes logged in MAME (MVS set): the
+# melody and the bell arpeggio. Each note is struck loud and then made quieter while it rings, by keying it on again
+# without a new attack, a 32nd later for the bell and step by step for the melody's long notes. The bell pans left,
+# centre, right, centre. Each part is doubled on a second channel a moment later, with the melody's double 2 levels
+# quieter.
+#
+# The driver's streams are MML-like (dispatched at 0xD678): ? voice, T tempo, V volume (a carrier's level is
+# 0x7F - V), O octave (block), A-G a note (# for sharp), length bytes (0x20 a 32nd, 0x08 an 8th, . dotted), R rest,
+# Q gate, l / s / r pan, d hi lo a frequency without a new attack (0xDAFF: key on without key off, a slide), and 0xFF
+# to end. MELODY and BELL list the events (frame, MIDI note, carrier level, L/R), with the pitch written just after
+# the key on. The doubles start with a short rest (DOUBLE_DELAYS). The bell's double is its own stream entered early;
+# the melody's is a copy DOUBLE_QUIETER levels down at DOUBLE_AT, since there's no room for a bell copy. The rest go
+# at STREAMS_AT (free space, 0xFF in RAM), and the jingle's stream table (POINTERS: melody, its double, bell, its
+# double) points at them.
 POINTERS = 0x240
-STREAMS_AT = 0xF48C            # (free up to 0xF800; this window shows the same ROM bytes while the jingle plays)
+STREAMS_AT = 0xF48C            # free up to 0xF800; this window shows the same ROM bytes while the jingle plays
 FRAMES_PER_32ND = 3.27
-DOUBLE_AT = 0x014B             # (free, after FINE_SLIDE, to 0x0200)
-DOUBLE_DELAYS = {"melody": 0x40, "bell": 0x30}   # a 64th / a triplet 32nd (~2 frames: the opening swells as 3 Count
-                                                 # Bout's)
+DOUBLE_AT = 0x014B             # free from after FINE_SLIDE to 0x0200
+DOUBLE_DELAYS = {"melody": 0x40, "bell": 0x30}   # a 64th and a triplet 32nd (~2 frames), so the opening swells as
+                                                 # in 3 Count Bout
 FNUMS = 0xE745 + 0x20          # the driver's frequency table: C, then 8 bytes a semitone
 DOUBLE_QUIETER = 2
 LAST_LENGTH = 0x08
-# The driver keys a note off as its gate runs out (0xDB2C: Q 0 - a tick before its end, Q 1-6 fractions of it): the
-# slides (d) then struck anew. Q 0xFF (no song used it) now means no gate - a note sounds until the next strike or the
-# end: GATE_CALL (ld a,(ix+0x2B) ; and a) calls NO_GATE, which answers as before or, for 0xFF, stores a gate of 0
-# (never counted down) and returns from 0xDB2C itself. The jingle's streams set it.
-# 3 Count Bout detunes each doubled part against its twin (its double ~6 frequency units flatter: a chorus). The
-# doubles' prefixes set the driver's fine tune (g, added to a note's frequency) to DETUNE, which the twins never run;
-# its slides (d: a raw frequency) didn't take the fine tune - SLIDE_CALL (call 0xDA54 in d's handler) now goes
-# through FINE_SLIDE, which adds it first. The streams end with g 0 (so nothing after the jingle is detuned).
+# The driver keys a note off when its gate runs out (0xDB2C: Q 0 is a tick before the end, Q 1-6 are fractions of
+# it), which made the slides (d) strike again. Q 0xFF, unused by any song, now means no gate, so a note sounds until
+# the next strike or the end. GATE_CALL (ld a,(ix+0x2B) ; and a) calls NO_GATE, which answers as before, or for 0xFF
+# stores a gate of 0 that is never counted down and returns from 0xDB2C itself. The jingle's streams set it.
+#
+# 3 Count Bout detunes each doubled part against its twin, with the double about 6 frequency units flatter, for a
+# chorus. The doubles' prefixes set the driver's fine tune (g, added to a note's frequency) to DETUNE, which the
+# twins never run. Slides (d, a raw frequency) ignored the fine tune, so SLIDE_CALL (call 0xDA54 in d's handler) now
+# goes through FINE_SLIDE, which adds it first. The streams end with g 0 so nothing after the jingle is detuned.
 DETUNE = -6
-MELODY_TUNE = (2, -4)          # (the melody's twins have their own streams: 3 Count Bout's exact pitches)
+MELODY_TUNE = (2, -4)          # the melody's twins have their own streams, for 3 Count Bout's exact pitches
 SLIDE_CALL = 0xDB0F
-FINE_SLIDE = 0x0134            # (after NO_GATE)
+FINE_SLIDE = 0x0134            # after NO_GATE
 FINE_SLIDE_CODE = bytes.fromhex(
     "dd7e39"      # ld a,(ix+0x39)   the fine tune (signed)
     "6f"          # ld l,a
     "17"          # rla
     "9f"          # sbc a,a
-    "67"          # ld h,a           (sign-extended)
+    "67"          # ld h,a           sign-extended
     "dd4e27"      # ld c,(ix+0x27)   the slide's frequency (low, high)
     "dd4626"      # ld b,(ix+0x26)
     "09"          # add hl,bc
     "dd7527"      # ld (ix+0x27),l
     "dd7426"      # ld (ix+0x26),h
-    "c354da")     # jp 0xDA54        (the frequency written, as before)
+    "c354da")     # jp 0xDA54        writes the frequency, as before
 GATE_CALL = 0xDB33
-NO_GATE = 0x0120               # (free: 0xFF in the always-mapped first window)
+NO_GATE = 0x0120               # free (0xFF) in the always-mapped first window
 NO_GATE_CODE = bytes.fromhex(
     "dd7e2b"      # ld a,(ix+0x2B)
     "feff"        # cp 0xFF
     "2802"        # jr z,+2
-    "a7"          # and a          (as before: Z for Q 0)
+    "a7"          # and a          as before: Z for Q 0
     "c9"          # ret
-    "e1"          # pop hl         (the call's return)
+    "e1"          # pop hl         the call's return
     "dd362c00"    # ld (ix+0x2C),0
     "dd362d00"    # ld (ix+0x2D),0
-    "d1"          # pop de         (0xDB2C's push)
-    "c9")         # ret            (to 0xDB2C's caller)
+    "d1"          # pop de         0xDB2C's push
+    "c9")         # ret            to 0xDB2C's caller
 MELODY = [   # (frame, MIDI note, carrier level, L/R)
     (0, 91, 0x14, 0xC0), (19, 91, 0x1C, 0xC0), (39, 88, 0x14, 0xC0), (58, 88, 0x1C, 0xC0), (78, 95, 0x14, 0xC0),
     (91, 95, 0x1C, 0xC0), (104, 93, 0x14, 0xC0), (117, 93, 0x16, 0xC0), (130, 93, 0x18, 0xC0), (143, 93, 0x1A, 0xC0),
@@ -128,7 +132,7 @@ def record(regs):
 
 
 def mml(rom, voice, events, tempo=None, bell=False):
-    """The driver's stream for ."""
+    """The driver's stream for a list of events."""
     out = bytearray([0x3F, voice, 0x51, 0xFF] + ([0x54, tempo] if tempo else []))
     octave = length = level = pan = None
     for i, (frame, note, tl, lr) in enumerate(events):

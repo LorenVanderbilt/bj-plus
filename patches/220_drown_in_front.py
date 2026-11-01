@@ -1,31 +1,33 @@
 NAME = "drown-in-front"
 DESCRIPTION = "Drowning: the hero sinks into the water in front of it (the water line swallows him) instead of behind the waterfall; lava swallows him too"
 
-# Falling into a water pit (e.g. the first gap in Jungle 1, a waterfall) the game hides the hero object and
-# spawns a sinking hero (object code 0x3DE90: his sprite y goes down 1 px every 2 frames) and a splash (0x3DEC4).
-# Both get object slots in the "behind" draw group: the game draws objects in two groups, each a run of the
-# object list at 0x100500 with a descriptor (list start / end offsets, first sprite, sprite limit, sprites used):
-# 0x1002E0 = the front group (sprites from 133: enemies, items ...), 0x1002F0 = the behind group (sprites
-# 45-99). The level's front layer (ground, cliffs, the waterfall: full-height sprite strips from sprite
-# word 0x100246, 100 here) sits between them, so the whole sink happened behind the water - and the splash
-# the game draws was hidden too.
-# Now, after the frame's objects are drawn (the gameplay loop's `jsr 0xA3A0` at 0x1180A, the behind group),
-# the sinking hero and the splash are drawn once more with the game's drawing routine, after the front
-# group's sprites - in front of the front layer. Then, over the sinking hero, "cover" sprites: copies of the
-# front layer's strips across his width, from a water line down (whole tile rows of the strip, so they sit
-# exactly on the layer's own pixels, animation attributes and all). The cover is invisible - the same water
-# over the same water - except that it hides the hero below the line. The line is WATER_LINE px below where
-# the sinking hero's sprites started (kept per sinking object while it lasts), rounded down to the strip's
-# tile row. The front group's "sprites used" count is raised past ours, so its next frame hides them.
-# Lava: touching it is instant death - a burn hop (state 3), then state 33, in which the hero (the ordinary hero
-# object, in the front group, so in front of the lava) hops up and falls off the bottom of the screen. The
-# drawing loop's hooks note which sprites a hero in state 33 got this frame (GROUP_START: each group's first
-# sprite; OBJECT_DONE: after each object), and the same cover goes over them from LAVA_LINE px below where he
-# was when the state began - the lava surface swallows him.
-# Beside a wall or cliff (in the same layer as the liquid): the cover copies only tiles in the liquid's palettes
-# (those under his middle, from the line down; others become a blank tile), and he is eased sideways (2 px a
-# frame) until his sprites are all over the liquid at the line - the big art is wider than the original's and
-# would otherwise hang over the wall and look as if it fell into it.
+# When the hero falls into a water pit (for example the first gap in Jungle 1, a waterfall), the game hides the hero
+# object and spawns a sinking hero (object 0x3DE90, whose sprite y drops 1 px every 2 frames) and a splash (0x3DEC4).
+# Both get slots in the "behind" draw group. The game draws objects in two groups, each a run of the object list at
+# 0x100500 with a descriptor (list start and end offsets, first sprite, sprite limit, sprites used): 0x1002E0 is the
+# front group (sprites from 133: enemies, items and so on) and 0x1002F0 the behind group (sprites 45-99). The level's
+# front layer (ground, cliffs and the waterfall, as full-height sprite strips from the sprite in word 0x100246, 100
+# here) sits between them, so the whole sink happened behind the water, and the game's splash was hidden too.
+#
+# Now, after the frame's objects are drawn (the gameplay loop's jsr 0xA3A0 at 0x1180A, the behind group), the sinking
+# hero and the splash are drawn again with the game's drawing routine, after the front group's sprites and so in
+# front of the front layer. Then "cover" sprites go over the sinking hero: copies of the front layer's strips across
+# his width, from a water line down. They're whole tile rows of the strip, so they sit exactly on the layer's own
+# pixels, animation attributes and all. The cover is invisible, the same water over the same water, except that it
+# hides the hero below the line. The line is WATER_LINE px below where the sinking hero's sprites started (kept per
+# sinking object while it lasts), rounded down to the strip's tile row. The front group's sprites-used count is
+# raised past ours, so its next frame hides them.
+#
+# Touching lava is instant death: a burn hop (state 3), then state 33, in which the ordinary hero object hops up and
+# falls off the bottom of the screen. It's in the front group, so in front of the lava. Hooks in the drawing loop
+# note which sprites a hero in state 33 got this frame (GROUP_START, each group's first sprite, and OBJECT_DONE,
+# after each object), and the same cover goes over them from LAVA_LINE px below where he was when the state began,
+# so the lava surface swallows him.
+#
+# Beside a wall or cliff in the same layer as the liquid, the cover only copies tiles in the liquid's palettes (those
+# under his middle, from the line down; others become a blank tile), and he's eased sideways 2 px a frame until his
+# sprites are all over the liquid at the line. The big art is wider than the original and would otherwise hang over
+# the wall and look as if it were falling into it.
 DRAW_BEHIND_CALL = 0x1180A   # jsr 0xA3A0 - the behind group (after the front group, 0x11804)
 DRAW_BEHIND = 0xA3A0
 DROWN_CODE = 0x3DE90         # the sinking hero
@@ -99,7 +101,7 @@ post:
 16: clr.l (%a2)
     movem.l (%sp)+,%d0-%d1/%a0-%a2
     jsr DRAW_BEHIND
-    tst.l HIDE                       | (nothing sinking and no hero burning in lava this frame: nothing to do)
+    tst.l HIDE                       | nothing sinking and no hero burning in lava this frame: nothing to do
     bne 22f
     tst.b LAVA1+4
     bne 22f
@@ -113,8 +115,8 @@ post:
     rts
 22: movem.l %d0-%d7/%a0-%a6,-(%sp)
     lea 0x100000,%a6
-    clr.b RAM+94                     | (the strips table: not read yet this frame)
-    lea HIDE,%a2                     | (their draw bytes back)
+    clr.b RAM+94                     | the strips table: not read yet this frame
+    lea HIDE,%a2                     | their draw bytes back
 18: move.l (%a2)+,%d0
     beq 19f
     move.l %d0,%a0
@@ -125,7 +127,7 @@ post:
     bcs 18b
 19:
     clr.b RAM+8
-    clr.b RAM+116                    | (the sinking heroes and splashes first; the geysers on a second round)
+    clr.b RAM+116                    | the sinking heroes and splashes first; the geysers on a second round
     clr.l RAM+48
     clr.l RAM+84
     move.w 0x2E8(%a6),%d1            | the next free sprite after the front group
@@ -136,7 +138,7 @@ post:
     lea 0x500(%a6),%a0
     move.w (%a0,%d7.w),%d3
     lea (%a6,%d3.w),%a0
-    tst.b 0x28(%a0)                  | (not drawn)
+    tst.b 0x28(%a0)                  | not drawn
     beq 8f
     move.l 4(%a0),%d0
     cmp.l #GEYSER_CODE,%d0
@@ -183,7 +185,7 @@ post:
     move.w RAM+52,%d6
     move.w %d1,RAM+10
     move.w #WATER_LINE,RAM+12
-    move.w RAM+10,-(%sp)             | (where his and the splash's sprites end)
+    move.w RAM+10,-(%sp)             | where his and the splash's sprites end
     bsr cover
     move.w (%sp)+,%d3
     tst.b RAM+46
@@ -200,7 +202,7 @@ post:
 21: move.w RAM+52,%d2                | a pool: he and the splash drawn POOL_DOWN px lower (he starts partly in the
     move.w #POOL_DOWN<<7,%a1         | water), the splash SPLASH_UP px less so its crown stays above the surface
     bsr shift_spr
-    tst.l RAM+84                     | (only if the splash was drawn this frame)
+    tst.l RAM+84                     | only if the splash was drawn this frame
     beq 12f
     move.w RAM+88,%d2
     move.w RAM+90,%d3
@@ -211,7 +213,7 @@ post:
 10: lea LAVA1,%a1                   | a hero burning in lava (state 33), drawn this frame: the lava's cover
     lea 0x104000,%a0
     moveq #1,%d7
-20: tst.b 4(%a1)                   | (this player's hero drawn burning this frame?)
+20: tst.b 4(%a1)                   | this player's hero drawn burning this frame?
     beq 21f
     clr.b 4(%a1)
     move.w %d1,%d0
@@ -259,16 +261,16 @@ post:
     move.w (%sp)+,%d2                | d2..d1-1: its sprites - on its geyser's line (BUBBLE_UP px above it)
     move.l 0x70(%a0),%a1
     move.w 0x7C(%a1),%d3
-    bmi 37f                          | (no line this frame)
+    bmi 37f                          | no line this frame
     sub.w #BUBBLE_UP,%d3
     neg.w %d3
     add.w #496,%d3
     and.w #511,%d3
     lsl.w #7,%d3                     | the y field
-    move.w %d2,%d5                   | (its first sprite: the 1st and 4th columns are hidden)
+    move.w %d2,%d5                   | its first sprite: the 1st and 4th columns are hidden
 36: cmp.w %d1,%d2
     bcc 37f
-    move.w %d2,%d4                   | (its 3rd column: a blank tile - the first two cover the stalk)
+    move.w %d2,%d4                   | its 3rd column: a blank tile - the first two cover the stalk
     sub.w %d5,%d4
     cmp.w #2,%d4
     bne 33f
@@ -292,7 +294,7 @@ post:
 37: move.w (%sp)+,%d7
 38: addq.w #2,%d7
     bra 31b
-39: move.w %d1,0x2E8(%a6)            | (the front group hides them next frame unless drawn again)
+39: move.w %d1,0x2E8(%a6)            | the front group hides them next frame unless drawn again
     lea RAM,%a0                      | forget sinking objects that are gone
     btst #0,RAM+8
     bne 3f
@@ -314,7 +316,7 @@ grp_start:
 | the drawing loop, after each object (0xA3FE, in place of `move.w 656(a6),d0 ; dbf d0,0xA3D8`): d1 = the next
 | free sprite. A hero in state 33 (burning in lava) has its sprites noted: RAM+14 (where it started) to d1.
 after_obj:
-    cmp.w #0x4000,-2(%a4)            | (fast path: not a hero - just note where the next object's sprites start)
+    cmp.w #0x4000,-2(%a4)            | fast path: not a hero - just note where the next object's sprites start
     beq 4f
     cmp.w #0x4080,-2(%a4)
     beq 4f
@@ -336,14 +338,14 @@ after_obj:
     btst #1,0x6808(%a6)
     beq 2f
 1:  lea (%a6,%d0.w),%a0
-    cmp.b #33,0x68(%a0)              | (33: burning in lava; 37: sinking in acid - the same cover)
+    cmp.b #33,0x68(%a0)              | 33: burning in lava; 37: sinking in acid - the same cover
     beq 6f
     cmp.b #37,0x68(%a0)
     bne 2f
 6:
     move.w RAM+14,(%a1)
     move.w %d1,2(%a1)
-    move.b #1,4(%a1)                 | (drawn this frame: post uses it and clears it)
+    move.b #1,4(%a1)                 | drawn this frame: post uses it and clears it
     bsr shift_now
 2:  move.w %d1,RAM+14
     movem.l (%sp)+,%d0/%a0-%a1
@@ -379,7 +381,7 @@ shift_now:
     move.w %d3,%d0
     add.w #0x8200,%d0
     bsr vread
-    btst #6,%d0                      | (chained sprites follow their first)
+    btst #6,%d0                      | chained sprites follow their first
     bne 3f
     move.w %d3,%d0
     add.w #0x8400,%d0
@@ -436,7 +438,7 @@ shift_spr:
 | and the screen broke up): STRIPS + 8 * n = the strip's chain-head SCB3 word (a4), y (d6), x (d7). The full-height
 | ones (the layer's columns; the rest are empty) are also listed at FULL: the geyser's passes walk only those
 strips:
-    tst.b RAM+94                     | (already read this frame - by another geyser or the cover)
+    tst.b RAM+94                     | already read this frame - by another geyser or the cover
     bne 10f
     st RAM+94
     movem.l %d0-%d2/%d6-%d7/%a0-%a1/%a4,-(%sp)
@@ -550,7 +552,7 @@ geyser_cover:
     move.w %d0,%d4
 6:  addq.w #1,%d2
     bra 1b
-3:  cmp.w #320,%d3                   | (off screen, right of it: no cover - nor the search for its water)
+3:  cmp.w #320,%d3                   | off screen, right of it: no cover - nor the search for its water
     bcs 30f
     cmp.w #448,%d3
     bcs 90f
@@ -589,7 +591,7 @@ geyser_cover:
     addq.w #1,%d0
     and.w #31,%d0
     dbf %d7,10b
-    move.w RAM+10,%d1                | (no water under it; d1 back past its sprites)
+    move.w RAM+10,%d1                | no water under it; d1 back past its sprites
     bra 90f
 11: move.w %a1,%d1                   | the surface row's palette, and the row below's
     lsr.w #8,%d1
@@ -639,7 +641,7 @@ geyser_cover:
     sub.w %d7,%d0
     and.w #511,%d0
     moveq #0,%d7
-    cmp.w #256,%d0                   | (foot below that already)
+    cmp.w #256,%d0                   | foot below that already
     bcc 23f
     add.w #15,%d0
     lsr.w #4,%d0
@@ -673,12 +675,12 @@ geyser_cover:
     subq.w #5,%d0
     bsr vread
     move.w %d0,%a0                   | ... and attributes)
-    move.w %a3,0x3C0000              | (the modulo is 1: tile, then attributes)
+    move.w %a3,0x3C0000              | the modulo is 1: tile, then attributes
     move.w %a1,0x3C0002
     move.w %a0,0x3C0002
     addq.w #2,%a3
     subq.w #1,%d7
-    bpl 24b                          | (k + 1 rows: the ragged end and the k added)
+    bpl 24b                          | k + 1 rows: the ragged end and the k added
     move.w (%sp)+,%d7
 28: addq.w #1,%d2
     bra 20b
@@ -697,7 +699,7 @@ cover:
     move.w %sr,-(%sp)
     or.w #0x0700,%sr                 | nothing else may move the VRAM address meanwhile
     move.w #COVER_ROWS,RAM+92
-    move.w %d6,RAM+44                | (his first sprite)
+    move.w %d6,RAM+44                | his first sprite
     clr.b RAM+46
     move.w %d6,%d0                   | its first sprite's y
     add.w #0x8200,%d0
@@ -725,10 +727,10 @@ cover:
     addq.w #1,%d2
     cmp.w #2,%d2
     bne 2b
-    bra 90f                          | (no room: no cover)
+    bra 90f                          | no room: no cover
 4:  move.w %d0,(%a1)
     move.w %d5,2(%a1)
-    move.l %a0,-(%sp)                | (its shift's target: not worked out yet)
+    move.l %a0,-(%sp)                | its shift's target: not worked out yet
     lea RAM+108,%a0
     add.w %d2,%a0
     add.w %d2,%a0
@@ -736,7 +738,7 @@ cover:
     move.l (%sp)+,%a0
 3:  bset %d2,RAM+8
     add.w %d2,%d2
-    move.w %d2,RAM+34                | (his entry's shift: RAM+36 + this)
+    move.w %d2,RAM+34                | his entry's shift: RAM+36 + this
     move.w 2(%a1),%d5
     add.w RAM+12,%d5                 | d5 = the water line (y)
     and.w #511,%d5
@@ -768,7 +770,7 @@ cover:
     move.w %d0,%d4
 54: addq.w #1,%d2
     bra 5b
-6:  bsr strips                     | (the front layer's strips read once: a table for the passes below)
+6:  bsr strips                     | the front layer's strips read once: a table for the passes below
     | pass 1: the liquid's palettes - those of the strip under the hero's middle, from the line down (a wall or
     | cliff beside him is in the same layer, but in other palettes: the cover leaves those out)
     move.w %d1,RAM+24
@@ -849,12 +851,12 @@ cover:
     move.w %a5,%d1
     eor.w %d1,%d0
     and.w #0xFF00,%d0
-    move.w %d0,%d1                   | (0 = same palette: keep the line)
+    move.w %d0,%d1                   | 0 = same palette: keep the line
     move.w (%sp)+,%d0
     tst.w %d1
     beq 62f
-    move.b #1,RAM+46                 | (a pool: the line stays at its surface; see post for how it's drawn)
-62: move.w RAM+24,%d1                | (d1 back)
+    move.b #1,RAM+46                 | a pool: the line stays at its surface; see post for how it's drawn
+62: move.w RAM+24,%d1                | d1 back
     move.w %d5,%d0                   | r0, as below
     sub.w %d6,%d0
     and.w #511,%d0
@@ -868,7 +870,7 @@ cover:
     lsl.w #6,%d1
     add.w %d0,%d1
     add.w %d0,%d1
-    addq.w #1,%d1                    | (the attribute word)
+    addq.w #1,%d1                    | the attribute word
     moveq #32,%d0
     sub.w (%sp)+,%d0
     cmp.w #COVER_ROWS,%d0
@@ -896,7 +898,7 @@ cover:
     bra 39f
 38: addq.w #1,%d2
     bra 30b
-39: move.w RAM+24,%d1                | (d1 was borrowed)
+39: move.w RAM+24,%d1                | d1 was borrowed
     | pass 1b: where the liquid ends either side of his middle at the line: the nearest strips (within 64 px)
     | whose tile at the line isn't in the liquid's palettes -> RAM+40 = left end, RAM+42 = right end
     move.w RAM+26,%d0
@@ -994,7 +996,7 @@ cover:
     ble 53f
     move.w %d0,%d2
 53: move.w %d2,(%a0)                 | d2 = the shift now: move his sprites (each chain's x) by it
-    move.w RAM+34,%d0                | (a burning hero's was added as he was drawn - see shift_now: not again)
+    move.w RAM+34,%d0                | a burning hero's was added as he was drawn - see shift_now: not again
     lsr.w #1,%d0
     lea APPLIED,%a0
     tst.b (%a0,%d0.w)
@@ -1030,12 +1032,12 @@ cover:
 59:
 pass2:
     | pass 2: the front layer's strips (from sprite word 0x246 up to the front group's first sprite)
-    lea FULL,%a4                     | (only the full-height ones: the list made with the table)
+    lea FULL,%a4                     | only the full-height ones: the list made with the table
     moveq #0,%d0
 10: move.w (%a4)+,%d2
     bmi 90f
-    move.w (%a4)+,%d6                | (strip y)
-    move.w (%a4)+,%d7                | (strip x)
+    move.w (%a4)+,%d6                | strip y
+    move.w (%a4)+,%d7                | strip x
     move.w %d7,%d0                   | across the hero? (x + 16 > d3 and x < d4)
     add.w #16,%d0
     cmp.w %d3,%d0
@@ -1087,7 +1089,7 @@ pass2:
     move.w #BLANK_TILE,%a2
     move.w #0,%a1
 15: move.w %a3,0x3C0000
-    move.w %a2,0x3C0002              | (the modulo is 1: tile, then attributes)
+    move.w %a2,0x3C0002              | the modulo is 1: tile, then attributes
     move.w %a1,0x3C0002
     addq.w #2,%a5
     addq.w #2,%a3
@@ -1126,7 +1128,7 @@ pass2:
 90: move.w (%sp)+,%sr
     rts
 """
-    consts = {   # (each name in the source above replaced - the longest first)
+    consts = {   # each name in the source above replaced - the longest first
         "DRAW_BEHIND": "0x%X" % DRAW_BEHIND,
         "DROWN_CODE": "0x%X" % DROWN_CODE,
         "SPLASH_CODE": "0x%X" % SPLASH_CODE,
@@ -1143,7 +1145,7 @@ pass2:
         "STRIPS": "0x%X" % STRIPS,
         "FULL": "0x%X" % FULL,
         "HIDE": "0x%X" % HIDE,
-        "FOAM_CODE": "0x%X" % (getattr(rom, "geyser_foam_code", 0) or 1),   # (geyser-foam sets it as it's applied; 1: none)
+        "FOAM_CODE": "0x%X" % (getattr(rom, "geyser_foam_code", 0) or 1),   # geyser-foam sets it as it's applied; 1: none
         "LAVA1": "0x%X" % LAVA1,
         "APPLIED": "0x%X" % APPLIED,
         "LAVA2": "0x%X" % LAVA2,

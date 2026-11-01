@@ -3,40 +3,46 @@ DESCRIPTION = "Final fight: dinosaurs watching from the throne hall's balconies 
 
 import os
 
-# The throne hall (the final fight, stage STAGE) is one layer of full-height strips (sprites 23-43, x 16 a strip, tile
-# row r at y 16 * (r - 18)), the floor another (100-120); the slots between are in front of the hall and behind the
-# floor and the fight. The game fills them from 44 up as the fight needs (the boss's spinning blades: 45-50), so the
-# watchers use the top ones, FIRST_SLOT-LAST_SLOT. Each frame of play (DRAW_CALL, after the game has drawn its sprites:
-# after `elevator-spin`'s turn there) in the hall - its strip 25's row 21 is the rail's first tile, HALL_TILE:
-#   WATCHERS: Jungle Zone 1's dinosaurs. The left balcony: two green ones facing right, standing (CALM). The right
-#   balcony: the pair that chats by the catfish, green and pink, facing each other; one talks (TALK_A / TALK_B, a frame
-#   every TALK_SWAP, for TALK_FOR frames) while the other holds still, then the other.
-#   When the boss is hit, each reacts as when it spots Blue - it turns to face the middle of the hall, hops in horror
-#   (HOPS: px up, a frame each) with the red mark, eyes wide (ALARM, ALARM_FOR frames), then wide-eyed (WIDE,
-#   WIDE_FOR), then goes back to what it was doing; each LAG after the one before. After the last hit they stay
-#   wide-eyed, facing the middle, till the hall is gone. The boss counts the hits it can still take in the byte +0x4013
-#   from its object (boss-hits); the object is a5 as boss-hits' final-boss set-up runs (BOSS_SETUP) - kept in BOSS.
-#   Their colours: the green / pink dinosaurs' palettes (0x1E, 0x3E, as the hall has them: GREEN, PINK), DIM as bright,
-#   in DIM_PALETTES (unused through the fight) - darker, so they read as further back.
-#   SECTIONS: the balcony rails, and the curtains at their ends (a raised tail reaches them), drawn again after the
-#   watchers, in front of them - only their own pixels, the dark wall see-through: tiles made from the hall's (columns,
-#   each top down) through FRONT, a PNG of the block (16 px a tile) of which pixels draw in front (any pixel there;
-#   transparent: see-through - the colours come from the tiles).
-# The state starts over on the hall's first frame (the game may not come through DRAW_CALL on its way in); out of the
-# hall, or as the next scene is set up (CLEAR_LAYER), the slots are hidden (once) and the boss forgotten - and its
-# count as it's set up - so a leftover never reads
-# as a hit.
+# The throne hall of the final fight (stage STAGE) is one layer of full-height strips (sprites 23-43, 16 px apart,
+# tile row r at y 16 * (r - 18)), and the floor is another (100-120). Sprites between them are drawn in front of the
+# hall and behind the floor and the fight. The game fills them from 44 up as the fight needs (the boss's spinning
+# blades use 45-50), so the watchers take the top ones, FIRST_SLOT to LAST_SLOT. They're drawn each frame of play in
+# the hall (DRAW_CALL, after the game and elevator-spin have drawn their sprites). The hall is recognised by its
+# rail's first tile, HALL_TILE, at row 21 of strip 25.
+#
+# WATCHERS are Jungle Zone 1's dinosaurs. On the left balcony two green ones stand facing right (CALM). On the right
+# balcony is the pair that chats by the catfish, green and pink, facing each other: one talks (TALK_A / TALK_B, a
+# frame every TALK_SWAP, for TALK_FOR frames) while the other holds still, then they swap.
+#
+# When the boss is hit, each one reacts as it does on spotting Blue. It turns to face the middle of the hall and hops
+# in horror (HOPS, px up, a frame each) with the red mark and wide eyes (ALARM, for ALARM_FOR frames), stays
+# wide-eyed (WIDE, for WIDE_FOR), then goes back to what it was doing, each LAG frames after the one before. After the
+# last hit they stay wide-eyed, facing the middle, until the hall is gone. The boss keeps the hits it can still take
+# in the byte at +0x4013 of its object (see boss-hits). Its object is in a5 when boss-hits' final-boss set-up runs
+# (BOSS_SETUP), and is saved in BOSS.
+#
+# They use the green and pink dinosaurs' palettes (0x1E and 0x3E as the hall has them, GREEN and PINK) at DIM
+# brightness, in DIM_PALETTES, which are unused during the fight. Darker, they read as further back.
+#
+# SECTIONS are the balcony rails and the curtains at their ends, which a raised tail can reach. They're drawn again
+# after the watchers, in front of them, with only their own pixels so the dark wall stays see-through. Their tiles
+# are made from the hall's (columns, each top down) through FRONT, a PNG of the block (16 px a tile) marking which
+# pixels draw in front: any opaque pixel. The colours come from the tiles.
+#
+# The state starts over on the hall's first frame, since the game may not pass through DRAW_CALL on its way in.
+# Outside the hall, or when the next scene is set up (CLEAR_LAYER), the slots are hidden once and the boss and its hit
+# count are forgotten, so a leftover value is never read as a hit.
 STAGE = 40
 STAGE_AT = 0x103005
-DRAW_CALL = 0x11804            # jsr (the gameplay loop's front objects, then elevator-spin)
-BOSS_SETUP = 0x36158           # jsr boss-hits' final-boss routine (a5: the boss)
-CLEAR_LAYER = 0xA36E           # move.w 0x24A(a6),d0 ; bra 0xA37E - one of the routines that clear a sprite layer as a
-CLEAR_LAYER_REST = 0xA37E      # scene is set up (the ending's set-up calls it after the fight: DRAW_CALL doesn't come
-                               # round any more, so the watchers are hidden there too)
+DRAW_CALL = 0x11804            # jsr <the gameplay loop's front objects, then elevator-spin>
+BOSS_SETUP = 0x36158           # jsr <boss-hits' final-boss routine>, with a5 = the boss
+CLEAR_LAYER = 0xA36E           # move.w 0x24A(a6),d0 ; bra 0xA37E: one of the routines that clear a sprite layer as a
+CLEAR_LAYER_REST = 0xA37E      # scene is set up. The ending's set-up calls it after the fight, when DRAW_CALL no
+                               # longer comes round, so the watchers are hidden there too
 HITS_LEFT = 0x4013
 HALL_TILE = (25 * 64 + 21 * 2, 0x282A)
 FIRST_SLOT, LAST_SLOT = 80, 99
-SECTIONS = [   # (name, the hall's tiles: columns, each top down, their palettes, FRONT, slot, x, top y)
+SECTIONS = [   # name, the hall's tiles (columns, each top down), their palettes, FRONT, slot, x, top y
     ("rail_left", [[0x282A], [0x282B], [0x282C], [0x282D]], [0xF1, 0xF0, 0xF0, 0xF0],
      "art/final_fight/rail_left_front.png", 88, 32, 48),                                # row 21
     ("rail_right", [[0x286E], [0x286F], [0x2928], [0x2929]], [0xF0, 0xF0, 0xF0, 0xF1],
@@ -46,20 +52,20 @@ SECTIONS = [   # (name, the hall's tiles: columns, each top down, their palettes
     ("curtain_right", [[0x2919, 0x2921], [0x291A, 0x2922]], [0xF1, 0xF3],
      "art/final_fight/curtain_right_front.png", 98, 272, 16),
 ]
-CALM, ALARM, WIDE, TALK_A, TALK_B = 0x1164, 0x135C, 0x1360, 0x1478, 0x147C   # (frames: 2 x 2 tiles)
+CALM, ALARM, WIDE, TALK_A, TALK_B = 0x1164, 0x135C, 0x1360, 0x1478, 0x147C   # frames: 2 x 2 tiles
 CALMLY, TALKS_FIRST, TALKS_SECOND = 0, 1, 2
 WATCHERS = [   # (slot, x, top y - feet on the balcony floor, y 64 -, palette, mirrored, does, frames after a hit,
                #  mirrored while it reacts)
     (80, 34, 32, 0x1E, True, CALMLY, 0, True),                 # left balcony
     (82, 66, 32, 0x1E, True, CALMLY, 4, True),
     (84, 226, 32, 0x1E, True, TALKS_FIRST, 8, False),          # right balcony
-    (86, 252, 32, 0x3E, False, TALKS_SECOND, 12, False),       # (x 252: its raised tail clear of the curtain)
+    (86, 252, 32, 0x3E, False, TALKS_SECOND, 12, False),       # x 252: its raised tail clear of the curtain
 ]
 TALK_SWAP, TALK_FOR = 7, 40
 ALARM_FOR, WIDE_FOR = 20, 10
-HOPS = [0, 2, 3, 4, 5, 6, 6, 6, 6, 5, 4, 3, 2, 0]   # (up 6 px over 14 frames)
+HOPS = [0, 2, 3, 4, 5, 6, 6, 6, 6, 5, 4, 3, 2, 0]   # up 6 px over 14 frames
 GREEN = [0x5040, 0x02E2, 0x01B1, 0x4091, 0x4071, 0x6FF6, 0x0FD3, 0x4EA0, 0x0000, 0x0000, 0x8DDF, 0x899B, 0x0E00,
-         0x0B00, 0x7FFF]       # (colours 1-15)
+         0x0B00, 0x7FFF]       # colours 1-15
 PINK = [0x4603, 0x9E7D, 0x0E4A, 0x1D17, 0x8B05, 0xDBFD, 0x46CB, 0xB498, 0xCF00, 0xCF00, 0xFFFA, 0xD962, 0x0E00,
         0x9A03, 0x7FFF]
 DIM = 0.7
@@ -146,17 +152,17 @@ hide:
     movem.l (%%sp)+,%%d0-%%d1
 1:  rts
 
-setup:                                  | (a5: the final boss, its hits just set)
+setup:                                  | a5: the final boss, its hits just set
     jsr 0x%(setup)X
     move.l %%a5,0x%(boss)X
-    st 0x%(hits)X                       | (its count not known yet: no hit to see in it)
+    st 0x%(hits)X                       | its count not known yet: no hit to see in it
     rts
 
 frame:
     jsr 0x%(draw_before)X
     cmpi.b #%(stage)d,0x%(stage_at)X
     beq 0f
-    clr.l 0x%(boss)X                    | (another stage: no boss of ours)
+    clr.l 0x%(boss)X                    | another stage: no boss of ours
     rts
 0:  movem.l %%d0-%%d7/%%a0-%%a2,-(%%sp)
     move.w #1,0x3C0004
@@ -164,7 +170,7 @@ frame:
     cmpi.w #0x%(hall_tile)X,0x3C0002
     beq 2f
     bsr hide                            | no: the watchers hidden (once), the state starts over
-    clr.l 0x%(boss)X                    | (nothing left over to read a false hit from)
+    clr.l 0x%(boss)X                    | nothing left over to read a false hit from
     st 0x%(hits)X
     clr.b 0x%(beaten)X
     move.w #0x7FFF,0x%(since)X
@@ -219,7 +225,7 @@ frame:
 9:  movem.l (%%sp)+,%%d0-%%d7/%%a0-%%a2
     rts
 
-watcher:                                | (a2: its entry - slot, x, y, its attributes, reacting, what it does, lag)
+watcher:                                | a2: its entry - slot, x, y, its attributes, reacting, what it does, lag
     lea calm(%%pc),%%a0
     tst.b 10(%%a2)
     beq 1f
@@ -228,9 +234,9 @@ watcher:                                | (a2: its entry - slot, x, y, its attri
     move.w 0x%(tick)X,%%d1
     divu #%(talk_period)d,%%d1
     clr.w %%d1
-    swap %%d1                           | (the frame in the exchange)
+    swap %%d1                           | the frame in the exchange
     cmpi.w #%(talk_for)d,%%d1
-    scs %%d2                            | (the first's turn)
+    scs %%d2                            | the first's turn
     cmpi.b #%(talks_first)d,10(%%a2)
     seq %%d3
     cmp.b %%d2,%%d3
@@ -243,7 +249,7 @@ watcher:                                | (a2: its entry - slot, x, y, its attri
     bne 1f
     lea talk_a(%%pc),%%a0
 1:  move.w 6(%%a2),%%d3                 | its attributes (palette, mirrored)
-    moveq #0,%%d4                       | (up)
+    moveq #0,%%d4                       | up
     move.w 0x%(since)X,%%d5             | a hit: frames since it, for this one
     moveq #0,%%d6
     move.b 11(%%a2),%%d6
@@ -269,7 +275,7 @@ watcher:                                | (a2: its entry - slot, x, y, its attri
     and.w #511,%%d5
     lsl.w #7,%%d5
     addq.w #2,%%d5
-    movea.l %%a0,%%a1                   | (a0: the left column on screen, a1: the right - swapped if mirrored)
+    movea.l %%a0,%%a1                   | a0: the left column on screen, a1: the right - swapped if mirrored
     lea 4(%%a0),%%a0
     btst #0,%%d3
     bne 0f

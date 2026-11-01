@@ -3,45 +3,46 @@ DESCRIPTION = "The elevators' cone turns while they move - its stripes slide rou
 
 import math
 
-# The cone under the elevators' platforms (and under the final boss's platform) is one frame, 0x23CC: 4x2 tiles from
-# CONE (tile 0x4D74 + column + 8 * row, its definition at 0x7363A - nothing else uses them), palette PALETTE. Its
-# colours 1-9 shade the cone and the metal bands like a lit cylinder, A-E the green ring, F a glint. They're redrawn
-# in place for colour cycling: each pixel keeps its brightness (metal 3 levels, the ring 2) and gets a stripe position
-# (3) from where it sits round its row - STRIPES stripes round the shape, so they bunch at the edges - as colour
-# 1 + 3 * level + stripe (metal) or 10 + 3 * level + stripe (ring). Each frame of play (after the front objects are
-# drawn: DRAW_CALL) the first object showing the cone sets the palette: while it
-# moves the stripes step every FRAME_TIME frames - forward going up, back going down; standing still they hold.
-# Moving is measured, not read from its fields (the cone's three objects keep them differently; the one rising to the
-# top keeps its speed after it parks): its height in the level, its y (+0, 8.8, up from the screen's bottom) plus the
-# camera's (CAMERA_Y: one of its steps is 0x80 of an object's y), against last frame's (LAST, while SEEN) - so the
-# camera scrolling (Blue walking up to it, jumping) isn't taken for the cone moving. A stripe's three positions are
-# three
-# tones of its level's colour (TONES, from CONTRAST).
+# The cone under the elevators' platforms, and under the final boss's platform, is frame 0x23CC: 4x2 tiles from CONE
+# (tile 0x4D74 + column + 8 * row, defined at 0x7363A and used by nothing else) in palette PALETTE. Colours 1-9 shade
+# the cone and its metal bands like a lit cylinder, A-E the green ring, and F is a glint.
+#
+# The tiles are redrawn in place for colour cycling. Each pixel keeps its brightness level (3 for metal, 2 for the
+# ring) and gets one of 3 stripe positions from where it sits round its row. There are STRIPES stripes round the
+# shape, so they bunch at the edges. The colour is 1 + 3 * level + stripe for metal and 10 + 3 * level + stripe for
+# the ring. A stripe's three positions are three tones of its level's colour (TONES, from CONTRAST).
+#
+# Each frame of play, after the front objects are drawn (DRAW_CALL), the first object showing the cone sets the
+# palette. While it moves, the stripes step every FRAME_TIME frames, forward going up and back going down; when it
+# stops, they hold. Movement is measured rather than read from the object's fields, since the cone's three objects
+# keep them differently and the one rising to the top keeps its speed after it parks. Its height in the level is its
+# y (+0, 8.8, up from the screen's bottom) plus the camera's (CAMERA_Y, where one step is 0x80 of an object's y),
+# compared with last frame's (LAST, valid while SEEN). That way the camera scrolling, when Blue walks up to it or
+# jumps, isn't mistaken for the cone moving.
 CONE = 0x4D74
 CONE_DEFINITION = 0x7363A      # 03 01 00 F7 4D 74 7C 75 7D 76 7E 77 7F FF
 CONE_FRAME = 0x23CC
 PALETTE = 0xF7
-ORIGINAL = [0x3099, 0x79BC, 0x079A, 0x0578, 0x8467, 0x7245, 0xF134, 0x7023,       # (palette 0xF7 as the stages
-            0x8023, 0xF012, 0xD5C8, 0xF3A6, 0x7184, 0x3062, 0x2041, 0xFCEF]       # load it - the same in both)
+ORIGINAL = [0x3099, 0x79BC, 0x079A, 0x0578, 0x8467, 0x7245, 0xF134, 0x7023,       # palette 0xF7 as the stages
+            0x8023, 0xF012, 0xD5C8, 0xF3A6, 0x7184, 0x3062, 0x2041, 0xFCEF]       # load it, the same in both
 STRIPES = 15
 CONTRAST = 0.30
 TONES = [1 + CONTRAST * 0.4, 1 - CONTRAST * 0.3, 1 - CONTRAST]
 FRAME_TIME = 6
-DRAW_CALL = 0x11804            # jsr (the gameplay loop's front objects)
+DRAW_CALL = 0x11804            # jsr <the gameplay loop's front objects>
 OBJECTS, OBJECT_SIZE, LAST_OBJECT = 0x104000, 0x80, 0x107F80
 ACTIVE, FRAME = 0x28, 8
 CAMERA_Y = 0x10020A
 STAGE = 0x103005
-STAGES = [28, 29, 31]          # the stages with the cone (the elevators - 28 up, 29 down; the final stage's
-                               # mini-boss and boss
-                               # platforms) - elsewhere the scan's cost (128 objects a frame) slowed busy scenes
-TICK = 0x10EA7A                # bytes (spare RAM): frames since the last step, the stripes' step (0-2)
-LAST = 0x10EA7C                # a long: the cone's height in the level last frame (8.8)
-SEEN = 0x10EA80                # a byte: a cone was found last frame (LAST is good)
+STAGES = [28, 29, 31]          # stages with the cone: the elevators (28 up, 29 down) and the final stage's mini
+                               # boss and boss platforms. Elsewhere, scanning 128 objects a frame slowed busy scenes
+TICK = 0x10EA7A                # spare RAM bytes: frames since the last step, and the stripes' step (0-2)
+LAST = 0x10EA7C                # long: the cone's height in the level last frame (8.8)
+SEEN = 0x10EA80                # byte: a cone was found last frame, so LAST is valid
 
 
 def group(v):
-    """(ring?, brightness level) for an original colour, or None for clear."""
+    """(is it the ring, brightness level) for an original colour, or None for clear."""
     if not v:
         return None
     if 10 <= v <= 14:
@@ -50,7 +51,7 @@ def group(v):
 
 
 def repainted(rom):
-    """The cone's pixels (32 x 64) in the cycling colours."""
+    """The cone's 32x64 pixels in the cycling colours."""
     old = [[0] * 64 for _ in range(32)]
     for c in range(4):
         for r in range(2):
@@ -117,22 +118,22 @@ def apply(rom):
 2:  lea %(size)d(%%a0),%%a0
     cmpa.l #0x%(last)X,%%a0
     bls 1b
-    clr.b 0x%(seen)X                    | (none: next time LAST starts again)
+    clr.b 0x%(seen)X                    | none: LAST starts again next time
     bra 9f
-3:  moveq #0,%%d1                       | its height in the level: y + the camera's
+3:  moveq #0,%%d1                       | its height in the level: y + camera y
     move.w 0x%(camera)X,%%d1
     lsl.l #7,%%d1
     moveq #0,%%d0
     move.w (%%a0),%%d0
     add.l %%d1,%%d0
-    tst.b 0x%(seen)X                    | seen last frame: how far it moved since
+    tst.b 0x%(seen)X                    | if seen last frame, how far it has moved since
     beq 8f
     move.l %%d0,%%d1
     sub.l 0x%(last_height)X,%%d1
     move.l %%d0,0x%(last_height)X
     tst.l %%d1
-    beq 5f                              | (still: the stripes hold)
-    addq.b #1,0x%(tick)X                | moving: a step every FRAME_TIME frames, its way
+    beq 5f                              | still: the stripes hold
+    addq.b #1,0x%(tick)X                | moving: step every FRAME_TIME frames in its direction
     cmpi.b #%(frame_time)d,0x%(tick)X
     bcs 5f
     clr.b 0x%(tick)X
@@ -149,7 +150,7 @@ def apply(rom):
     moveq #2,%%d0
 6:  move.b %%d0,0x%(tick)X+1
     bra 5f
-8:  move.l %%d0,0x%(last_height)X        | (first seen: from now on)
+8:  move.l %%d0,0x%(last_height)X        | remember the height for next frame
     st 0x%(seen)X
 5:  moveq #0,%%d1                       | its colours for this step
     move.b 0x%(tick)X+1,%%d1

@@ -2,14 +2,14 @@ NAME = "continue-question"
 DESCRIPTION = "Continue screen: CONTINUE? with a question mark (and a space before its countdown)"
 
 # The continue screen prints CONTINUE in the big two-row font with the inline printer (PRINT: jsr 0x9FE6, then the
-# top row's address 0x7085, 0xFC 0x56, its characters, 0xFE, the bottom row's address, its characters, 0xFF) - the big
-# font's tiles are 0x600 + a character byte, the bottom half 0x10 on; its ? is 0xCE / 0xDE. The countdown is drawn on
-# its own from column 13. There's no room for a ? in place, so the print is now a call to TEXT (the same, with the ?,
-# one column left: CONTINUE? 08) and a branch past the old text.
+# top row's address 0x7085, 0xFC 0x56, its characters, 0xFE, the bottom row's address, its characters and 0xFF).
+# The big font's tiles are 0x600 + the character byte, with the bottom half 0x10 on, and its ? is 0xCE / 0xDE. The
+# countdown is drawn separately from column 13. There's no room for a ? in place, so the print now calls TEXT (the
+# same text with the ?, one column left, making CONTINUE? 08) and branches past the old text.
 PRINT = 0x346A2
 OLD = bytes.fromhex("4EB900009FE67085FC56838F8EA4898EA585FE7086939F9EB4999EB595FF")
-AFTER = PRINT + len(OLD)              # (just past the old text's end: the code after it)
-TOP, BOTTOM = 0x7065, 0x7066          # (column 3, rows 5 / 6 - was column 4)
+AFTER = PRINT + len(OLD)              # the code just past the old text
+TOP, BOTTOM = 0x7065, 0x7066          # column 3 (was 4), rows 5 / 6
 TOP_CHARS = [0x83, 0x8F, 0x8E, 0xA4, 0x89, 0x8E, 0xA5, 0x85, 0xCE]   # C O N T I N U E ?
 
 

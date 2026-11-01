@@ -5,7 +5,7 @@ DESCRIPTION = "High score name entry: a name left as ... (the three default char
 # long at player block +0x160. ':' is drawn as '.'. Each character steps through 0-9, a few symbols, A-Z and space.
 # The table insert (0x5413A) copies that long into the new entry (INSERTS). A name still at ':::' now goes in as
 # BLU, keeping the first byte.
-INSERTS = [(0x54148, 0x7160, 0x30CA), (0x5417E, 0x7560, 0x30D4)]   # (site, the player's name, the entry's)
+INSERTS = [(0x54148, 0x7160, 0x30CA), (0x5417E, 0x7560, 0x30D4)]   # site, the player's name, the entry's
 DEFAULT = 0x3A3A3A
 
 

@@ -14,7 +14,7 @@ DESCRIPTION = "Lower Earth Empire 2: the moss on the brick wall by the water a r
 FRONT_CALL = 0x11804         # jsr 0xA3A6 - the front object group
 STAGE = 4
 ATTR = 0xBA70                # the wall's tile attributes (palette 0xBA)
-CHAINS = [   # (first sprite, level cell x, top cell y, each column's tiles top to bottom)
+CHAINS = [   # first sprite, level cell x, top cell y, each column's tiles top to bottom
     (140, 78, 38, [[0x743, 0x754], [0x744, 0x755]]),   # the tuft moved down, bricks where it was
     (142, 80, 39, [[0x754], [0x755]]),                 # the second tuft
 ]

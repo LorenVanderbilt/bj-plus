@@ -57,12 +57,12 @@ def apply(rom):
     assert rom.u16(BEAM_CUT) == 0x4EB9
     beam_hook = rom.u32(BEAM_CUT + 2)
     code = rom.place_code("""
-    bra.w story_last                    | (+0)
-    bra.w elevator_pal                  | (+4)
-    bra.w best_in                       | (+8)
-    bra.w best_loop                     | (+12)
-    bra.w title_setup                   | (+16)
-    bra.w beam_cut                      | (+20)
+    bra.w story_last                    | +0
+    bra.w elevator_pal                  | +4
+    bra.w best_in                       | +8
+    bra.w best_loop                     | +12
+    bra.w title_setup                   | +16
+    bra.w beam_cut                      | +20
 
 | the story's last scene: save its colours, black out as screen-blackout does, and register them as a load
 story_last:

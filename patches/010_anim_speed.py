@@ -20,7 +20,7 @@ def apply(rom):
     # off) while paused, so keep everything except the speed byte from that copy.
     hook = rom.place_code("""
     move.l %%d0,-(%%sp)
-    move.w 0x1002C2,%%d0                | (the game's copy of the LSPC mode: its other bits kept)
+    move.w 0x1002C2,%%d0                | the game's copy of the LSPC mode: its other bits kept
     and.w #0x00FF,%%d0
     or.w #0x%(timer)04X,%%d0            | the animation clock: FRAMES_PER_STEP
     move.w %%d0,0x3C0006

@@ -182,7 +182,7 @@ def apply(rom):
     for obj, y, (name, row, desc, icon) in zip(ICON_OBJECTS, ICON_YS, SCREEN3):
         frame, slot = frames[icon]
         src += """
-    move.w #0x%(frame)X,0x%(obj_frame)X         | (the icon object: its frame, palette, x, y)
+    move.w #0x%(frame)X,0x%(obj_frame)X         | the icon object: its frame, palette, x, y
     move.b #0x%(slot)X,0x%(obj_palette)X
     move.w #0x%(x)X,0x%(obj_x)X
     move.w #0x%(y)X,0x%(obj)X

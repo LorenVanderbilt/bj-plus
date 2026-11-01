@@ -1,56 +1,60 @@
 NAME = "ride-grid"
 DESCRIPTION = "Travel agent's ride: the grid glides, and a diagonal chain of coloured squares sweeps across it with a fading trail"
 
-# The ride after a destination is picked (the travel agent, room 5) flies between a floor and a ceiling of perspective
-# grid - the level map engine's two layers, both from map table MAP_TABLE: the back one (sprites from 1, blocks 7-8)
-# had the horizontal lines (a tile a row, the same across, in hardware auto-animation: 4 frames of the lines moving
-# toward the camera, on the one animation clock anim-speed slows to 9 frames a step), the front one (sprites from 23,
-# blocks 9-10) the slanted lines (a tile a row and column, still; the right half and the ceiling flipped copies).
+# After a destination is picked at the travel agent (room 5), the ride flies between a floor and a ceiling of
+# perspective grid. Both are layers of the level map engine from map table MAP_TABLE. The back layer (sprites from 1,
+# blocks 7-8) had the horizontal lines: one tile per row, the same all the way across, using hardware
+# auto-animation for 4 frames of the lines moving toward the camera. That runs on the single animation clock, which
+# anim-speed slows to 9 frames a step. The front layer (sprites from 23, blocks 9-10) had the slanted lines, one still
+# tile per row and column, with the right half and the ceiling as flipped copies.
+#
 # Now the colours do the moving:
-#   * the back layer (blocks 7-8) gets the slanted lines (colour 0, see-through: the backdrop is set to their blue
-#     while the ride is on) and, in the squares, colour slots 1-15 (in the slanted tiles' own slots, repainted). A
-#     square pixel's diagonal d is its column (slanted lines crossed from the centre) minus its row (horizontal line
-#     spacings from the horizon), and q which quarter of a spacing it lies in (the 4 frames' lines take turns); as
-#     the lines step (phase p) the pixel's square is diagonal d + (q < p), = (u + p + 3) / 4 with u = 4d - q. So a
-#     pixel needs only u: each tile takes a window of 15 u values (from 4 * base + shift: palette sets SETS - shift
-#     0 or 2, exact; or, for the far rows whose squares are a few pixels and need more, a set by d alone, a pixel's
-#     square taken as lit a quarter early at most), and a palette of its set (its base mod N): PALETTES + 15 * set
-#     + base mod N.
-#   * the front layer (blocks 9-10) gets the horizontal lines alone (the old line tiles, their dark filling made
-#     see-through), without auto-animation: our routine steps their 4 frames itself, every STEP frames, in time with
-#     the colours.
-#   * each step, our routine (called from the ride's loop - RIDE_CALL, in place of its call to the ride's objects,
-#     which it then makes) lights one diagonal - moving one a step - and the TRAIL behind it dimmer, in a colour from
-#     COLOURS (the next each step), cycles = whole line spacings moved so far: a slot is its diagonal's place behind
-#     the chain's (chain - diagonal - cycles, mod N) - lit (0), trail, or dark.
-# The tiles are only the ride's.
+#   * The back layer (blocks 7-8) gets the slanted lines in colour 0, which is see-through, with the backdrop set to
+#     their blue during the ride. The squares between them use colour slots 1-15, repainted into the slanted tiles'
+#     own slots.
+#
+#     For a pixel in a square, its diagonal d is its column (slanted lines crossed from the centre) minus its row
+#     (horizontal line spacings from the horizon). q is which quarter of a spacing it lies in, since the 4 frames of
+#     lines take turns. As the lines step through phase p, the pixel's square is on diagonal d + (q < p), which is
+#     (u + p + 3) / 4 with u = 4d - q. So a pixel only needs u. Each tile takes a window of 15 u values starting at
+#     4 * base + shift, with shift 0 or 2 (SETS, exact). The far rows, whose squares are only a few pixels and need
+#     more, use a set by d alone, which may light a pixel's square up to a quarter step early. Each tile gets a
+#     palette of its set: PALETTES + 15 * set + base mod N.
+#   * The front layer (blocks 9-10) gets just the horizontal lines (the old line tiles, with their dark filling made
+#     see-through) and no auto-animation. The routine here steps their 4 frames itself every STEP frames, in time
+#     with the colours.
+#   * Each step, the routine (called from the ride's loop at RIDE_CALL, in place of the call to the ride's objects,
+#     which it then makes) lights one diagonal, moving it on one each step, with the TRAIL behind it dimmer. The
+#     colour comes from COLOURS, the next one each step. With cycles = whole line spacings moved so far, each slot's
+#     place behind the chain is (chain - diagonal - cycles) mod N, which makes it lit (0), trail, or dark.
+# These tiles are used only by the ride.
 MAP_TABLE = 0xABC12
 BACK_BLOCKS, FRONT_BLOCKS = (7, 8), (9, 10)
-H_TILES = [0x5560 + 8 * r for r in range(6)]          # floor row r's horizontal lines (4 frames from each)
+H_TILES = [0x5560 + 8 * r for r in range(6)]          # floor row r's horizontal lines, 4 frames from each
 V_TILES = [[0x555C + 8 * r + c if c < 4 else 0x5590 + 8 * r + (c - 4) for c in range(10)] for r in range(6)]
-LINE_H, LINE_V, DARK = 8, 7, 15                        # palette 0x88: the lines' colours, the dark between them
+LINE_H, LINE_V, DARK = 8, 7, 15                        # palette 0x88: the lines' colours and the dark between
 PAL88 = 0x88
-N = 15                                                 # diagonals between chains (the palettes a set)
-SETS = (0, 2, None)                                    # the palette sets: u windows from a multiple of 4 + 0 / + 2,
+N = 15                                                 # diagonals between chains, and palettes per set
+SETS = (0, 2, None)                                    # palette sets: u windows from a multiple of 4 plus 0 or 2,
                                                        # or by diagonal alone (None)
-PALETTES = 0xA0                                        # N palettes a set, from here (unused while the ride is on)
-STEP = 4                                               # frames a step (lines and chain)
-EXACT_MISS = 8                                         # a tile's pixels an exact set may leave out (to the nearest slot)
+PALETTES = 0xA0                                        # N palettes per set from here, unused during the ride
+STEP = 4                                               # frames a step, for the lines and the chain
+EXACT_MISS = 8                                         # pixels per tile an exact set may miss (they take the nearest slot)
 COLOURS = [(0, 255, 197), (8, 238, 205), (8, 213, 213), (16, 205, 213), (24, 172, 222),
            (24, 156, 238), (32, 139, 246), (41, 106, 255), (32, 139, 246), (24, 156, 238),
-           (24, 172, 222), (16, 205, 213), (8, 213, 213), (8, 238, 205)]   # the shimmering
-                                               # floor's (Lower Earth's palette 0x90, its brightest): green to blue and back
-# Other sets tried (2026-10-25) - to use one: COLOURS = COLOURS_COOL, say:
+           (24, 172, 222), (16, 205, 213), (8, 213, 213), (8, 238, 205)]   # the brightest of
+                                               # Lower Earth's shimmering floor (palette 0x90): green to blue and back
+# Other sets tried on 2026-10-25. To use one, set e.g. COLOURS = COLOURS_COOL
 COLOURS_RAINBOW = [(230, 60, 60), (240, 150, 40), (240, 230, 60), (70, 220, 90), (60, 200, 230), (90, 110, 250),
-                   (190, 90, 240)]                     # the first: red, orange, yellow, green, cyan, blue, purple
+                   (190, 90, 240)]                     # red, orange, yellow, green, cyan, blue, purple
 COLOURS_COOL = [(60, 200, 240), (60, 230, 200), (70, 220, 120), (60, 150, 250), (120, 110, 250), (170, 100, 250),
-                (90, 230, 240)]                        # cool ones: sky, aqua, green, blue, indigo, violet, cyan
+                (90, 230, 240)]                        # sky, aqua, green, blue, indigo, violet, cyan
 TRAIL = [1.0, 0.55, 0.25]                              # the lit diagonal, then the two before it
-RIDE_ON = 0x1078AE                                     # set as the ride starts, cleared as it ends (its loop's test)
-RIDE_CALL = 0x2788A                                    # jsr 0x2790E (the ride's objects), in its loop
+RIDE_ON = 0x1078AE                                     # set while the ride runs; its loop tests it
+RIDE_CALL = 0x2788A                                    # jsr 0x2790E (the ride's objects) in its loop
 BACKDROP = 0x401FFE
-RAM = 0x10ECF0                                         # +0 on (byte), +2 the step (word), +4 frames to the next step
-                                                       # (word), +6 the backdrop before (word)
+RAM = 0x10ECF0                                         # +0 on (byte), +2 step (word), +4 frames to the next step
+                                                       # (word), +6 the saved backdrop (word)
 
 
 def neo(rgb):
@@ -63,14 +67,14 @@ def rgb(w):
 
 
 def slot_term(s, i, p):
-    """A slot's diagonal past its palette's base, at phase p: set s (a shift, or None), slot i (1-15)."""
+    """How far slot i (1-15) of set s (a shift, or None) is past its palette's base diagonal at phase p."""
     if s is None:
         return i - 1 + (1 if p >= 1 else 0)
     return (s + i + p + 2) // 4
 
 
 def tiles(rom):
-    """The new tiles: back[(row, col)] (pixels), pal[(row, col)] (its palette's number from PALETTES),
+    """The new tiles: back[(row, col)] pixels, pal[(row, col)] palette numbers counted from PALETTES, and
     front[(row, frame)]."""
     # s(y): the index of the last horizontal line (of all 4 frames) at or above floor pixel row y
     lines = sorted((16 * r + yy, f) for r in range(6) for f in range(4)
@@ -116,7 +120,7 @@ def tiles(rom):
             px = [[0] * 16 for _ in range(16)]
             for xx, yy, d, q in cells:
                 i = d - b + 1 if s is None else 4 * d - q - (4 * b + s) + 1
-                px[yy][xx] = min(15, max(1, i))        # (outside the window: the nearest slot)
+                px[yy][xx] = min(15, max(1, i))        # outside the window: the nearest slot
             back[(r, c)], pal[(r, c)] = px, N * k + b % N
     front = {(r, f): [[LINE_H if v == LINE_H else 0 for v in row] for row in rom.sprite_tile(H_TILES[r] + f)]
              for r in range(6) for f in range(4)}
@@ -131,8 +135,8 @@ def apply(rom):
     for (r, f), px in front.items():
         rom.redraw_sprite_tile(H_TILES[r] + f, px, why="ride grid: horizontal lines, see-through between")
 
-    # the maps: the back blocks get the old front blocks' cells (slanted tiles), each in its square's palette; the
-    # front blocks the old back blocks' (horizontal line tiles), their auto-animation off
+    # the maps: the back blocks get the old front blocks' cells (slanted tiles), each in its square's palette, and
+    # the front blocks get the old back blocks' cells (horizontal line tiles) with auto-animation off
     def quarters(block):
         return [rom.map_quarter(rom.u32(MAP_TABLE + 16 * block + 4 * q)) for q in range(4)]
     old = {b: quarters(b) for b in BACK_BLOCKS + FRONT_BLOCKS}
@@ -156,14 +160,14 @@ def apply(rom):
     code = rom.place_code("""
     tst.b 0x%(ride_on)X
     bne 1f
-    tst.b 0x%(on)X                      | the ride over: the backdrop back
+    tst.b 0x%(on)X                      | the ride is over: restore the backdrop
     beq 9f
     move.w 0x%(saved)X,0x%(backdrop)X
     clr.b 0x%(on)X
 9:  jmp 0x%(objects)X
 1:  tst.b 0x%(on)X
     bne 2f
-    move.b #1,0x%(on)X                  | the ride starts: the backdrop the slanted lines' blue
+    move.b #1,0x%(on)X                  | the ride starts: set the backdrop to the slanted lines' blue
     move.w 0x%(backdrop)X,0x%(saved)X
     move.w 0x%(linev_addr)X,0x%(backdrop)X
     clr.w 0x%(step)X
@@ -172,13 +176,13 @@ def apply(rom):
     bpl 9b
     move.w #%(step_frames_1)d,0x%(wait)X
     movem.l %%d0-%%d7/%%a0-%%a4,-(%%sp)
-    lea -%(lit_bytes)d(%%sp),%%sp       | the step's colours by place behind the chain (N words)
+    lea -%(lit_bytes)d(%%sp),%%sp       | this step's colour for each place behind the chain (N words)
     move.w 0x%(step)X,%%d7              | d7 = the step
     addq.w #1,0x%(step)X
     moveq #0,%%d1
     move.w %%d7,%%d1
     divu #%(ncol)d,%%d1
-    swap %%d1                           | d1 = step mod the colours (its colour)
+    swap %%d1                           | d1 = step mod the colour count: its colour
     moveq #3,%%d2
     and.w %%d7,%%d2                     | d2 = the phase
     moveq #0,%%d0
@@ -194,7 +198,7 @@ def apply(rom):
     moveq #0,%%d4
 3:  cmp.w #%(trail)d,%%d4
     bcc 4f
-    move.w %%d1,%%d5                    | (step - place) mod the colours
+    move.w %%d1,%%d5                    | (step - place) mod the colour count
     sub.w %%d4,%%d5
     bpl 5f
     add.w #%(ncol)d,%%d5
@@ -210,7 +214,7 @@ def apply(rom):
     bcs 3b
     | the front layer: its lines' frame
     move.w #2,0x3C0004
-    move.w 0x10024A,%%d4                | (the front layer's first sprite)
+    move.w 0x10024A,%%d4                | the front layer's first sprite
     lsl.w #6,%%d4
     moveq #20,%%d5
 7:  lea front_rows(%%pc),%%a1
@@ -233,7 +237,7 @@ def apply(rom):
     add.w #64,%%d4
     dbra %%d5,7b
     move.w #1,0x3C0004
-    | the palettes: set by set, base by base, slot by slot - place = (chain - cycles) - base - the slot's term
+    | the palettes, by set, base and slot: place = (chain - cycles) - base - the slot's term
     lea 0x%(pal0)X,%%a0
     lea terms(%%pc),%%a1
     move.w %%d2,%%d4
@@ -245,7 +249,7 @@ def apply(rom):
 12: lea 2(%%a0),%%a4
     move.w %%d0,%%d4
     sub.w %%d5,%%d4
-    add.w #%(n3)d,%%d4                  | (kept positive)
+    add.w #%(n3)d,%%d4                  | kept positive
     moveq #14,%%d7
 13: move.w %%d4,%%d3
     sub.b (%%a1,%%d7.w),%%d3

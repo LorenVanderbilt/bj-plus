@@ -3,52 +3,61 @@ DESCRIPTION = "Goal stalk: its bells rock as it swings - each a little pendulum 
 
 import math
 
-# The goal's flower bells (sta/aes/goal_bell.sta) hang from the stalk's segments and followed its swing upright. Now
-# each is a small pendulum on its hook: the hook's sideways acceleration (its x against the stalk's base - the
-# screen scrolls - each frame) pushes it the other way, gravity pulls it back to hanging, damping settles it - so it
-# lags as the stalk sets off, swings out as the stalk turns at the end of a bend, and each bell (its own rate, PARAMS)
-# a little out of step with the rest. Its angle picks a drawing: 15 degrees past TILT_15, 30 past TILT_30.
-# The hanging ones (HANGING: their routines, each starting with jsr PARENT - a0 its segment, the hook - and the frame
-# it shows, set just before), and the top one (TOP_FRAME: while it swings it runs the segments' SWINGING routine;
-# just after it's placed, TOP_PLACE - and before the stalk's touched, TOP_REST in its own routine - itself the hook,
-# on the stalk's base; drawn as plain grids, its place shifted to match each one - plain ones, one high byte and a byte a tile: the stalk's drawer reads no more (drawn in
-# pieces, as the hanging ones are, it came apart). Each bell's state (STATE, 16 bytes: the frame
-# it was last updated - another means it's just come into play, and it starts hanging still - the hook's last x and
-# speed, the angle and its speed: 1/64 degree, the frames since the stalk first moved, its clapper) is spare RAM. The
-# stalk's push fades over FADE frames from its first move, so each swing of the bells is smaller and they settle.
-# Each hanging bell has a clapper: an object of its own (made when the bell first swings) drawn behind it in brass
-# (CLAPPER_PALETTE), hung at the bell's HANG point - turned with the bell's drawing - and a pendulum of its own
-# driven by that point, so it lags the bell and swings across the mouth, knocking the sides (CLAPPER_ROOM: it
-# bounces back), one step behind its bell (+0x28: the bell's body hides all but what drops below the rim). The bell
-# places it each frame (the hanging ones' own place: their segment's, less their routine's offsets - read from the
-# routine; the top one's as it's placed), so the two move together.
-# The drawings are the bells' own art (3 shapes: the top one, and the left- and right-hooked hanging ones - each
-# frame the shape in its own palette) turned about their top (the hook, or the top bell's knob) by RotSprite
-# (Scale2x three times, turned, each pixel's centre sampled) - or, once painted, ART's pictures (each shape's in
-# its first frame's colours, ART_COLOURS; DRAWN: the build writes them from RotSprite, and reads them as painted
-# once it's False) - then laid on the tile grid where they need the fewest tiles (an even offset: pieces are
-# placed in 2 px steps). A frame is a blank 1 x 1 grid and a piece per column of tiles - the same number of pieces in
-# every drawing of a bell, hanging still too (its own tiles, a frame of its own), padded with blank ones: a sprite
-# dropped from one frame to the next lingers (the top bell's knob came adrift). The bells hanging still are
-# their own art - or UPRIGHT's pictures where they've been painted over (their 32 x 32: the rest stays clear).
+# The goal's flower bells (see sta/aes/goal_bell.sta) hang from the stalk's segments and used to follow its swing
+# while staying upright. Each is now a small pendulum on its hook. The hook's sideways acceleration each frame (its x
+# relative to the stalk's base, since the screen scrolls) pushes the bell the other way, gravity pulls it back to
+# hanging, and damping settles it. So a bell lags as the stalk sets off and swings out as the stalk turns at the end
+# of a bend, and each one (with its own rate, PARAMS) runs a little out of step with the rest. Its angle picks a
+# drawing: past TILT_15 the 15 degree one, past TILT_30 the 30 degree one.
+#
+# The hanging bells (HANGING) are hooked through their routines, each of which starts with jsr PARENT (a0 = its
+# segment, the hook) after setting the frame it shows. The top bell (TOP_FRAME) runs the segments' SWINGING routine
+# while it swings; it's hooked just after it's placed (TOP_PLACE), and before the stalk is touched in its own
+# routine (TOP_REST). It is its own hook, on the stalk's base. It's drawn as plain grids with its position shifted
+# to match each one, since the stalk's drawer only reads plain frames (one high byte and a byte a tile); drawn in
+# pieces like the hanging bells, it came apart.
+#
+# Each bell's state (STATE, 16 bytes of spare RAM) holds the frame it was last updated (any other value means it has
+# just come into play and starts hanging still), the hook's last x and speed, its angle and angular speed in 1/64
+# degree, the frames since the stalk first moved, and its clapper. The stalk's push fades over FADE frames from its
+# first move, so each swing is smaller than the last and the bells settle.
+#
+# Each hanging bell has a clapper: its own object, made when the bell first swings, drawn behind it in brass
+# (CLAPPER_PALETTE). It hangs from the bell's HANG point, which turns with the bell's drawing, and is a pendulum of its
+# own driven by that point, so it lags the bell, swings across the mouth and bounces off the sides (CLAPPER_ROOM). It
+# sits one step behind its bell (+0x28), so the bell's body hides all but what drops below the rim. The bell places
+# it each frame, so the two move together: hanging bells from their segment's position less their routine's offsets
+# (read from the routine), and the top bell as it's placed.
+#
+# The drawings are the bells' own art in 3 shapes (the top bell, and the left- and right-hooked hanging ones, each
+# frame being a shape in its own palette), rotated about their top (the hook, or the top bell's knob) with RotSprite:
+# Scale2x three times, rotate, then sample each pixel's centre. Once painted, ART's pictures are used instead, each
+# shape in its first frame's colours (ART_COLOURS). While DRAWN is True the build writes them from RotSprite; once
+# it's False it reads them as painted. Each drawing is then placed on the tile grid at the even offset that needs
+# the fewest tiles, since pieces are placed in 2 px steps.
+#
+# A frame is a blank 1x1 grid plus one piece per column of tiles. Every drawing of a bell, including hanging still
+# (with its own tiles and frame), has the same number of pieces, padded with blank ones, because a sprite dropped
+# from one frame to the next lingers on screen (the top bell's knob came adrift). The bells hanging still use their
+# own art, or UPRIGHT's pictures where those have been painted (32x32; the rest stays clear).
 PARENT = 0x5E036               # a0 = the object's parent (+0x4E); tst.b 0x28(a0)
 HANGING = [0x52B52, 0x52B80, 0x52BAE, 0x52BDC, 0x52C0A, 0x52C38]
 TOP_FRAME = 0x20D0
-TOP_PLACE = 0x52A48            # (in SWINGING, 0x52A0C: jsr <placed from its parent> - goal-bend's)
-TOP_REST = 0x528E6             # (its routine before the stalk's touched, 0x528D8: jsr <placed from its parent>)
+TOP_PLACE = 0x52A48            # in SWINGING, 0x52A0C: jsr <placed from its parent> - goal-bend's
+TOP_REST = 0x528E6             # its routine before the stalk's touched, 0x528D8: jsr <placed from its parent>
 TOP_PRIORITY = 0x81            # (+0x28 - was 0x7F, the hanging bells', in front of Blue, 0x80: the game writes sprites
                                # back to front, and at the goal it's late - the top bell's, at the screen's top, came
                                # after the beam had drawn its top rows and they showed the last frame's drawing: torn)
-ANGLES = [-30, -15, 15, 30]    # (degrees: the drawings; 0 is the bell as it is)
-TILT_15, TILT_30 = 8, 22       # (degrees swung: the drawing past each)
+ANGLES = [-30, -15, 15, 30]    # degrees: the drawings; 0 is the bell as it is
+TILT_15, TILT_30 = 8, 22       # degrees swung: the drawing past each
 PARAMS = [(10, 15, 147), (13, 15, 230), (12, 15, 360), (12, 15, 147), (11, 15, 230), (14, 15, 360), (9, 15, 110)]
                                # (each bell, HANGING's order then the top one: its pull back to hanging, its damping,
                                # its push from the hook's acceleration - /256 a frame. Higher bells' hooks move more:
                                # the lower ones get more push)
-FADE = 200                     # (frames: the stalk's push on the bells fades to nothing over them - each swing smaller)
+FADE = 200                     # frames: the stalk's push on the bells fades to nothing over them - each swing smaller
 STATE = 0x10E860               # 7 x 16 bytes (spare RAM, to 0x10E8CF)
 NEW_OBJECT = 0xFFEC            # -> a1 (ne: none free)
-CLAPPER = [".....111.....",    # (the clapper as drawn, its top at its hang point: 1 outline, 2 body, 3 highlight)
+CLAPPER = [".....111.....",    # the clapper as drawn, its top at its hang point: 1 outline, 2 body, 3 highlight
            ".....121.....",
            ".....121.....",
            ".....121.....",
@@ -57,15 +66,15 @@ CLAPPER = [".....111.....",    # (the clapper as drawn, its top at its hang poin
            "...1232221...",
            "...1222221...",
            "....11111...."]
-CLAPPER_X = 6                  # (the drawing's middle column: under the hang point)
+CLAPPER_X = 6                  # the drawing's middle column: under the hang point
 HANG = (15, 24)                # (the upright bell's hang point, px in its frame: the clapper's top - its ball
                                # then shows in the mouth's notch)
-CLAPPER_PALETTE = 0x7E         # (empty in play: the title's; pause-menu borrows it and puts it back)
+CLAPPER_PALETTE = 0x7E         # empty in play: the title's; pause-menu borrows it and puts it back
 CLAPPER_COLOURS = [(96, 56, 8), (214, 160, 40), (255, 232, 128)]   # brass: outline, body, highlight
 CLAPPER_PARAMS = (30, 10, 420) # (its pull back to hanging, damping, push - as PARAMS: a short, quick pendulum)
-CLAPPER_ROOM = 18              # (degrees it can swing from the bell's middle before it knocks the side and bounces)
-CLAPPER_SPAN = 12              # (px from the hang point to the ball: how far a swing moves it)
-FRAME = 0x100206               # (a word counted each frame)
+CLAPPER_ROOM = 18              # degrees it can swing from the bell's middle before it knocks the side and bounces
+CLAPPER_SPAN = 12              # px from the hang point to the ball: how far a swing moves it
+FRAME = 0x100206               # a word counted each frame
 FRAME_TABLE = 0x60772
 ART = "art/goal_bells/bell_%04X_%+d.png"   # (a shape's first frame, the angle) - 64 x 56: the frame's (0, 0) at (16, 8)
 ART_ORIGIN = (16, 8)
@@ -211,7 +220,7 @@ def apply(rom):
         assert rom.u16(site) == 0x4EB9 and rom.u32(site + 2) == PARENT, hex(site)
         assert rom.u16(site - 20) == 0x3B7C and rom.u16(site - 16) == 8, hex(site)   # move.w #frame,8(a5)
         sites.append((site, rom.u16(site - 18)))
-    shown = sorted({f for _, f in sites}) + [TOP_FRAME]   # (the top bell's last: its tiles all from the placeholders')
+    shown = sorted({f for _, f in sites}) + [TOP_FRAME]   # the top bell's last: its tiles all from the placeholders'
     drawings = {}                                  # (tiles) -> {angle: (ox, oy, cells as tile numbers)}
     pivots = {}                                    # (tiles) -> the shape's top: what its drawings turn about
     for f in shown:
@@ -231,7 +240,7 @@ def apply(rom):
     shift = {}                                     # the top bell's frames -> its place's shift (x, y: 1/128 px)
     for f, (palette, key, mode) in frames.items():
         out = []
-        if f == TOP_FRAME:                         # (a plain grid, its place shifted: see TOP_PLACE)
+        if f == TOP_FRAME:                         # a plain grid, its place shifted: see TOP_PLACE
             span_c = max(max(c for c, _ in drawings[key][a][2]) - min(c for c, _ in drawings[key][a][2]) for a in ANGLES) + 1
             span_r = max(max(r for _, r in drawings[key][a][2]) - min(r for _, r in drawings[key][a][2]) for a in ANGLES) + 1
         for a in ANGLES:
@@ -247,7 +256,7 @@ def apply(rom):
                         t = cells.get((c, r))
                         body += bytes([0 if t is None else t & 0xFF])
             else:
-                body = bytearray([0, 0, mode, palette, 0, 0])     # (a blank 1 x 1 grid; the frame's own mode byte)
+                body = bytearray([0, 0, mode, palette, 0, 0])     # a blank 1 x 1 grid; the frame's own mode byte
                 for c in sorted({c for c, _ in cells}):
                     rows = sorted(r for cc, r in cells if cc == c)
                     top = rows[0]
@@ -294,11 +303,11 @@ def apply(rom):
     def clap_table(site, f):
         """The bell's routine's y, x offsets (subi.w #y,0(a5) ; subi.w #x / addi.w #-x,2(a5)), then its hang point
         (x, y: 1/128 px - y down the frame) at each drawing: -30, -15, as is, 15, 30."""
-        if site is None:                                                   # (the top bell: placed as it is)
+        if site is None:                                                   # the top bell: placed as it is
             out = [0, 0]
         else:
             assert rom.u16(site + 12) == 0x046D and rom.u16(site + 16) == 0 and rom.u16(site + 18) in (0x046D, 0x066D) \
-                and rom.u16(site + 22) == 2, hex(site)                    # (subi / addi.w #x,2(a5))
+                and rom.u16(site + 22) == 2, hex(site)                    # subi / addi.w #x,2(a5)
             x = rom.u16(site + 20)
             out = [rom.u16(site + 14), x if rom.u16(site + 18) == 0x046D else (-x) & 0xFFFF]
         pv = pivots[frames[f][1]]
@@ -315,7 +324,7 @@ hang%(k)d:
     movem.l %%d0-%%d7/%%a0-%%a4,-(%%sp)
     movea.l %%a0,%%a2                   | the hook: the segment
     movea.l %%a0,%%a4
-    moveq #0,%%d0                       | (its base: the segment's parent)
+    moveq #0,%%d0                       | its base: the segment's parent
     move.b 0x4E(%%a0),%%d0
     lsl.w #7,%%d0
     lea 0x104000,%%a3
@@ -338,10 +347,10 @@ clap%(k)d:
     bra.w top
 %(branches)s
     bra.w top_rest
-top:                                    | (the swing's segments and the top bell, placed: only the bell's frames)
-    jsr 0x%(place)X                     | (what the jsr was: goal-bend's placing)
+top:                                    | the swing's segments and the top bell, placed: only the bell's frames
+    jsr 0x%(place)X                     | what the jsr was: goal-bend's placing
     bra.s top_placed
-top_rest:                               | (the top bell before the stalk's touched: its own routine's placing)
+top_rest:                               | the top bell before the stalk's touched: its own routine's placing
     jsr 0x%(rest_place)X
 top_placed:
     movem.l %%d0-%%d7/%%a0-%%a4,-(%%sp)
@@ -352,7 +361,7 @@ top_placed:
     bcs 9f
     cmpi.w #0x%(last)X,%%d0
     bhi 9f
-1:  move.b #0x%(top_pri)X,0x28(%%a5)     | (behind Blue: its sprite's then written before the screen's top is drawn)
+1:  move.b #0x%(top_pri)X,0x28(%%a5)     | behind Blue: its sprite's then written before the screen's top is drawn
     movea.l %%a5,%%a2                   | the hook: the bell as placed; its base: its parent
     moveq #0,%%d0
     move.b 0x4E(%%a5),%%d0
@@ -395,7 +404,7 @@ swing:
     subq.w #1,%%d2
     cmp.w (%%a0),%%d2
     beq 1f
-    move.w %%d1,2(%%a0)                 | (just come into play: hanging still)
+    move.w %%d1,2(%%a0)                 | just come into play: hanging still
     clr.w 4(%%a0)
     clr.l 6(%%a0)
     clr.w 10(%%a0)
@@ -421,7 +430,7 @@ swing:
     muls 2(%%a2),%%d2
     asr.l #8,%%d2
     sub.w %%d2,%%d4                     | - damped
-    tst.w 10(%%a0)                      | (the push fades: FADE frames from the stalk's first move)
+    tst.w 10(%%a0)                      | the push fades: FADE frames from the stalk's first move
     bne 9f
     tst.w %%d3
     beq 10f
@@ -484,7 +493,7 @@ clapper:
     move.l %%a5,0x58(%%a2)
     move.w #0x%(clap_frame)X,8(%%a2)
     move.b #0x%(clap_pal)X,0x20(%%a2)
-    move.b 0x28(%%a5),%%d0              | (one behind its bell)
+    move.b 0x28(%%a5),%%d0              | one behind its bell
     addq.b #1,%%d0
     move.b %%d0,0x28(%%a2)
     clr.l 0x50(%%a2)
@@ -531,7 +540,7 @@ clapper:
     sub.w %%d7,%%d6
     move.w %%d6,0x52(%%a2)
     add.w 0x50(%%a2),%%d6               | its angle
-    move.w %%d6,%%d0                    | (against the bell's sides: it bounces back)
+    move.w %%d6,%%d0                    | against the bell's sides: it bounces back
     sub.w %%d4,%%d0
     cmpi.w #%(room)d,%%d0
     ble 6f
@@ -555,7 +564,7 @@ clapper:
     move.w %%d3,2(%%a2)
 9:  rts
 
-clapper_object:                         | (each frame: its colours; gone with its bell)
+clapper_object:                         | each frame: its colours; gone with its bell
     movea.l 0x58(%%a5),%%a0
     tst.b 0x28(%%a0)
     beq 1f

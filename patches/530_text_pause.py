@@ -7,10 +7,10 @@ DESCRIPTION = "Text engine: a pause code (0xFD); the opening's BUT... types its 
 # countdown), then goes on. The story cinema's BUT...... (English; typed a character every 2 frames, so its dots
 # came in a blur) is now BUT, then each dot after a pause - the same 9 bytes.
 CONTROL = 0x217AC
-CHAIN = 0x2181A               # (0xFB's handling)
+CHAIN = 0x2181A               # 0xFB's handling
 BUT = 0x34C38                 # BUT...... then 0xFC and its callback
 PAUSE = 0xFD
-PAUSE_FRAMES = 18             # (before each dot)
+PAUSE_FRAMES = 18             # before each dot
 
 
 def apply(rom):
@@ -22,7 +22,7 @@ def apply(rom):
 1:  cmpi.b #0x%(pause)X,%%d1
     bne 2f
     move.b #%(frames)d,10(%%a3)            | the countdown
-    addq.w #1,2(%%a3)                   | (past 0xFD)
+    addq.w #1,2(%%a3)                   | past 0xFD
     addq.l #4,%%sp                      | this frame: done
 2:  rts
 """ % {"chain": CHAIN, "pause": PAUSE, "frames": PAUSE_FRAMES}, why="text engine: 0xFD pauses")

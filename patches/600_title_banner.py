@@ -3,26 +3,32 @@ DESCRIPTION = "Title screen: the bird tows a PLUS banner across under the logo a
 
 import os
 
-# The title's bird (object code BIRD; +2 its x, +0 its y, a 32x32 sprite) flies right to left under the logo at
-# 1.5 px a frame and pops Blue's balloon as its left edge passes screen x 140. On the title, x on screen is
-# 2 * (+2 / 256) - 127 and the sprite's top is +0 / 256 - 20. ART (rope first, then the cloth) is drawn just behind it
-# (its left edge GAP px right of the bird's) every frame of the title (title-menu's per-frame call FRAME_CALL), until it
-# reaches STOP_X: there it stays and the bird flies on. Sprites SLOTS (one 16-px column each, chained) - above what the
-# title draws (its last at 280); hidden and the state cleared as the title ends (LEAVE_CALL), so the next title tows
-# it in again. Colours: its own, COLOURS (a GIMP palette: index 0 clear, then up to 15), written into palette PALETTE
-# - empty on the title - while it's drawn (nothing changes the palettes until the title ends, when the next scene
-# loads them all). Without the pictures: the placeholder, in fix palette 1 (palettes 0-15 never change).
-# The cloth flutters: ARTS' pictures in SEQUENCE's order (0 = the first), FRAME_TIME frames each, round and round
-# (TICK counts).
-# Let go, the ropes fall slack: the banner's pictures without them (ROPE_CLEAR: the columns cleared) and the ropes
-# as their own sprite (slot SLOT - 1, behind the banner; one 16 x 32 column, ROPE_TOP px below the banner's top), ROPES'
-# poses (ROPE_POSES) in turn: the fall (FALL, ROPE_TIME frames each) - they swing down, past and back - then the sway
-# (SWAY, SWAY_TIME frames each) round and round. Each rope keeps a short stub on the cloth (STUB px, at its KNOTS
-# angle) and swings from where that bends.
-# ROPES is drawn from the settings by each build while ROPES_DRAWN (then set it False and paint it).
-# The bird over the ropes: the title draws its sprites before the per-frame call, the bird among them (2 columns, 2
-# tiles tall) below SLOT - so while it tows, the bird's columns (found by where they are) are copied to the 2 slots
-# after the banner's and the originals hidden: it's drawn in front of the rope it holds.
+# The title's bird (object BIRD, with x at +2 and y at +0, a 32x32 sprite) flies right to left under the logo at
+# 1.5 px a frame and pops Blue's balloon as its left edge passes screen x 140. On the title, its screen x is
+# 2 * (+2 / 256) - 127 and the sprite's top is +0 / 256 - 20.
+#
+# Every frame of the title (title-menu's per-frame call, FRAME_CALL), ART is drawn just behind the bird, rope first
+# and then the cloth, with its left edge GAP px right of the bird's. When it reaches STOP_X it stays there and the bird
+# flies on. It uses sprites SLOTS, one chained 16 px column each, above everything the title draws (the title's last
+# sprite is 280). As the title ends (LEAVE_CALL) they're hidden and the state is cleared, so the next title tows it
+# in again. Its colours, COLOURS, are a GIMP palette (index 0 clear, then up to 15) written into palette PALETTE,
+# which is empty on the title, while it's drawn; nothing changes the palettes until the title ends and the next
+# scene loads them all. Without the pictures it draws a placeholder in fix palette 1, since palettes 0-15 never
+# change.
+#
+# The cloth flutters through ARTS' pictures in SEQUENCE's order (0 = the first), FRAME_TIME frames each, on a loop
+# counted by TICK.
+#
+# When the bird lets go, the ropes fall slack. The banner switches to its pictures without ropes (ROPE_CLEAR clears
+# those columns), and the ropes become their own sprite in slot SLOT - 1, behind the banner: one 16x32 column
+# ROPE_TOP px below the banner's top. It plays ROPES' poses (ROPE_POSES) in turn: the fall (FALL, ROPE_TIME frames
+# each), where they swing down, past and back, then the sway (SWAY, SWAY_TIME frames each) on a loop. Each rope keeps
+# a short stub on the cloth (STUB px, at its KNOTS angle) and swings from where that bends. While ROPES_DRAWN is
+# True, each build draws ROPES from the settings; set it to False to paint it by hand.
+#
+# The bird has to be in front of the rope it holds. The title draws its sprites before the per-frame call, with the
+# bird (2 columns, 2 tiles tall) below SLOT. So while it tows, the bird's columns, found by position, are copied to
+# the 2 slots after the banner's and the originals are hidden.
 ARTS = ["art/title/bannerA1C%d.png" % n for n in range(1, 7)]   # all one size, up to 128 x 32, in
                                # COLOURS' colours (index 0 clear) - else the placeholder (one picture)
 COLOURS = "art/title/banner_palette.gpl"
@@ -33,9 +39,9 @@ LEAVE_CALL = 0x1B026           # jsr (the title's end chain)
 BIRD = 0x1BF2E
 OBJECTS, OBJECT_SIZE, LAST_OBJECT = 0x104000, 0x80, 0x107F80
 ACTIVE = 0x28
-GAP = 21                       # (the rope starts behind the bird: its body reaches x 20-21 at the lower rope, 26-30 at the upper)
+GAP = 21                       # the rope starts behind the bird: its body reaches x 20-21 at the lower rope, 26-30 at the upper
 DROP = 6                      # (the banner's top, below the bird's)
-STOP_X = 172                   # (where it is as the bird pops the balloon)
+STOP_X = 172                   # where it is as the bird pops the balloon
 SLOT = 330
 ROPES = "art/title/banner_ropes.png"   # the slack ropes' poses side by side, 16 x 32 each, in COLOURS' colours
 ROPE_CLEAR = 10                # the pictures' columns 0-9 are the ropes (the cloth from 10)
@@ -58,7 +64,7 @@ SWAY_TIME = 6
 def angles():
     """Each pose's (top rope, bottom rope) angles."""
     return ROPE_POSES
-ROPE_LENGTH = 14                # (the stub plus the part below the bend)
+ROPE_LENGTH = 14                # the stub plus the part below the bend
 STUB = 2                       # (the stub left on the cloth, before the bend)
 PALETTE = 0x7E
 # PLUS in colour: the pictures' letters are painted in LETTER_INK; the build colours each like the logo's letters -
@@ -84,7 +90,7 @@ RAMP_MAIN = 5
 LETTER_SLOTS = ([10, 11, 12, 13], [14, 15, 2, 3])    # (light, main, dark, outline) for P / U, then L / S
 GROUPS = {"P": 0, "L": 1, "U": 0, "S": 1}
 SECOND_PALETTE = 0x7D
-FIXED_PALETTE = 1              # (the placeholder's)
+FIXED_PALETTE = 1              # the placeholder's
 STATE = 0x10EA70               # a byte (spare RAM): 0 = not shown yet, 1 = towed, 2 = let go
 BANNER_X = 0x10EA72            # two words: its x, y on screen once let go
 TICK = 0x10EA76                # bytes: frames shown of this picture, the step in SEQUENCE
@@ -109,7 +115,7 @@ def placeholder():
             edge = y < 2 or y >= h - 2 or x < left + 2 or x > right - 2
             px[y][x] = RED if edge else WHITE
     for y in range(h):
-        px[y][left] = px[y][left + 1] = DARK                   # (the pole the rope's tied to)
+        px[y][left] = px[y][left + 1] = DARK                   # the pole the rope's tied to
     x = left + (right - left + 1 - (4 * 10 + 3 * 2)) // 2
     for c in "PLUS":
         for r, row in enumerate(FONT[c]):
@@ -318,7 +324,7 @@ frame:
     jsr 0x%(frame_before)X
     movem.l %%d0-%%d4/%%a0-%%a1,-(%%sp)
     cmpi.b #2,0x%(state)X
-    beq 5f                              | (let go: where it stopped)
+    beq 5f                              | let go: where it stopped
     lea 0x%(objects)X,%%a0              | the bird, if it's out
 1:  tst.b %(active)d(%%a0)
     beq 2f
@@ -327,7 +333,7 @@ frame:
 2:  lea %(size)d(%%a0),%%a0
     cmpa.l #0x%(last)X,%%a0
     bls 1b
-    bra 9f                              | (none: not drawn)
+    bra 9f                              | none: not drawn
 3:  move.b #1,0x%(state)X
     bsr lift
     move.w 2(%%a0),%%d0                 | x on screen: 2 * x - 127, then behind the bird
@@ -344,7 +350,7 @@ frame:
     move.b #2,0x%(state)X
     clr.w 0x%(rope)X
     bra 6f
-5:  move.w #1,0x3C0004                  | (let go: the bird back where the game draws it)
+5:  move.w #1,0x3C0004                  | let go: the bird back where the game draws it
     move.w #0x%(bird_scb3)X,0x3C0000
     move.w #0,0x3C0002
     move.w 0x%(banner_x)X,%%d0
@@ -357,15 +363,15 @@ frame:
     sub.w %%d1,%%d2
     and.w #511,%%d2
     lsl.w #7,%%d2
-    addq.w #%(rows)d,%%d2               | (its height in tiles)
-    moveq #0,%%d4                       | (this step's picture)
+    addq.w #%(rows)d,%%d2               | its height in tiles
+    moveq #0,%%d4                       | this step's picture
     move.b 0x%(tick)X+1,%%d4
     lea sequence(%%pc),%%a1
     move.b (%%a1,%%d4.w),%%d4
     lea tiles(%%pc),%%a1
     cmpi.b #2,0x%(state)X
     bne 0f
-    lea loose(%%pc),%%a1                | (let go: without the ropes)
+    lea loose(%%pc),%%a1                | let go: without the ropes
 0:  mulu #%(cols)d*%(rows)d*4,%%d4
     adda.l %%d4,%%a1
     moveq #0,%%d3
@@ -386,7 +392,7 @@ frame:
     add.w #0x200,%%d4                   | SCB4: x
     move.w %%d4,0x3C0000
     move.w %%d0,0x3C0002
-    move.w #0x40+%(rows)d,%%d2           | (the rest: sticky)
+    move.w #0x40+%(rows)d,%%d2           | the rest: sticky
     addq.w #1,%%d3
     cmpi.w #%(cols)d,%%d3
     bne 7b
@@ -406,7 +412,7 @@ frame:
 
 ropes:                                  | (let go) the slack ropes: this pose, behind the banner
     moveq #0,%%d4
-    move.b 0x%(rope)X,%%d4              | (the step in the fall + the sway: its pose)
+    move.b 0x%(rope)X,%%d4              | the step in the fall + the sway: its pose
     lea rope_steps(%%pc),%%a1
     move.b (%%a1,%%d4.w),%%d4
     lsl.w #3,%%d4
@@ -426,7 +432,7 @@ ropes:                                  | (let go) the slack ropes: this pose, b
     move.w #0x8200+%(rope_slot)d,0x3C0000
     move.w %%d2,0x3C0002
     move.w #0x8400+%(rope_slot)d,0x3C0000
-    move.w %%d0,0x3C0002                | (the banner's x)
+    move.w %%d0,0x3C0002                | the banner's x
     addq.b #1,0x%(rope)X+1              | the next pose after ROPE_TIME frames (the fall) / SWAY_TIME (the sway)
     move.b #%(rope_time)d,%%d4
     cmpi.b #%(sway_from)d,0x%(rope)X
@@ -438,7 +444,7 @@ ropes:                                  | (let go) the slack ropes: this pose, b
     addq.b #1,0x%(rope)X
     cmpi.b #%(last_pose)d,0x%(rope)X
     bls 9f
-    move.b #%(sway_from)d,0x%(rope)X    | (round again)
+    move.b #%(sway_from)d,0x%(rope)X    | round again
 9:  rts
 
 lift:                                   | the bird (a0) drawn after the banner
@@ -479,7 +485,7 @@ lift:                                   | the bird (a0) drawn after the banner
 2:  addq.w #1,%%d3
     cmpi.w #%(slot)d,%%d3
     bcs 1b
-    move.w #0x%(bird_scb3)X,0x3C0000    | (not found: ours hidden)
+    move.w #0x%(bird_scb3)X,0x3C0000    | not found: ours hidden
     move.w #0,0x3C0002
     bra 9f
 3:  move.w #%(bird_slot)d,%%d2         | its 2 columns (2 tiles tall) copied, the game's hidden

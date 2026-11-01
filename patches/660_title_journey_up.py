@@ -7,11 +7,11 @@ DESCRIPTION = "Title screen: the logo's JOURNEY (and its TM) sits a few pixels h
 # Its TM is fix text, printed once as the logo settles (TM_PRINT: jsr 0x9FE6 with the record "TM" at fix TM_ADDR,
 # fix palette 5 - the font's T and M, tiles TM_TILES). The fix layer moves in 8-px rows, so it's redrawn UP px higher
 # across two rows (the glyphs' tops in the row above): 4 new fix tiles, written in place of the print.
-GAP_AT = 0x1BC14               # (the subi.w's operand)
+GAP_AT = 0x1BC14               # the subi.w's operand
 GAP = 0x1800
 UP = 3                         # pixels
 TM_PRINT = 0x1BBF8             # jsr 0x9FE6 ; dc 0x744F, 0xFC55, "TM", 0xFF, 0
-TM_AFTER = 0x1BC06             # (past the record)
+TM_AFTER = 0x1BC06             # past the record
 TM_ADDR = 0x744F               # fix: column 34, row 15
 TM_TILES = (0x554, 0x54D)
 TM_PALETTE = 5

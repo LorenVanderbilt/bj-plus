@@ -1,17 +1,19 @@
 NAME = "hud"
 DESCRIPTION = "HUD: no LIFE; score, flowers (x000) and hearts at the screen's edges; the timer as a column; the lives (each player's colours) by the item bar, which is a row higher"
 
-# LIFE: each player's hearts routine (player 1 0x4EA7C, player 2 0x4EAA2) draws it beside them as two 2x2 blocks of
-# fix tiles (from 0x4EAC8) after the hearts: each routine now returns after the hearts (LIFE_DRAWN) - and the
-# hearts take its place at the screen's edges (HEARTS_AT: player 1's drawn rightwards from column 1, player 2's
-# leftwards from column 37; they were at 5 / 33).
-# The timer (0x4E560: as normal, or blinking when time is short) drew TIME at fix offset 0x201 (column 16; the
-# big-font printers put text 2 rows down: row 3), = at 0x281 and the time at 0x2A1: TIME=287 on one line. Now
-# TIME in the HUD's small font on the score line (2 pixels up, rows 2-3, as 1P=) and the time under it at DIGITS_AT
-# (columns 19-21, rows 4-5), no =.
-# The = call's place clears the old layouts' cells nothing draws now (OLD_CELLS: a save state made before showed
-# bits of them) - once, then CLEARED is set (cleared every frame, they cut into text boxes drawn over the HUD: the
-# lottery gnomes').
+# LIFE: each player's hearts routine (player 1 0x4EA7C, player 2 0x4EAA2) drew the word LIFE beside the hearts as two
+# 2x2 blocks of fix tiles (from 0x4EAC8). Each routine now returns after the hearts (LIFE_DRAWN), and the hearts move
+# out to the screen's edges (HEARTS_AT): player 1's drawn rightwards from column 1, player 2's leftwards from column
+# 37. They were at columns 5 and 33.
+#
+# The timer (0x4E560, steady or blinking when time is short) drew TIME at fix offset 0x201 (column 16, row 3, since
+# the big-font printers put text 2 rows down), = at 0x281 and the time at 0x2A1, giving TIME=287 on one line. TIME is
+# now in the HUD's small font on the score line (2 pixels up, rows 2-3, like 1P=), with the time under it at
+# DIGITS_AT (columns 19-21, rows 4-5) and no =.
+#
+# Where the = was drawn, the cells of the old layouts that nothing draws now are cleared (OLD_CELLS), since a save
+# state made earlier showed bits of them. That happens once, then CLEARED is set; clearing them every frame cut into
+# text boxes drawn over the HUD, such as the lottery gnomes'.
 OLD_CELLS = ([0x7000 + c * 32 + r for c in range(16, 24) for r in (3, 4)] +                  # TIME= (TIME and
              # its digits draw only over blanks and their own tiles: the old ones there are cleared first)
              [0x7000 + c * 32 + 3 for c in (12, 13, 14, 25, 26, 27)] +                          # lives
@@ -28,7 +30,7 @@ BLANK_TILE = 0x0520
 # score, above the hearts (row 4), flower x and always 3 digits (000): each routine jumps to `flowers`. For 2
 # pixels' room above and below, the score line is drawn 2 pixels higher and the hearts 6 (SCORE, HEARTS_UP - their
 # glyphs as new shifted fix tiles).
-FLOWERS = [(0x4E99C, 0x7000 + 1 * 32 + 4), (0x4E9D0, 0x7000 + 34 * 32 + 4)]   # (routine, where its icon goes: row 4)
+FLOWERS = [(0x4E99C, 0x7000 + 1 * 32 + 4), (0x4E9D0, 0x7000 + 34 * 32 + 4)]   # routine, where its icon goes: row 4
 FLOWER_ICON, TIMES, DIGIT_0 = 0x442F, 0x552A, 0x5530
 # The x in the flowers and the lives: the font's (TIMES) with each arm a pixel shorter, the crossing where it was.
 SMALL_X = ["........",
@@ -43,7 +45,7 @@ TO_DECIMAL = 0x4D8B6         # d0 -> d1: its decimal digits (BCD)
 # The lives (the hero's face, x and the count): player 1's 0x4EA04 at row 3, columns 12-14; player 2's 0x4EA3A at
 # columns 25-27 - now on the flowers' line, a space on (player 1: columns 7-9; player 2: 30-32, a space before its
 # flowers), drawn by `lives`. As before only the count's last digit shows.
-LIVES = [(0x4EA04, 0x7000 + 7 * 32 + 4), (0x4EA3A, 0x7000 + 30 * 32 + 4)]   # (routine, where the face goes)
+LIVES = [(0x4EA04, 0x7000 + 7 * 32 + 4), (0x4EA3A, 0x7000 + 30 * 32 + 4)]   # routine, where the face goes
 # The item bar (rows 28-29) a row higher, off the screen's bottom edge (TVs crop it): its frame (inline strings at
 # 0x9FE2 calls), the markers over it (row 27) and each player's boxes (their base fix address) - each address one
 # row up (BAR).
@@ -59,17 +61,17 @@ BAR = [0x4E5EE, 0x4E5FC, 0x4E60C, 0x4E61A,                    # the frame
 FIX_PALETTES = 0x1000
 FACE_COLOURS = [(7, 3, "EFB0 8F91 9F70", "4FD0 6F90 8C60"), (7, 10, "BC38 0A27 1805", "B0F9 A0D4 11A1"),
                 (7, 1, "8000 8777", "8000 B08F"), (7, 9, "EFFA", "F04F"),
-                (7, 15, "FFFF", "201E")]   # (palette, first entry, old, new)
+                (7, 15, "FFFF", "201E")]   # palette, first entry, old, new
 FACE_TILE, FACE_PALETTE = 0x400, 7
-BLACKOUT = 0x10E600          # (screen-blackout's flag: the screen held black while it's built)
+BLACKOUT = 0x10E600          # screen-blackout's flag: the screen held black while it's built
 FACE_MERGE = {9: 3, 15: 6}           # (both faces: the face uses every entry but 2, so its one yellow and one
                                      # white pixel take the nearest colours it has - freeing 9 and 15 for player
                                      # 1's suit)
-FACE_REMAP = {10: 2, 11: 9, 12: 15}  # (player 1's face: its suit's entries)
+FACE_REMAP = {10: 2, 11: 9, 12: 15}  # player 1's face: its suit's entries
 LIVES_SHIFT = 4
 LIFE_DRAWN = [0x4EA84, 0x4EAAA]   # lea <LIFE's tiles>(pc),a0 - after the hearts (player 1, 2): rts instead
 BLANK = 0x5520
-HEARTS_AT = [(0x4EA7C, 0x70A4, 0x7026), (0x4EAA2, 0x7424, 0x74A6)]   # (move.w #fix address,d0, old, new: rows 6-7)
+HEARTS_AT = [(0x4EA7C, 0x70A4, 0x7026), (0x4EAA2, 0x7424, 0x74A6)]   # move.w #fix address,d0, old, new: rows 6-7
 # The hearts' 2x2 blocks (0x4E8CC, from the tables HEART_TABLES: full, empty, none) drawn 6 pixels higher: rows 5-6
 # from a row-6 address (the draw `blocks` in its place for those tables; the hearts are 13 pixels tall: nothing in
 # a third row).
@@ -79,7 +81,7 @@ HEART_TABLES = [0x4EBAC, 0x4EBB4, 0x4EBBC]
 # the level goes (the lottery gnomes' lines from row 6; round clear): each of their cells is only drawn if it's blank
 # or already theirs (HEART_PALETTE / TIMER_PALETTES) - an overlay's text in it stays, and when it clears they're back.
 HEART_PALETTE = 4
-TIMER_PALETTES = (0xA, 0x6)          # (normal, blinking)
+TIMER_PALETTES = (0xA, 0x6)          # normal, blinking
 TIMER_DIGIT_CALLS = [0x4DCF6, 0x4DD28, 0x4DD4C, 0x4DD84, 0x4DDB8, 0x4DDDE]   # jsr 0x5F0EA (a 2-row character)
 BIG_CHARACTER = 0x5F0EA      # d0 = fix offset (+0x7002), d1 = tile word
 TIMER_HIDDEN = 0x10E9FE      # a byte (spare RAM): the HUD hidden - worked out first each frame (HUD_ENTRY), and as
@@ -90,17 +92,17 @@ TIMER_HIDDEN = 0x10E9FE      # a byte (spare RAM): the HUD hidden - worked out f
                              # HUD clears its cells instead of drawing (the hearts and the timer only their own
                              # tiles)
 MODE, STAGE = 0x103004, 0x103005
-GOAL_STATE = 45              # (the hero's state byte, object +0x68: frozen - grabbing the goal)
+GOAL_STATE = 45              # the hero's state byte, object +0x68: frozen - grabbing the goal
 HEROES = [0x104068, 0x1040E8]
 HUD_ENTRY = 0x4E4B8          # tst.b 0x309B(a6) ; bne <rts> (the HUD each frame)
-TIMER_COUNT, TIMER_DRAW = 0x106904, 0x4E560   # (the timer's count; its drawing, d0 = the count)
-LATCH, LAST_MODE = 0x10EA01, 0x10EA02   # (bytes; spare RAM: LATCH set while hidden, the mode last frame)
+TIMER_COUNT, TIMER_DRAW = 0x106904, 0x4E560   # the timer's count; its drawing, d0 = the count
+LATCH, LAST_MODE = 0x10EA01, 0x10EA02   # bytes; spare RAM: LATCH set while hidden, the mode last frame
 MODE_SET = 0x29EB4           # move.b #2,MODE(a6): the stage's end (after the goal or a boss)
 ROUND_CLEARS = [0x54CD0, 0x54FD8]   # ROUND CLEAR's routines (the goal's; a boss's): move.w #<first letter>,d0 ;
                                     # move.w #<its tile>,d1 (its place as `round-clear-centred` left it)
 BAR_PRINTS = {0x9FE2: [0x4E5E8, 0x4E5F6, 0x4E606, 0x4E614],   # the item bar's frame and markers: inline prints
               0x9FE6: [0x4E62C, 0x4E63A, 0x4E650, 0x4E65E, 0x4E674, 0x4E686, 0x4E6A0, 0x4E6B2]}
-BAR_ROWS = (27, 28)          # (its boxes: 2x2 blocks there)
+BAR_ROWS = (27, 28)          # its boxes: 2x2 blocks there
 HEARTS_UP = 6
 # The score line (player 1's 0x4E954: 6 digits from 0x1030A1, leading zeros blank, at column 4, then 1P= at 1;
 # player 2's 0x4E978: from 0x1030A5 at 33, 2P= at 30) drawn 2 pixels higher by `score`: each glyph as two shifted
@@ -197,7 +199,7 @@ lives:
     bra 3f
 lives2:
     move.w #0x%(face2)X,%%d2
-3:  tst.b 0x%(hidden)X                  | (the HUD hidden: its 3 cells cleared)
+3:  tst.b 0x%(hidden)X                  | the HUD hidden: its 3 cells cleared
     beq 4f
     move.w #0x20,0x3C0004
     move.w %%d0,0x3C0000
@@ -245,7 +247,7 @@ lives2:
     beq 2f
     cmpa.l #0x%(none)X,%%a0
     beq 3f
-    tst.b 0x%(hidden)X                  | (any other: the item bar's boxes, hidden with the HUD)
+    tst.b 0x%(hidden)X                  | any other: the item bar's boxes, hidden with the HUD
     beq 7f
     move.w %%d0,%%d1
     andi.w #31,%%d1
@@ -296,7 +298,7 @@ cell:
     move.w %%d1,0x3C0002
 5:  rts
 10: rts
-9:  bsr free                            | (hidden: blank, or a heart's - cleared)
+9:  bsr free                            | hidden: blank, or a heart's - cleared
     bne 5b
     move.w %%d0,0x3C0000
     move.w #0x%(blank)X,0x3C0002
@@ -315,7 +317,7 @@ free:
     lsr.w #8,%%d2
     lsr.w #4,%%d2
     cmpi.w #%(heart_pal)d,%%d2
-6:  movem.w (%%sp)+,%%d2                | (movem: the flags stay)
+6:  movem.w (%%sp)+,%%d2                | movem: the flags stay
     rts
 full:
     .word %(full_tiles)s
@@ -345,7 +347,7 @@ none:
     bne 1f
     movem.l (%%sp)+,%%d0/%%d2
     jmp 0x%(big)X
-1:                                      | (blocked, or hidden: this digit's own tiles cleared)
+1:                                      | blocked, or hidden: this digit's own tiles cleared
     movem.l (%%sp),%%d0/%%d2
     add.w #0x7002,%%d0
     bsr 5f
@@ -353,7 +355,7 @@ none:
     bsr 5f
     movem.l (%%sp)+,%%d0/%%d2
     rts
-5:  move.w %%d0,0x3C0000                | (cell d0: a big digit there - blank)
+5:  move.w %%d0,0x3C0000                | cell d0: a big digit there - blank
     move.w 0x3C0002,%%d2
     andi.w #0xFEF,%%d2
     subi.w #0x6E4,%%d2
@@ -445,7 +447,7 @@ score2:
     move.w #0x%(digits2)X,%%d0
     move.w #0x%(label2)X,%%d1
     moveq #2,%%d2
-5:  tst.b 0x%(hidden)X                  | (the HUD hidden: the label's and digits' cells cleared, both rows)
+5:  tst.b 0x%(hidden)X                  | the HUD hidden: the label's and digits' cells cleared, both rows
     beq 15f
     movem.l %%d0-%%d3,-(%%sp)
     move.w #0x20,0x3C0004
@@ -468,7 +470,7 @@ score2:
 15: movem.l %%d0-%%d5/%%a0-%%a1,-(%%sp)
     move.w #0x20,0x3C0004
     lea tops(%%pc),%%a1                 | the label: digit, P, =
-    moveq #1,%%d3                       | (d3: rows - 1 = up, 0 = the glyph's own)
+    moveq #1,%%d3                       | d3: rows - 1 = up, 0 = the glyph's own
 6:  move.w %%d1,%%d4
     sub.w %%d3,%%d4
     move.w %%d4,0x3C0000
@@ -484,9 +486,9 @@ score2:
 7:  move.w %%d0,%%d4
     sub.w %%d3,%%d4
     move.w %%d4,0x3C0000
-    movea.l 24(%%sp),%%a0               | (a0 again: saved after d0-d5)
+    movea.l 24(%%sp),%%a0               | a0 again: saved after d0-d5
     moveq #5,%%d5
-    moveq #0,%%d2                       | (d2: a digit seen)
+    moveq #0,%%d2                       | d2: a digit seen
 8:  moveq #0,%%d4
     move.b (%%a0),%%d4
     btst #0,%%d5
@@ -528,7 +530,7 @@ bottoms:
     flowers = rom.place_code(r"""
 | a player's flowers (a4 = their block, d0 = where): flower x and 3 digits, across
 flowers:
-    tst.b 0x%(hidden)X                  | (the HUD hidden: its 5 cells cleared)
+    tst.b 0x%(hidden)X                  | the HUD hidden: its 5 cells cleared
     beq 1f
     move.w #0x20,0x3C0004
     move.w %%d0,0x3C0000
@@ -569,7 +571,7 @@ flowers:
     move.w #0x%(at)X,%%d0
     lea tiles(%%pc),%%a0
     moveq #4,%%d4
-    tst.b 0x%(hidden)X                  | (the HUD hidden: TIME's own tiles cleared instead)
+    tst.b 0x%(hidden)X                  | the HUD hidden: TIME's own tiles cleared instead
     beq 1f
 8:  move.w %%d0,%%d3
     bsr own
@@ -617,7 +619,7 @@ own:
     dbeq %%d3,5b
     bra 7f
 6:  ori.b #4,%%ccr
-7:  movem.l (%%sp)+,%%d1/%%d3/%%a1         | (movem: the flags stay)
+7:  movem.l (%%sp)+,%%d1/%%d3/%%a1         | movem: the flags stay
     rts
 tiles:
     .word %(tiles)s
@@ -639,7 +641,7 @@ tiles:
     bra.w stage_end
     bra.w round_clear
 main:
-    tst.b 0x10309B                      | (as the original: no HUD - the routine left)
+    tst.b 0x10309B                      | as the original: no HUD - the routine left
     beq 1f
     addq.l #4,%%sp
     rts
@@ -662,13 +664,13 @@ stage_end:
 2:  move.b 0x%(mode)X,%%d1              | the HUD hidden this frame? (LATCH: once hidden, until play starts again)
     cmpi.b #1,%%d1
     bne 10f
-    cmpi.b #1,0x%(last)X                | (play starting - from the title card: no longer hidden)
+    cmpi.b #1,0x%(last)X                | play starting - from the title card: no longer hidden
     beq 10f
     clr.b 0x%(latch)X
 10: move.b %%d1,0x%(last)X
-    cmpi.b #2,%%d1                      | (the stage's end)
+    cmpi.b #2,%%d1                      | the stage's end
     beq 13f
-    cmpi.b #%(goal)d,0x%(hero1)X        | (a hero at the goal)
+    cmpi.b #%(goal)d,0x%(hero1)X        | a hero at the goal
     beq 13f
     cmpi.b #%(goal)d,0x%(hero2)X
     bne 11f
@@ -706,7 +708,7 @@ stage_end:
     jsr 0x4E606
     jsr 0x4E6EE
 21:
-    move.l 0x%(timer)X,%%d0             | (the timer, as its own turn: from its division)
+    move.l 0x%(timer)X,%%d0             | the timer, as its own turn: from its division
     jsr 0x%(timer_draw)X
 9:  movem.l (%%sp)+,%%d0-%%d7/%%a0-%%a5
     rts

@@ -25,10 +25,10 @@ DESCRIPTION = "Title menu (AES): Start opens (CONTINUE /) NEW GAME / OPTIONS on 
 # ---- The options screen: a black screen list (Up / Down, A or Start selects, B goes back)
 #   LEVEL: <stage>  - Left / Right pick a stage (the short names, SHORT_NAMES), A starts it
 #   SOUND TEST      - three lines, Up / Down between them: MUSIC: nn and SOUND FX: nn NAME (Left / Right step
-#                     through the music, and the sound effects the user kept - SFX_LABELS), A plays the line,
+#                     through the music and the kept sound effects in SFX_LABELS), A plays the line,
 #                     B stops all; EXIT (A) stops everything and goes back. Commands go straight into the game's
 #                     sound queue (0xA27A); Z80 driver ranges: 0x04-0x23 music, 0x24-0xEF sound effects, 0xFF
-#                     stop all. (sound-test-names, a later patch, shows the user's latest names instead.)
+#                     stop all. (sound-test-names, a later patch, shows the latest names instead.)
 #   DIFFICULTY: n   - LEVEL 1-8 (the game's soft-DIP 0x10FD8C: time limit, starting hearts), Left / Right; kept
 #                     like AUTO SAVE
 #   AUTO SAVE       - OFF / ON, A switches it (see the memory card notes below)
@@ -74,11 +74,11 @@ MENU_SAVE = [("CONTINUE", CHOICE_CONTINUE)] + MENU                        # ... 
 LEVEL_WIDTH = 15             # the LEVEL: line's name field (SHORT_NAMES padded to it)
 OPTIONS = ["LEVEL: " + " " * LEVEL_WIDTH, "SOUND TEST", "DIFFICULTY: 4", "AUTO SAVE: OFF", "MEMORY CARD",
            "BACK TO TITLE"]
-# The LEVEL: and DIFFICULTY: lines are set with Left / Right (no wrapping); A on LEVEL: starts that stage. The
-# stage names in the user's approved short forms.
+# The LEVEL: and DIFFICULTY: lines are set with Left / Right (no wrapping); A on LEVEL: starts that stage. Stage
+# names use the approved short forms.
 SHORT_NAMES = {"JUNGLE ZONE": "JUNGLE", "THE LOWER EARTH EMPIRE": "LOW EARTH EMP", "EMPIRE MARSH": "EMP MARSH",
                "MECHANICAL CITY": "MECH CITY", "STRANGE SPACE": "STRANGE SP", "DARUMA EMPIRE": "DARUMA EMP"}
-OPT_DIFFICULTY, OPT_AUTO_SAVE = 2, 3         # (their values are filled in when the screen is drawn)
+OPT_DIFFICULTY, OPT_AUTO_SAVE = 2, 3         # their values are filled in when the screen is drawn
 CARD_ACTIONS = ["DELETE SAVE", "FORMAT CARD", "BACK"]
 CONFIRM = ["NO", "YES"]
 
@@ -128,7 +128,7 @@ FIRST_SOUND, LAST_SOUND, FIRST_EFFECT = 0x04, 0xEF, 0x24
 CURSOR = 0x10E900            # the LEVEL: line's stage
 SOUND_NO = 0x10E901          # the sound test's last number (its SOUND FX: line)
 MUSIC_NO = 0x10E931          # its MUSIC: line's
-# The SOUND FX: line steps through the sound effects the user kept (docs/sfx_labels.csv, a grid exported from their
+# The SOUND FX: line steps through the kept sound effects (docs/sfx_labels.csv, a grid exported from the labels
 # sheet: row = the code's high digit, column = its low digit; "E" = not used - blank or a synthesiser sample;
 # "?" / "??" = unnamed): each shown as its code and name. SOUND_NO holds the line's place in that list.
 SFX_LABELS = "docs/sfx_labels_title_menu.csv"   # (frozen: the names as of 2026-10-24, so this patch's size
@@ -142,7 +142,7 @@ def short_name(name):
 
 
 def sfx_list():
-    """[(code, label)] the user kept, in code order (labels upper case, '?' for unnamed)."""
+    """[(code, label)] for the kept sounds, in code order (labels upper case, '?' for unnamed)."""
     import csv
     import os
     path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), SFX_LABELS)
@@ -272,7 +272,7 @@ def string_table(label, names):
     return ("%s:\n%s%s_s:\n%s    .even\n" % (label, "".join("    .word %d\n" % o for o in offs), label, data))
 
 
-PUSH_START_END = 0x1B096      # (its rts at 0x1B094)
+PUSH_START_END = 0x1B096      # its rts at 0x1B094
 
 
 def push_start_copy(rom):
@@ -351,7 +351,7 @@ game_save_prep:
 
 | the attract cycle's RAM clear (all of 0x100000-0x10EFFF), keeping the auto-save setting
 ram_keep:
-    move.l AUTO_WORD,-(%sp)          | (and DIFF_WORD, the word after it)
+    move.l AUTO_WORD,-(%sp)          | and DIFF_WORD, the word after it
     move.w TO_MENU_WORD,-(%sp)
     move.l %a6,%a0
     add.l #0xF000,%a0
@@ -367,7 +367,7 @@ diff_dip:
 | d0.l = the difficulty, 0-7: the one chosen in the options, else the BIOS's soft-DIP
 diff_level:
     moveq #0,%d0
-    tst.b SYSTEM_MODE                | (the arcade: always the soft-DIP)
+    tst.b SYSTEM_MODE                | the arcade: always the soft-DIP
     bne 1f
     move.w DIFF_WORD,%d0
     and.w #0xFFF8,%d0
@@ -585,7 +585,7 @@ new_game:
     or.w #0x5A00,%d0
     move.w %d0,TO_MENU_WORD
     clr.b FROM_ATTRACT_BYTE
-    bclr #0,ATTRACT_TOGGLE           | (as BACK TO TITLE)
+    bclr #0,ATTRACT_TOGGLE           | as BACK TO TITLE
     move.b #8,0x103004
     addq.l #4,%sp
     rts
@@ -818,7 +818,7 @@ options_list:
 20: tst.w %d6
     bne 21f
     tst.w %d0
-    bne options_list                 | (B: stay here)
+    bne options_list                 | B: stay here
     lea stage_ids(%pc),%a0           | LEVEL: start the chosen stage
     moveq #0,%d0
     move.b CURSOR,%d0
@@ -829,7 +829,7 @@ options_list:
     moveq #0,%d0
     rts
 21: cmp.w #OPT_DIFFICULTY,%d6
-    beq options_list                 | (DIFFICULTY: set with Left / Right)
+    beq options_list                 | DIFFICULTY: set with Left / Right
     clr.b BIG_FLAG
     bsr frame_hide
     tst.w %d0
@@ -905,7 +905,7 @@ opt_build:
     lea OPT_BUF,%a1
     moveq #0,%d0                     | LEVEL: the chosen stage's name
     move.b CURSOR,%d0
-    cmp.w #STAGE_COUNT,%d0           | (RAM is random at power-on: the first stage)
+    cmp.w #STAGE_COUNT,%d0           | RAM is random at power-on: the first stage
     bcs 4f
     moveq #0,%d0
     move.b %d0,CURSOR
@@ -942,7 +942,7 @@ card_screen:
     move.b #0,0x3A0019
     move.b #0,0x380011
     lea 0x800000,%a3                 | card byte n = low byte of the word at 0x800000 + 2n
-    lea card_sig(%pc),%a0            | (word reads only: MAME answers byte reads with 0xFF)
+    lea card_sig(%pc),%a0            | word reads only: MAME answers byte reads with 0xFF
     lea 0x40(%a3),%a2
     moveq #CARD_SIG_LEN-1,%d1
     moveq #1,%d4
@@ -975,7 +975,7 @@ card_screen:
     bsr print_dec2
     move.w #CARD_LIST_ADDR,%d3       | the saves, one line each
     moveq #0,%d2                     | d2 = directory entry
-6:  cmp.w #CARD_LIST_END,%d3       | (room for 14 lines)
+6:  cmp.w #CARD_LIST_END,%d3       | room for 14 lines
     beq 20f
     move.w %d2,%d0
     lsl.w #3,%d0
@@ -1019,7 +1019,7 @@ card_screen:
 9:  addq.w #1,%d2
     cmp.w #32,%d2
     bne 6b
-20: move.w %d4,-(%sp)                | (kept over the list)
+20: move.w %d4,-(%sp)                | kept over the list
     lea card_title(%pc),%a0
     lea card_t(%pc),%a1
     moveq #0,%d6
@@ -1157,7 +1157,7 @@ l_line:
     cmp.w #BLINK_ON,%d7
     bcs 1f
     moveq #1,%d2
-1:  tst.b BIG_FLAG                   | (the big font: no blinking - an arrow at the selected entry)
+1:  tst.b BIG_FLAG                   | the big font: no blinking - an arrow at the selected entry
     beq 16f
     moveq #0,%d2
 16: bsr print_or_blank
@@ -1183,7 +1183,7 @@ l_line:
     beq 4f
     moveq #1,%d0
     bra 9f
-4:  tst.b BIG_FLAG                   | (OPTIONS: Left / Right return 2 / 3)
+4:  tst.b BIG_FLAG                   | OPTIONS: Left / Right return 2 / 3
     beq 41f
     moveq #2,%d0
     btst #2,%d1
@@ -1220,7 +1220,7 @@ sound_test:
     move.w #ST2_TITLE_POS,%d1
     moveq #0,%d2
     bsr big_print
-    moveq #0,%d0                     | (RAM is random at power-on: each number into its range)
+    moveq #0,%d0                     | RAM is random at power-on: each number into its range
     move.b MUSIC_NO_RAM,%d0
     cmp.w #FIRST_SOUND,%d0
     bcs 1f
@@ -1310,7 +1310,7 @@ st2_loop:
     clr.b BIG_FLAG                   | EXIT: stop everything, back to the options
     bsr frame_hide
     move.w #0xFF,%d0
-    bra queue                        | (queue returns to our caller)
+    bra queue                        | queue returns to our caller
 13: bsr queue
 14: btst #5,%d1                      | B: stop all
     beq st2_loop
@@ -1503,7 +1503,7 @@ big_arrow:
     move.w %sr,-(%sp)
     or.w #0x0700,%sr
     move.w #1,0x3C0004
-    add.w #2-64,%d1                  | (the font draws 2 rows down; two columns to the left: a gap)
+    add.w #2-64,%d1                  | the font draws 2 rows down; two columns to the left: a gap
     move.w %d1,0x3C0000
     cmp.w %d6,%d3
     bne 1f

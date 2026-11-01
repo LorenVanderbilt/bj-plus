@@ -45,7 +45,7 @@ FIXES = [   # (string address, old phrase, new phrase)
     (0x5484F, "THE ENEMY.", "A STUNNED ENEMY"),
     (0x54899, "THE FLOWER IS", "THE FLOWERS ARE"),
     (0x548E1, "HUNG ON TO IT.", "HANG ON TO THEM"),
-    (0x34986, "BAD GUY.", "YOU JERK"),                  # (YOU JERK! doesn't fit)
+    (0x34986, "BAD GUY.", "YOU JERK"),                  # YOU JERK! doesn't fit
     # the lottery after each boss
     (0x2971D, "OKEY,I BET.", "LET'S PLAY!"), (0x2971D, "I'LL PASS.", "NO THANKS."),
     (0x29B02, "FIRST PRIZE!", "1ST PRIZE!"), (0x29BF0, "2ND PRIZE.", "2ND PRIZE!"),
@@ -56,7 +56,7 @@ FIXES = [   # (string address, old phrase, new phrase)
 # callback: 0xFC + the code's address, which doesn't move), the rest padded after it (never read).
 STRINGS = [
     # the hint about the riddle man (one per name): QUESTINS, his name, and a few words shortened to make room;
-    # LOVES TO QUIZ. now LOVES RIDDLES. (the user, 2026-10-24)
+    # LOVES TO QUIZ. is now LOVES RIDDLES. (2026-10-24)
 ] + [(addr, ["IN THE SHABARN MARSH EMPIRE", "YOU'LL FIND AN OLD MAN WHO", "LOVES RIDDLES.", "HE'LL HELP YOU",
              "IF YOU ANSWER HIS QUESTIONS", "HIS NAME IS %s." % name])
      for addr, name in [(0x22B88, "POPOPPE"), (0x22C92, "PIKKYURU"), (0x22D9A, "PUKAMONME")]] + [
@@ -68,9 +68,9 @@ STRINGS = [
     # his first question: a giveaway (he's asked just the one) - was FIRST QUESTION IS, HOW MANY / QUESTIONS HAVE
     # YOU ANSWERED (zero, as worded; the Japanese is the old "question 1: which question is this?" joke) - and its
     # answers (was ONE QUESTION. / TWO QUESTIONS. / SEVENTY QUESTIONS; the first is right; the box takes 14)
-    # The riddle man (the user, 2026-10-24): "which riddle is this?" - the Japanese joke, true however many times
-    # he's pleaded first (HOW MANY QUESTIONS HAVE I ASKED wasn't, after a turn-down); the first answer is right
-    (0x25F28, ["FIRST RIDDLE! WHICH RIDDLE", "IS THIS?"]),      # (no colon in the font: it shows an A)
+    # The riddle man (2026-10-24): "which riddle is this?" keeps the Japanese joke and stays true however many times
+    # he's pleaded first, which HOW MANY QUESTIONS HAVE I ASKED wasn't after a turn-down. The first answer is right
+    (0x25F28, ["FIRST RIDDLE! WHICH RIDDLE", "IS THIS?"]),      # no colon in the font: it shows an A
     (0x25FAE, ["  THE FIRST", "  THE SECOND", "  WAIT...WHAT?"]),
     # his last: his name, asked as a grandpa's riddle (was YOU DID A GOOD JOB. / LAST QUESTION, WHAT IS MY NAME) -
     # the answers still his names, the hint's the right one
@@ -78,7 +78,7 @@ STRINGS = [
     # turning him down: he asks three times, each with these choices (was NO, I WON'T. / YES, I WILL.; turned down a
     # third time, he lets you go): his second plea (was WHAT DO YOU WANT TO KNOW?, a mistranslation), his third (was
     # I'M PERSISTENT, LET'S PLAY.); his first is in RELOCATED (quiz_sure)
-    (0x264D8, ["  I'M SURE.", "  OK, I'LL TRY"]),      # (the box takes 14)
+    (0x264D8, ["  I'M SURE.", "  OK, I'LL TRY"]),      # the box takes 14
     (0x2D824, ["  KEEP LISTENING.", "  SNEAK AWAY."]),   # the drunk's (was YOU'RE STILL LISTENING. / YOU BETTER LEAVE SOON.)
     # his prizes: the second now keeps the flowers through a game over (losing a life no longer takes any:
     # keep-flowers-on-death) - was FLOWERS WILL REMAIN EVEN AFTER DIE.
@@ -93,17 +93,17 @@ STRINGS = [
     # (BUT... - was BUT......: text-pause, its dots one at a time)
     (0x34DCA, ["THEN THE DARUMA TRIBE", "INVADED,"]),
     (0x34E6E, ["AND THEIR POLLUTION GETS", "WORSE EVERY DAY."]),
-    (0x35710, ["THIS IS BLUE,", "A MASTER OF THE", "LEAF DUMP."]),      # (LEAF DUMP kept: a fan favourite)
+    (0x35710, ["THIS IS BLUE,", "A MASTER OF THE", "LEAF DUMP."]),      # LEAF DUMP kept: a fan favourite
     (0x357E2, ["BLUE LOVES PRINCESS FA", "OF RAGUY'S ROYAL FAMILY."]),
     (0x358A2, ["FA FELL ILL FROM THE POLLUTION."]),
     (0x3595E, ["BLUE, DRIVE OUT THE DARUMA", "AND BRING RAGUY BACK TO LIFE!"], 33),
     # (after "THEN WHAT'S BURNING ON YOUR HAND?") IN FACT,I SET HIM FREE. / NO I DIDN'T
-    (0x2EA02, ["  HEH, OKAY, IT WAS ME.", "  NO, I DIDN'T!"]),   # (was FINE, I SET HIM FREE. - she asked whether he freed her)
+    (0x2EA02, ["  HEH, OKAY, IT WAS ME.", "  NO, I DIDN'T!"]),   # was FINE, I SET HIM FREE. - she asked whether he freed her
     # the magician's opener (was LOOK MY MAGIC. / IT'S ONLY 5 FLOWERS.); his box takes 27, as the quiz hint's
     (0x26A88, ["WANT TO SEE A TRICK?", "ONLY 5 FLOWERS"], 27),
     (0x26BC8, ["NO FLOWERS, NO SHOW. SHOO!"]),     # the magician, too few flowers (was GO BUCK IF YOU'RE NOT BUYING.)
-    (0x26AEC, ["  SURE!", "  NO THANKS."]),                       # (was I'LL LOOK. / I WON'T LOOK.)
-    (0x26ED4, ["YOU MAKE ME HAPPY.", "TAKE THIS NECTAR WITH YOU."]),  # (was ... HONEY ..., as the shop's NECTAR)
+    (0x26AEC, ["  SURE!", "  NO THANKS."]),                       # was I'LL LOOK. / I WON'T LOOK.
+    (0x26ED4, ["YOU MAKE ME HAPPY.", "TAKE THIS NECTAR WITH YOU."]),  # was ... HONEY ..., as the shop's NECTAR
     # the boatman's menu (his question, YES and NO: RELOCATED, boat_ask / boat1 / boat_warn)
     (0x22462, ["  A LEAF BOAT, PLEASE.", "  A MUD BOAT, PLEASE.", "  NO THANKS."]),   # ASK FOR LEAF MADE BOAT ...
     # the Daruma Empire 1 mini boss's offer (was IF YOU BECOME / ONE OF US / I WON'T TAKE / YOUR LIFE.) and Blue's
@@ -116,7 +116,7 @@ STRINGS = [
     # the last level's mini boss (was MY MISSIONIS TO / KILL YOU BLUE. - its box showed only KILL YOU)
     (0x33B22, ["MY ONLY MISSION", "IS TO KILL YOU!"]),
     # ... and after his defeat (the rest of that scene: RELOCATED)
-    (0x2F2B8, ["NONE OF YOUR WEAPONS CAN", "EVEN SCRATCH HIM."]),   # (was YOU CAN'T HURT HIM WITH ANY OF / YOUR WEAPONS.)
+    (0x2F2B8, ["NONE OF YOUR WEAPONS CAN", "EVEN SCRATCH HIM."]),   # was YOU CAN'T HURT HIM WITH ANY OF / YOUR WEAPONS.
     (0x3636A, ["YOU DARE", "DEFY ME?"]),                    # the final boss (was ARE YOU / RESISTINS ME?)
     # Mechanical City 3: the frozen princess's house (Japanese as a guide; the longer lines: RELOCATED)
     (0x2E064, ["  GO CLOSER.", "  LEAVE."]),                              # APPROACH. / JUST IGNORE IT.
@@ -143,13 +143,13 @@ STRINGS = [
     (0x28760, ["DANG IT! BACK TO TRAINING.", "BLUE, TAKE THIS.", " ", " BLUE TOOK THE TORCH."]),   # GOT THEN! ... BULE
     (0x28808, ["HA! NOW I'M THE STRONGEST!", "SO LONG, BLUE."]),          # AHH, ... SO LONG, BULE.
     # the travel agent (Japanese: the "Pyuu" travel center)
-    (0x2724A, ["NEED A RIDE SOMEWHERE?"]),                 # (was WILL YOU USE THE TRAVEL AGENT?)
+    (0x2724A, ["NEED A RIDE SOMEWHERE?"]),                 # was WILL YOU USE THE TRAVEL AGENT?
     (0x2744C, ["  10 FLOWERS", "    TO THIS AREA'S BOSS", "  20 FLOWERS", "    TO THE EMPIRE MARSH",
-               "  60 FLOWERS", "    TO THE MECHANICAL CITY", "  NO THANKS."]),   # (was USE 10 FLOWERS TO GET TO / ...)
+               "  60 FLOWERS", "    TO THE MECHANICAL CITY", "  NO THANKS."]),   # was USE 10 FLOWERS TO GET TO / ...
     (0x27620, ["HEY! NO FREE RIDES!"]),      # too few flowers (was ARE YOU GOING TO GRAB A RIDE?; Japanese: a fare dodger!)
-    (0x27660, ["ALL ABOARD!"]),                            # (was O.K. LET'S GO.)
-    (0x27362, ["COME AGAIN!"]),                            # (was COME AGAIN.)
-    (0x32E9B, [" YES, SIR!", "  DREAM ON!"]),       # (after its 0x11, the cursor)
+    (0x27660, ["ALL ABOARD!"]),                            # was O.K. LET'S GO.
+    (0x27362, ["COME AGAIN!"]),                            # was COME AGAIN.
+    (0x32E9B, [" YES, SIR!", "  DREAM ON!"]),       # after its 0x11, the cursor
     # ... and YES, SIR!'s ending (was RAGUY IS RUINED BY POLLUTION. / BLUE LIVES THE REST OF HIS LIFE / IN THE
     # DARUMA TRIBE.; Japanese: Raguy was destroyed by pollution, but Blue lived his whole life as one of the Daruma)
     (0x239D0, ["RAGUY WAS RUINED BY POLLUTION,", "AND BLUE LIVED OUT HIS DAYS", "AS ONE OF THE DARUMA TRIBE.",
@@ -170,10 +170,10 @@ STRINGS = [
     # line touched the box's right rim - 14 at most; lines padded to 13 but the last, as the original's)
     (0x295E6, [l.ljust(13) for l in ["THIS IS A", "REWARD FOR", "FREEING US,", "A LOTTERY"]] + ["GAME."]),
     (0x29F26, ["SORRY!", "NO PRIZE"]),                             # OH. / SORRY MISS.
-    (0x2A036, ["LIFE BALL", "1 MORE HEART."], 15),                     # (+1 maximum heart)
+    (0x2A036, ["LIFE BALL", "1 MORE HEART."], 15),                     # +1 maximum heart
     (0x2A08A, ["SILVER COCOON", "FIVE OF THEM", "FOR A 1UP."]),
     (0x2A0E0, ["NECTAR", "RESTORES", "1 HEART."]),                 # HONEY. / STAMIRA RECOV- / ERS.
-    (0x2A132, ["LUCKY RING", "IT WILL BRING", "YOU LOVE."]),       # (the princess always says yes)
+    (0x2A132, ["LUCKY RING", "IT WILL BRING", "YOU LOVE."]),       # the princess always says yes
     (0x2A1B0, ["30 FLOWERS", "YOU'RE RICH!"]),
     (0x2A1F6, ["GOLD COCOON", "1UP!"]),                            # GOLDEN COCOON. / 1 UP.
 ]
@@ -237,7 +237,7 @@ def whole_string(rom, addr, lines, width=None):
         if rom.data[end] < 0x20 and rom.data[end] != 0x0A:
             raise SystemExit("text-fixes: 0x%X isn't a plain string" % addr)
         end += 1
-    tail = bytes(rom.data[end:end + {0xFF: 1, 0xFC: 5, 0xFB: 9}[rom.data[end]]])   # (0xFB: next text, then a callback)
+    tail = bytes(rom.data[end:end + {0xFF: 1, 0xFC: 5, 0xFB: 9}[rom.data[end]]])   # 0xFB: next text, then a callback
     room = end + len(tail) - addr
     # keep each line within the box (the longest original line, unless a wider one is given)
     width = width or max(len(l) for l in bytes(rom.data[addr:end]).split(b"\xfe"))
@@ -256,13 +256,13 @@ def whole_string(rom, addr, lines, width=None):
 # new lines). The card game's answers to DO YOU WANT THE RULES? (TELL ME / NO: the first explains them, as YES did).
 MOVED = [
     # the shop: buying what you can't afford - her lines, one per try (the 4th sends you off; 0x2012A + 4 * n)
-    (0x2012A, 0x20198, ["NICE TRY.", "YOU CAN'T", "AFFORD IT."]),      # (was   YOU CAN'T /   BUY IT.)
+    (0x2012A, 0x20198, ["NICE TRY.", "YOU CAN'T", "AFFORD IT."]),      # was   YOU CAN'T /   BUY IT.
     (0x2012E, 0x20198, ["NICE TRY.", "YOU CAN'T", "AFFORD IT."]),
-    (0x2013A, 0x20230, ["COME BACK", "WHEN YOU'RE", "RICH!"]),          # (was I WON'T TALK / TO POOR.)
+    (0x2013A, 0x20230, ["COME BACK", "WHEN YOU'RE", "RICH!"]),          # was I WON'T TALK / TO POOR.
     # the ocarina's two prices (was IT'S TOY.; it gets the lottery's 1st prize for a song: ocarina-song)
     (0x20F50, 0x21006, ["OCARINA", "5 FLOWERS", "  LUCKY", "  MELODIES"]),
     (0x20F70, 0x21022, ["OCARINA", "10 FLOWERS", "  LUCKY", "  MELODIES"]),
-    (0x2C852, 0x2C89C, ["  TELL ME", "  NO"]),        # (was   YES /   NO; the first explains the rules)
+    (0x2C852, 0x2C89C, ["  TELL ME", "  NO"]),        # was   YES /   NO; the first explains the rules
     # the final boss's question's answers: the first fights, the second gives in (the Daruma tribe ending) - was
     # I CAN'T FORGIVE / NO WAY! (which read as refusing; Japanese: probably とんでもない, "of course not")
     (0x363C8, 0x3640E, ["\x11 YOU'RE FINISHED!", "  I SURRENDER..."]),
@@ -279,12 +279,12 @@ MOVED = [
 # written elsewhere with their ending, and the long that points at them changed - an lea's operand, or the 0xFB
 # pointer in the text before (by name: a chain to a string moved here too points at its new place). The robot mini
 # boss in the last level, after his defeat (Japanese: it's not programmed into him - he was only built to fight).
-RELOCATED = [   # (name, where its address is (an lea's operand) or None, old address, new lines, the 0xFB next by name)
+RELOCATED = [   # name, where its address is (an lea's operand) or None, old address, new lines, the 0xFB next by name
     # the endings (Japanese as a guide)
     # the riddle man's house: answering that you're not Blue (was I THOUGHT IT WAS SOMEONE ELSE - 31 wide on one line)
     ("quiz_not_blue", 0x22A5A, 0x22A8A, ["SORRY, I THOUGHT YOU WERE", "SOMEONE ELSE"], None),
     # his greeting, after his laugh (was I'M THE QUIZ MAN. / YOU GET TWO QUESTIONS. / YOU'LL LOSE ALL YOU FLOWERS /
-    # IF YOU CAN'T ANSWER ONE.; クイズじいさん, "Quiz Grandpa"). The riddle man since (the user, 2026-10-24): his lines kept
+    # IF YOU CAN'T ANSWER ONE.; クイズじいさん, "Quiz Grandpa"). He's the riddle man since 2026-10-24. His lines kept
     # their lengths (RELOCATED text goes in free space - longer or shorter would move every later patch's code), the
     # greeting's first padded with spaces
     ("quiz_greeting", 0x25C6A, 0x25DC0, ["I'M THE RIDDLE MAN!  ", "ANSWER MY TWO QUESTIONS", "TO WIN. MISS ONE AND I'LL",
@@ -293,7 +293,7 @@ RELOCATED = [   # (name, where its address is (an lea's operand) or None, old ad
     ("quiz_sure", 0x25EE2, 0x26472, ["ARE YOU SURE YOU DON'T", "WANT MY TWO RIDDLES?"], None),
     # Red's duel for the torch: his greeting (was ... A LONG TIME TO SEE YOU.)
     ("red1", 0x27ADE, 0x27C92, ["BLUE, I'VE BEEN WAITING", "A LONG TIME TO SEE YOU AGAIN.", "DON'T TELL ME YOU FORGOT ME!"], None),
-    ("red_challenge", 0x27D9E, 0x27E24, ["I CHALLENGE YOU TO A", "LEAF DUMP DUEL!"], None),   # (was FIGHT ME.)
+    ("red_challenge", 0x27D9E, 0x27E24, ["I CHALLENGE YOU TO A", "LEAF DUMP DUEL!"], None),   # was FIGHT ME.
     # Mechanical City 2's drunk (飲んだくれ - "the derelict" in English) and his grumbling, closer to the Japanese:
     # the beer's price (was THE PRICES ARE RISING ALONG / WITH THE TAXES.), the two-player games (was WE CAN'T WASTE
     # TIME BY PLAING / GAMES. - Blue's Journey is one), Raguy for Bakeen
@@ -318,10 +318,10 @@ RELOCATED = [   # (name, where its address is (an lea's operand) or None, old ad
     ("end8", 0x243B6, 0x2469A, ["BLUE... I'VE ALWAYS", "LOVED FA..."], None),
     ("end9", 0x24718, 0x2476C, ["LET'S SETTLE THIS, BLUE.", "IF I WIN, YOU STEP ASIDE."], None),  # FIGHT ME! / ...
     ("end11", 0x2487E, 0x248C6, ["SHUT UP! WE'RE FIGHTING,", "NO MATTER WHAT!"], None),
-    ("end12", 0x24A5A, 0x24CB6, ["BLUE... MAKE FA HAPPY,", "OKAY?"], None),                  # (Blue won the duel)
-    ("end13", 0x24A76, 0x24E96, ["WAHAHA! FA IS MINE!", "SO LONG, BLUE!"], None),            # (Red won)
+    ("end12", 0x24A5A, 0x24CB6, ["BLUE... MAKE FA HAPPY,", "OKAY?"], None),                  # Blue won the duel
+    ("end13", 0x24A76, 0x24E96, ["WAHAHA! FA IS MINE!", "SO LONG, BLUE!"], None),            # Red won
     ("end14", 0x24F4C, 0x24FA0, ["BLUE NEVER RECOVERED", "FROM THE SHOCK."], None),
-    ("end15", 0x24B2A, 0x24B7E, ["I'M SORRY... I CAN'T CHOOSE", "BETWEEN YOU."], None),       # (a draw)
+    ("end15", 0x24B2A, 0x24B7E, ["I'M SORRY... I CAN'T CHOOSE", "BETWEEN YOU."], None),       # a draw
     ("end15b", 0x24C12, 0x24C62, ["NEITHER OF THEM EVER", "RECOVERED FROM THE SHOCK."], None),
     ("end16", 0x23704, 0x237BE, ["BLUE COLLAPSED, AND RAGUY", "WAS RUINED BY POLLUTION.", " " * 30,
                                  " " * 12 + "GAME OVER"], None),                         # BLUE IS EXHAUSTED AND ...
@@ -335,7 +335,7 @@ RELOCATED = [   # (name, where its address is (an lea's operand) or None, old ad
     ("boat_pitch", None, 0x22718, ["SO SAVE YOURSELF THE TROUBLE.", "RENT ONE OF MY BOATS!"], None),
     ("boat_warn", 0x223EA, 0x22664, ["THEN LISTEN UP, LAD! THAT", "RIVER IS POLLUTED. ONE DIP", "AND YOU'RE DONE FOR. SOME",
                                      "SWING ACROSS ON THE VINE...", "MOST DON'T MAKE IT."], "boat_pitch"),
-    ("boat_broke", 0x22528, 0x2280C, ["NO FLOWERS, NO BOAT, GET OUT!"], None),   # (was YOU HAVE RUN OUT OF MONEY.)
+    ("boat_broke", 0x22528, 0x2280C, ["NO FLOWERS, NO BOAT, GET OUT!"], None),   # was YOU HAVE RUN OUT OF MONEY.
     ("boat_ask", 0x21AFC, 0x21C12, ["AHOY THERE, LAD! HEARD ABOUT", "THE GREAT RIVER UP AHEAD?"], None),
     # the lottery host after each boss: the Japanese opens with "we're a family of travelling merchants", which the
     # English left out (so its THEY CAPTURED US DURING A TRIP. came from nowhere) - a third text chained in front
@@ -369,7 +369,7 @@ def relocate(rom, old, lines, next_text=None):
         tail[1:5] = next_text.to_bytes(4, "big")
     text = b"\xfe".join(l.encode() for l in lines).replace(b"?", b"\x0a")
     if tail[0] != 0xFF and (len(text) + 1) % 2:
-        text += b" "              # (the callback's long on an even byte; the text starts on one)
+        text += b" "              # the callback's long on an even byte; the text starts on one
     text += bytes(tail)
     at = rom.alloc(len(text), align=2)
     rom.data[at:at + len(text)] = text
@@ -380,10 +380,10 @@ def relocate(rom, old, lines, next_text=None):
 # chain. The card game's rules are long: before its PLACE YOUR BET. they wait longer; so is the boatman's warning
 # about the river (4 lines), before his next line.
 LONGER_WAITS = {0x2CA0E: 123, 0x2C9F2: 123,       # next text (English, Japanese) -> frames
-                "boat_pitch": 210, 0x226E2: 210,    # (a name: RELOCATED's, where it was moved to)
+                "boat_pitch": 210, 0x226E2: 210,    # a name: RELOCATED's, where it was moved to
                 0x2F2B8: 123, 0x2F284: 123}       # (the robot mini boss's first line, before NONE OF YOUR WEAPONS ...)
 # ... and its next line then waits less before the scene moves on: its callback's object counts down from this
-ROBOT_LINE2_HOLD = (0x2F30D, 31)              # (63)
+ROBOT_LINE2_HOLD = (0x2F30D, 31)              # 63
 # The good ending's lines (THE DARUMA TRIBE LEFT ... / ALL WHO FELL ILL ... / BLUE PROPOSED TO HER.) each wait 30
 # frames once typed (their callbacks: move.w #30,d0 ; jsr 0xE858) - rushed: now ENDING_HOLD. And Fa's yes (both
 # happy endings' line, callback 0x2411E) set the scene's done flag at once - it faded out as the line ended: it now
@@ -419,7 +419,7 @@ def apply(rom):
         end = at + room
         while rom.data[end] == 0x20:
             end += 1
-        if room > len(old) and rom.data[end] not in (0xFE, 0xFF, 0xFB, 0xFC):   # (a space between words isn't spare)
+        if room > len(old) and rom.data[end] not in (0xFE, 0xFF, 0xFB, 0xFC):   # a space between words isn't spare
             room = len(old)
         if len(new) > room:
             skipped.append("0x%X %r -> %r (%d more characters than fit)" % (addr, old, new, len(new) - room))
@@ -447,7 +447,7 @@ def apply(rom):
               why="frozen ending: its line stays before the fade")
     hold = rom.place_code("""
     move.w #%d,%%d0
-    jsr 0xE858                          | (wait d0 frames)
+    jsr 0xE858                          | wait d0 frames
     move.b #1,0x7861(%%a6)
     rts
 """ % HAPPY_HOLD, why="happy ending: Fa's yes stays before the fade")
@@ -462,7 +462,7 @@ def apply(rom):
         placed[name] = at = relocate(rom, old, lines, placed[nxt] if nxt else None)
         if ref is not None:
             rom.write(ref, at.to_bytes(4, "big"), expect=old.to_bytes(4, "big"), why="text: %s (moved)" % " / ".join(lines))
-    src = "    move.b #63,0x78A8(%a6)\n"      # (the chain's usual wait; longer before the texts LONGER_WAITS names)
+    src = "    move.b #63,0x78A8(%a6)\n"      # the chain's usual wait; longer before the texts LONGER_WAITS names
     for i, (nxt, frames) in enumerate(LONGER_WAITS.items(), 1):
         src += """
     cmp.l #0x%(text)X,0x78A4(%%a6)

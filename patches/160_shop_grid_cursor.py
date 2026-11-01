@@ -270,7 +270,7 @@ CYCLE_PALETTES
     cmp.l #4,%d1
     bhi 11f
     move.b (%a1),%d4
-    cmp.b #8,%d4                    | (box 8: no frame)
+    cmp.b #8,%d4                    | box 8: no frame
     bne 11f
     moveq #-1,%d4
 11: move.l %d0,%d1

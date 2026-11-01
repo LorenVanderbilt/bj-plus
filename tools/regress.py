@@ -35,7 +35,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SAVES = ROOT / "sta" / "aes"
 CLIPS, RECORDINGS = ROOT / "tests" / "clips.txt", ROOT / "tests" / "clips"
 OUT = ROOT / "build" / "regress"
-FRAMES = 300                     # (a save alone: as tools/regress.lua plays it)
+FRAMES = 300                     # a save alone: as tools/regress.lua plays it
 TIMEOUT = 300                    # seconds a run may take (a save alone ~10, a clip about its length / 10)
 
 

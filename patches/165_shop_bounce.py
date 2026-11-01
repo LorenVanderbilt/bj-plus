@@ -21,7 +21,7 @@ PERIOD = 120                       # frames from one bounce to the next while sh
 # Which pixels move can be drawn: MASK (the BLOCK area, 16 px per tile: its pixels that move filled in - the picture's
 # own, see BLOCK_REFERENCE - the rest clear). Without it, ELLIPSES pick them.
 MASK = "art/shop/bounce_mask.png"
-BLOCK_REFERENCE = "art/shop/bounce_block.png"   # (the BLOCK area as it is: for drawing the mask over)
+BLOCK_REFERENCE = "art/shop/bounce_block.png"   # the BLOCK area as it is: for drawing the mask over
 
 
 def frame_body(rom, frame):
@@ -117,12 +117,12 @@ anim:
 3:  moveq #0,%d0
     move.b RAM,%d0
     addq.b #1,RAM
-    cmp.b #PERIOD-1,%d0              | (again every PERIOD frames while she stays selected)
+    cmp.b #PERIOD-1,%d0              | again every PERIOD frames while she stays selected
     bcs 4f
     clr.b RAM
 4:  divu #STEP,%d0
     move.w #BASE_FRAME,%d1
-    cmp.w #SEQ_LEN,%d0               | (past the end: the usual picture)
+    cmp.w #SEQ_LEN,%d0               | past the end: the usual picture
     bcc 5f
     add.w %d0,%d0
     lea seq(%pc),%a0

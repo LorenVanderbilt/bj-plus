@@ -34,7 +34,7 @@ def decode(rom, p):
                 q += 1
                 if a != 0x20:
                     plain = False
-                if a & 0x80:          # (unknown: the frame is left alone, its tiles kept)
+                if a & 0x80:          # unknown: the frame is left alone, its tiles kept
                     return cols, rows, mode, attr, tiles, False, q
                 if a & 0x40:
                     q += 1
@@ -61,7 +61,7 @@ def decode(rom, p):
                 if a & 0x20:
                     hi, q = rom.orig[q], q + 1
                 v, q = rom.orig[q], q + 1
-            tiles.append([None] * c + [(hi << 8) | v])   # (counted as used: a row of its own)
+            tiles.append([None] * c + [(hi << 8) | v])   # counted as used, as a row of its own
     return cols, rows, mode, attr, tiles, plain, q
 
 
@@ -91,7 +91,7 @@ def apply(rom):
         if not 0x60000 <= p < len(rom.orig):
             continue
         cols, rows, mode, attr, tiles, plain, end = decode(rom, p)
-        if mode != 0:             # (mode 1 - the hero's frames - has no bank-switch entries: never rewritten)
+        if mode != 0:             # mode 1 - the hero's frames - has no bank-switch entries: never rewritten
             plain = False
         frames[fr] = (cols, rows, mode, attr, tiles, plain)
         defs_bytes.update(range(p, end + 1))
@@ -110,9 +110,9 @@ def apply(rom):
             w = b[i] << 8 | b[i + 1]
             if w < TILES:
                 if i < 0x60000:
-                    named.add(w)                                  # (code names a tile exactly)
+                    named.add(w)                                  # code names a tile exactly
                 else:
-                    named.update(range(w & ~7, (w & ~7) + 8))     # (a map's tile may animate through its 8)
+                    named.update(range(w & ~7, (w & ~7) + 8))     # a map tile may animate through its group of 8
     here = os.path.dirname(os.path.abspath(__file__))
     for path in glob.glob(os.path.join(here, "*.py")):
         if os.path.basename(path) != os.path.basename(__file__):

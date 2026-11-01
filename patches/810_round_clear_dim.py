@@ -76,8 +76,8 @@ def apply(rom):
     bne 0f
     jmp 0x%X""" % (BOSS_RETURN, hud)
     code = rom.place_code("""
-    bra.w entry                         | (+0)
-    bra.w frame                         | (+4)
+    bra.w entry                         | +0
+    bra.w frame                         | +4
 
 | a ROUND CLEAR routine starting: save the palettes, start the dim, and take over its return
 entry:

@@ -2,29 +2,30 @@ NAME = "water-tint"
 DESCRIPTION = "Parked (both parts off): the water's wave line carried over the shore's grass, and a tint below the water line"
 
 # The water's surface is in the background and the land is drawn in front of it, so where the land slopes into the
-# water nothing showed it was submerged. Now, on the stages in STAGES, below the water line some colours are tinted
-# TINT_K of the way toward TINT_TO: each stage's grass greens and water blues (picked by palette entry, the dirt's
-# browns left alone - sta/aes/swim_flippers.sta: Empire Marsh 2). It's a split screen in time:
-#   * at each vblank (a hook ahead of anim-speed's, on the vblank vector): last frame's original colours back; the
-#     water line found (the water layer's sprites from WATER: its row of surface tiles SURFACE, its screen y, + the
-#     stage's SPLIT_DY); the tinted copies made; the LSPC timer armed to interrupt at that line (counted in pixel
-#     clocks, 384 a line, from the vblank - LINES_TO_TOP to the screen's first line); its enable / reload-at-vblank
-#     bits put in the game's copy of the LSPC mode (0x1002C2: anim-speed writes it out each vblank). With the line
-#     off the top (the camera under water: the water layer's tile mid-screen in the water's palette) the tint goes
-#     on there and then, for the whole frame;
-#   * the timer interrupt (vector 0x68; the game's own 0x9A0A, never used - its mode copy's timer bits stay clear - is
-#     no longer called: it re-arms the timer every 0x2FF clocks) writes the
-#     tinted colours: everything drawn below that line uses them.
-# Parked for after the beta: SHORE, the wave line over the shore, is off (2026-10-15: its 56 sprite tiles went to the
-# title banner), and the tint (TINT_K 0) too - so nothing of this goes in. Picking it up again: its code still has
-# three "debug" reads of the raster line (into RAM), from tuning the split - out first.
+# water nothing showed that it was submerged. On the stages in STAGES, some colours below the water line are tinted
+# TINT_K of the way toward TINT_TO: each stage's grass greens and water blues, picked by palette entry, leaving the
+# dirt's browns alone (see sta/aes/swim_flippers.sta, Empire Marsh 2). It works as a split screen in time:
+#   * At each vblank (a hook ahead of anim-speed's on the vblank vector) last frame's original colours are put back,
+#     the water line is found from the water layer's sprites (WATER: the row of surface tiles SURFACE, its screen y,
+#     plus the stage's SPLIT_DY), and the tinted copies are made. The LSPC timer is armed to interrupt at that line,
+#     counted in pixel clocks (384 a line) from the vblank, with LINES_TO_TOP to the screen's first line. Its enable
+#     and reload-at-vblank bits go into the game's copy of the LSPC mode (0x1002C2), which anim-speed writes out each
+#     vblank. If the line is above the top of the screen (the camera is under water, with the water layer's tile
+#     mid-screen in the water's palette), the tint goes on straight away for the whole frame.
+#   * The timer interrupt (vector 0x68) writes the tinted colours, so everything drawn below that line uses them. The
+#     game's own handler there, 0x9A0A, is never otherwise used (its mode copy's timer bits stay clear) and is no
+#     longer called, since it re-arms the timer every 0x2FF clocks.
+#
+# Parked until after the beta: SHORE, the wave line over the shore, is off (its 56 sprite tiles went to the title
+# banner on 2026-10-15), and so is the tint (TINT_K 0), so none of this is in the build. To pick it up again, first
+# remove the three debug reads of the raster line into RAM left from tuning the split.
 SHORE = False
 TINT_K = 0.0   # (tint off for now - 0.35 was the tried strength; at 0 none of its code goes in. NB the water's
                # shimmer turns colours round in place (0xD2-0xD4 10-15): check that against the restore if it's on)
 TINT_TO = (1, 5, 15)          # 5-bit r, g, b: a deep blue
 STAGES = {   # stage: (water layer's first sprite, surface tiles, split dy px, {palette: [entries]}, water palette)
     10: (23, (0x3480, 0x348F), 8, {0x90: [8, 9, 10, 11, 12], 0xD4: range(10, 16), 0xD3: range(10, 16),
-                                   0xD2: range(10, 16)}, 0xD4),   # (the water deepens 0xD4, 0xD3, 0xD2)
+                                   0xD2: range(10, 16)}, 0xD4),   # the water deepens 0xD4, 0xD3, 0xD2
 }
 LINES_TO_TOP = 59             # timer lines from its load (in the vblank) to the screen's first line (measured in MAME)
 MODE_COPY = 0x1002C2
@@ -36,16 +37,16 @@ RAM = 0x10EC10                # +0 armed, +1 tinted now, +2 entries (word), +4 d
                               # shore line's sprites drawn last frame (word), +8 / +10 the water layer's top, the
                               # column being looked at (words), +12 its surface rows done (long, a bit each)
 MAX_ENTRIES = 24
-SAVE, TINTED_COLOURS, ADDRS = RAM + 0x10, RAM + 0x40, RAM + 0x70   # (MAX_ENTRIES each: to 0x10ECD0)
+SAVE, TINTED_COLOURS, ADDRS = RAM + 0x10, RAM + 0x40, RAM + 0x70   # MAX_ENTRIES each: to 0x10ECD0
 
 
 # The surface's wave line alone, for drawing over the shore: copies of the surface tiles (two 4-step animations,
 # 0x3480-0x3483 / 0x3484-0x3487: the hardware animates them, attribute bit 2) keeping only the crest
 # (CREST_COLOURS, LINE_DEPTH), the rest clear - at LINE_TILES, aligned so the hardware animates them the same.
 SURFACE_TILES = range(0x3480, 0x3488)
-LINE_TILES = 0x4FF8                 # (spare-tiles' last run: taken out of the pool)
+LINE_TILES = 0x4FF8                 # spare-tiles' last run: taken out of the pool
 LINE_DEPTH = 4
-CREST_COLOURS = {1, 2, 3, 7}   # (the crest's light edge and dark outline; 4, 5, 6 and 8 are the flat band above)
+CREST_COLOURS = {1, 2, 3, 7}   # the crest's light edge and dark outline; 4, 5, 6 and 8 are the flat band above
 
 # The wave line drawn over the shore. The land layer (LAND, chains of sprites) is looked at on the line's pixel row
 # (LINE_Y below the surface row's top), each tile's opaque pixels there from a table (SPAN_TILES tiles: an index of
@@ -59,18 +60,18 @@ CREST_COLOURS = {1, 2, 3, 7}   # (the crest's light edge and dark outline; 4, 5,
 # over the call after it (0x11804).
 SHORE_HOOK = 0x11804
 LAND = (100, 131)
-SPAN_TILES = 0x3200                 # (the land layers seen use tiles below this; past it: taken as solid)
-OPEN_PALETTES = (0xEB, 0xEC, 0xEE)  # (the land layer's waterfall at Empire Marsh 2: the line goes on under it)
+SPAN_TILES = 0x3200                 # the land layers seen use tiles below this; past it: taken as solid
+OPEN_PALETTES = (0xEB, 0xEC, 0xEE)  # the land layer's waterfall at Empire Marsh 2: the line goes on under it
 LINE_Y = 7
 INTO_L, INTO_R = 24, 0
 CUTS = (4, 8, 12)
-WATER_COLUMNS = 21                  # (the water layer's sprites)
+WATER_COLUMNS = 21                  # the water layer's sprites
 SHORE_SPRITES, SHORE_MAX = 350, 10
-SLOT_COL = 0x10E9C0                 # (32 bytes: spare RAM)
+SLOT_COL = 0x10E9C0                 # 32 bytes: spare RAM
 COUNT = 0x10E9E0                    # +0 frames (word), +2 / +4 the water layer's x / y last frame, +6 / +8 a place,
                                     # places left, +10 / +12 each half's line sprites drawn up to, +14 the half's
                                     # last, +16 / +18 its land sprites, +20 the land chain's first (words; spare RAM)
-WATER_NEAR = 0x10E96C               # (a long: spare RAM)
+WATER_NEAR = 0x10E96C               # a long: spare RAM
 COLUMN_X = 0x10E940                 # the water layer's columns' x this frame (WATER_COLUMNS words: spare RAM to 0x10E96A)
 
 
@@ -147,8 +148,8 @@ def shore_line(rom, lines):
     code = rom.place_code(r"""
     movem.l %%d0-%%d7/%%a0-%%a6,-(%%sp)
     move.w %%sr,-(%%sp)
-    ori.w #0x0100,%%sr                  | (no vblank in between: it reads the video RAM too)
-    move.w 0x3C0006,%%d1                | (debug: the raster line it started on)
+    ori.w #0x0100,%%sr                  | no vblank in between: it reads the video RAM too
+    move.w 0x3C0006,%%d1                | debug: the raster line it started on
     lsr.w #7,%%d1
     move.w %%d1,0x%(ram)X+2
     lea 0x3C0000,%%a0
@@ -185,7 +186,7 @@ found:
     move.w %%d0,0x%(count)X+4
     lsl.w #7,%%d4
     lsl.w #7,%%d5
-    moveq #2*%(half)d-1,%%d3            | (all the line's sprites: the hidden ones don't mind)
+    moveq #2*%(half)d-1,%%d3            | all the line's sprites: the hidden ones don't mind
     move.w #%(first)d,%%d6
 54: move.w %%d6,%%d1
     add.w #0x8400,%%d1
@@ -207,10 +208,10 @@ found:
     bra leave
 57: btst #0,%%d1
     bne 56f
-    clr.l 0x%(ram)X+12                  | (the rows found: a bit each)
+    clr.l 0x%(ram)X+12                  | the rows found: a bit each
     move.w %%a3,0x%(ram)X+10            | each of its columns: its row of surface tiles
 40: move.w 0x%(ram)X+10,%%d2
-    move.w %%d2,%%d1                    | (off the screen: not looked at)
+    move.w %%d2,%%d1                    | off the screen: not looked at
     sub.w %%a3,%%d1
     add.w %%d1,%%d1
     lea 0x%(column_x)X,%%a2
@@ -244,13 +245,13 @@ found:
 3:  move.l 0x%(ram)X+12,%%d1
     bset %%d3,%%d1
     move.l %%d1,0x%(ram)X+12
-41: addq.w #3,0x%(ram)X+10             | (every 3rd column: a pool's wider than that)
+41: addq.w #3,0x%(ram)X+10             | every 3rd column: a pool's wider than that
     move.w %%a3,%%d1
     add.w #%(columns)d,%%d1
     cmp.w 0x%(ram)X+10,%%d1
     bhi 40b
     bra leave
-56: move.w %%a3,%%d4                    | (frame 1: the table, made last frame, moved with the layer since)
+56: move.w %%a3,%%d4                    | frame 1: the table, made last frame, moved with the layer since
     add.w #0x8400,%%d4
     move.w %%d4,(%%a0)
     move.w (%%a1),%%d4
@@ -271,7 +272,7 @@ found:
     move.w (%%a1),%%d5
     btst #6,%%d5
     bne 68f
-    move.w %%d6,%%a2                    | (a chain's first: a2 = it, d2 = its length so far)
+    move.w %%d6,%%a2                    | a chain's first: a2 = it, d2 = its length so far
     moveq #0,%%d2
 68: addq.w #1,%%d2
     cmp.w %%d4,%%d2
@@ -321,7 +322,7 @@ found:
     addq.l #2,%%a2
 60: move.w (%%a2),%%d1
     move.w %%d7,(%%a2)
-    cmp.w 0x%(count)X+14,%%d1           | (no further than the half's: the RAM may hold anything at first)
+    cmp.w 0x%(count)X+14,%%d1           | no further than the half's: the RAM may hold anything at first
     bls 61f
     move.w 0x%(count)X+14,%%d1
 61: sub.w %%d7,%%d1
@@ -424,7 +425,7 @@ pass:
     ror.l #1,%%d1
     or.l %%d1,%%d5
     move.l %%d5,0x%(water_near)X
-    move.w 0x%(count)X+20,%%d1          | (the chain's first: x and y to start from - the half may start mid-chain)
+    move.w 0x%(count)X+20,%%d1          | the chain's first: x and y to start from - the half may start mid-chain
     move.w %%d1,%%d3
     add.w #0x8400,%%d3
     move.w %%d3,(%%a0)
@@ -452,7 +453,7 @@ pass:
     move.w (%%a1),%%d1
     btst #6,%%d1
     bne 5f
-    move.w %%d6,%%d3                    | (a chain's first sprite: its own x and y)
+    move.w %%d6,%%d3                    | a chain's first sprite: its own x and y
     add.w #0x8400,%%d3
     move.w %%d3,(%%a0)
     move.w (%%a1),%%d3
@@ -465,7 +466,7 @@ pass:
     movea.w %%d4,%%a2
     bra 6f
 5:  add.w #16,%%d3
-6:  move.w %%d3,%%d1                    | (well off the screen: not looked at, nothing carried over)
+6:  move.w %%d3,%%d1                    | well off the screen: not looked at, nothing carried over
     andi.w #511,%%d1
     cmpi.w #336,%%d1
     bcs 64f
@@ -474,7 +475,7 @@ pass:
     moveq #-1,%%d4
     movea.w %%d4,%%a2
     bra 8f
-64: move.w %%d3,%%d1                    | (not near the water: not looked at, nothing carried over)
+64: move.w %%d3,%%d1                    | not near the water: not looked at, nothing carried over
     sub.w 0x%(column_x)X,%%d1
     andi.w #511,%%d1
     lsr.w #4,%%d1
@@ -485,7 +486,7 @@ pass:
     movea.w %%d4,%%a2
     bra 8f
 65: bsr span                            | d1 = its land on the line's pixel row: first x << 4 | last x
-    cmpi.w #0xF1,%%d1                   | (the waterfall: a run of it gets the line all along, a2 = where it began)
+    cmpi.w #0xF1,%%d1                   | the waterfall: a run of it gets the line all along, a2 = where it began
     bne 62f
     cmpa.w #-1,%%a2
     bne 63f
@@ -531,7 +532,7 @@ pass:
     bls 4b
 52: rts
 
-end:                                    | (no water here: the line's sprites hidden)
+end:                                    | no water here: the line's sprites hidden
     tst.l 0x%(count)X+10
     beq leave
     clr.l 0x%(count)X+10
@@ -542,7 +543,7 @@ end:                                    | (no water here: the line's sprites hid
     addq.w #1,%%d2
     dbf %%d1,10b
 leave:
-    move.w 0x3C0006,%%d1                | (debug: the raster line it finished on)
+    move.w 0x3C0006,%%d1                | debug: the raster line it finished on
     lsr.w #7,%%d1
     move.w %%d1,0x%(ram)X+4
     move.w (%%sp)+,%%sr
@@ -573,7 +574,7 @@ span:
 %(open_palettes)s    move.w (%%sp)+,%%d3
     btst #1,%%d3
     beq 1f
-    eori.w #15,%%d1                     | (flipped up-down)
+    eori.w #15,%%d1                     | flipped up-down
 1:  cmpi.w #%(span_tiles)d,%%d5
     bcc 3f
     add.w %%d5,%%d5
@@ -587,13 +588,13 @@ span:
     andi.w #0xFF,%%d1
     btst #0,%%d3
     beq 2f
-    ror.b #4,%%d1                       | (flipped sideways: first / last swapped and mirrored)
+    ror.b #4,%%d1                       | flipped sideways: first / last swapped and mirrored
     eori.b #0xFF,%%d1
 2:  move.l (%%sp)+,%%d3
     rts
-3:  moveq #0x0F,%%d1                    | (past the table: solid)
+3:  moveq #0x0F,%%d1                    | past the table: solid
     bra 2b
-4:  addq.w #2,%%sp                     | (a palette that isn't land - the waterfall's: nothing there, 0xF1)
+4:  addq.w #2,%%sp                     | a palette that isn't land - the waterfall's: nothing there, 0xF1
     move.w #0xF1,%%d1
     bra 2b
 
@@ -614,7 +615,7 @@ near:
     lsr.w #4,%%d1
     addq.w #2,%%d1
     move.w %%d1,0x%(count)X+8
-12: cmp.w 0x%(count)X+14,%%d7           | (all the half's sprites used: no more)
+12: cmp.w 0x%(count)X+14,%%d7           | all the half's sprites used: no more
     bge 18f
     move.w 0x%(count)X+6,%%d1
     andi.w #31,%%d1
@@ -627,7 +628,7 @@ near:
     add.w %%d1,%%d1
     lea 0x%(column_x)X,%%a2
     move.w 0(%%a2,%%d1.w),%%d5          | d5 = its x
-    move.w %%d5,%%d1                    | (off the screen, x 320-496: none)
+    move.w %%d5,%%d1                    | off the screen, x 320-496: none
     cmpi.w #320,%%d1
     bcs 34f
     cmpi.w #496,%%d1
@@ -641,7 +642,7 @@ near:
     ble 16f
     tst.w %%d1
     bpl 35f
-    neg.w %%d1                          | (over the start: its left columns cut)
+    neg.w %%d1                          | over the start: its left columns cut
     addq.w #2,%%d1
     lsr.w #2,%%d1
     cmpi.w #%(n_cuts)d+1,%%d1
@@ -656,7 +657,7 @@ near:
     ble 16f
     cmpi.w #16,%%d1
     bge 36f
-    neg.w %%d1                          | (over the end: its right columns cut)
+    neg.w %%d1                          | over the end: its right columns cut
     add.w #16+2,%%d1
     lsr.w #2,%%d1
     beq 33f
@@ -682,7 +683,7 @@ near:
     bcc 17f
     lea cuts(%%pc),%%a2
     add.w 0(%%a2,%%d1.w),%%d4
-    move.w %%d6,%%d1                    | (its attributes)
+    move.w %%d6,%%d1                    | its attributes
     lsl.w #6,%%d1
     add.w %%d2,%%d1
     addq.w #1,%%d1
@@ -715,7 +716,7 @@ near:
     lsl.w #7,%%d4
     move.w %%d4,(%%a1)
     addq.w #1,%%d7
-17: move.l 8(%%sp),%%d4                 | (d4 back: the end)
+17: move.l 8(%%sp),%%d4                 | d4 back: the end
 16: addq.w #1,0x%(count)X+6
     subq.w #1,0x%(count)X+8
     bpl 12b
@@ -737,7 +738,7 @@ def apply(rom):
     if SHORE:
         shore_line(rom, line_tiles(rom))
     if not TINT_K:
-        return                          # (no tint: the palettes left alone)
+        return                          # no tint: the palettes left alone
     original_vblank = rom.u32(0x64)
     original_timer = rom.u32(0x68)
     k = int(TINT_K * 256)
@@ -767,7 +768,7 @@ def apply(rom):
 | ---- each vblank: the originals back, then (a stage with water) the line found, the tint made, the timer armed
 vblank:
     movem.l %%d0-%%d7/%%a0-%%a3,-(%%sp)
-    tst.b 0x%(ram)X+1                   | (tinted last frame: the originals back)
+    tst.b 0x%(ram)X+1                   | tinted last frame: the originals back
     beq 1f
     clr.b 0x%(ram)X+1
     move.w 0x%(ram)X+2,%%d0
@@ -783,7 +784,7 @@ vblank:
     move.w %%d1,(%%a0)
 16: dbf %%d0,0b
 1:  clr.b 0x%(ram)X                     | not armed
-    andi.w #0xFF0F,0x%(mode)X           | (timer off unless armed below)
+    andi.w #0xFF0F,0x%(mode)X           | timer off unless armed below
 %(stage_code)s
     bra done
 
@@ -791,7 +792,7 @@ vblank:
 | d4 = the surface tiles' range; d3 = the split's dy; d2 = the water's palette
 found_stage:
     move.w %%d7,0x%(ram)X+2
-    lea 0x%(addrs)X,%%a1                | (the entries' addresses noted, for the restore)
+    lea 0x%(addrs)X,%%a1                | the entries' addresses noted, for the restore
     move.w %%d7,%%d0
     subq.w #1,%%d0
 2:  move.l (%%a0)+,(%%a1)+
@@ -827,7 +828,7 @@ found_stage:
     and.w #511,%%d0
     lsr.w #4,%%d0                       | the row at screen y 112
     add.w %%d0,%%d0
-    sub.w #64,%%d6                      | (back to the sprite's first tile: the loop went 32 rows on)
+    sub.w #64,%%d6                      | back to the sprite's first tile: the loop went 32 rows on
     add.w %%d0,%%d6
     addq.w #1,%%d6
     move.w %%d6,0x3C0000
@@ -839,12 +840,12 @@ found_stage:
     bra done
 5:  move.w (%%sp)+,%%sr
     and.w #511,%%d1
-    cmp.w #400,%%d1                     | (just above the top: negative)
+    cmp.w #400,%%d1                     | just above the top: negative
     blt 51f
     sub.w #512,%%d1
 51: add.w %%d3,%%d1                     | d1 = the split line
     cmp.w #224,%%d1
-    bge done                            | (below the screen: nothing)
+    bge done                            | below the screen: nothing
     tst.w %%d1
     ble whole
     bsr make_tint
@@ -950,14 +951,14 @@ put_tint:
 
 | ---- the timer interrupt: armed - the tint on; else the game's own handler
 timer:
-    move.w #2,0x3C000C                  | (acknowledged)
+    move.w #2,0x3C000C                  | acknowledged
     tst.b 0x%(ram)X
     bne 15f
     rte                                 | (not ours: the game never turns the timer on itself - its own handler,
 15:                                     | 0x9A0A, reloads it every 0x2FF clocks, so it can't run here)
     clr.b 0x%(ram)X
     move.l %%d0,-(%%sp)
-    move.w 0x3C0006,%%d0                | (debug: the line it hit)
+    move.w 0x3C0006,%%d0                | debug: the line it hit
     lsr.w #7,%%d0
     move.w %%d0,0x%(ram)X+4
     move.l (%%sp)+,%%d0

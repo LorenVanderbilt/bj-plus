@@ -1,50 +1,53 @@
 NAME = "pause-menu"
 DESCRIPTION = "The pause has a menu: RESUME / RESTART LEVEL / QUIT TO TITLE (Up / Down, A picks; Start resumes) on a bubble; Select hides it"
 
-# The gameplay mode (mode 1, 0x11ABC: one frame per call from the mode loop 0x10D20) pauses at 0x11ACC: 0x1541A
-# prints PAUSE (fix-layer address 0x722C) and freezes, then it waits a frame at a time (0x11AD0-0x11B10) until
-# Start (see pause-start) and resumes with 0x15446, carrying on at 0x11B16. That wait is replaced by a menu under
+# The gameplay mode (mode 1, 0x11ABC, called once a frame from the mode loop at 0x10D20) pauses at 0x11ACC. 0x1541A
+# prints PAUSE at fix address 0x722C and freezes the game, which then waits a frame at a time (0x11AD0-0x11B10) for
+# Start (see pause-start), resumes with 0x15446 and carries on at 0x11B16. That wait is replaced by a menu under
 # PAUSE, in PAUSE's own font and palette (read back from its P):
-#   RESUME        - as before (Start does it too)
-#   RESTART LEVEL - mode 0 (the stage's start: 0x113BC) for the stage being played, then back to the mode loop -
-#                   its restart points forgotten first (RESTART_POINTS: each player's checkpoint, the way back out of
-#                   a cave), as the game's own stage select does (0x12DF2), so it's the stage's beginning
-#   QUIT TO TITLE - mode 8 (the game's end: the mode loop returns to the attract sequence), the title first - as
-#                   the title menu's BACK TO TITLE
-# PAUSE moves a column right (PAUSE_AT, both where 0x1541A prints it and where 0x15446 blanks it: PAUSE_ADDRS), centred
-# over the menu. Behind it all, a box: Blue's answer bubble (BUBBLE_TILES: its corner, side, top and fill - the rest
-# flipped; no tail) COLS x ROWS tiles at X, Y, in sprite slots from SLOT (above anything the game draws in play: its
-# drawing loop never reaches them) - drawn with palette PALETTE (empty in play - the title's), its colours
-# (BUBBLE_COLOURS: the bubble's black and golds) written in while the menu's up and the palette put back after.
-# Select (player 1's, 0x10FDAC bit 1 - unused in play since pause-start) hides PAUSE, the menu and the box for a clean
-# pause screen, and shows them again; Up / Down / A do nothing while hidden.
+#   RESUME         as before; Start does it too.
+#   RESTART LEVEL  mode 0 (the stage start, 0x113BC) for the current stage, then back to the mode loop. Its restart
+#                  points (RESTART_POINTS: each player's checkpoint and the way back out of a cave) are cleared
+#                  first, as the game's own stage select does (0x12DF2), so it starts from the beginning.
+#   QUIT TO TITLE  mode 8, the end of the game, so the mode loop returns to the attract sequence, with the title
+#                  first. The same as the title menu's BACK TO TITLE.
+#
+# PAUSE moves a column right (PAUSE_AT) to centre it over the menu, both where 0x1541A prints it and where 0x15446
+# blanks it (PAUSE_ADDRS). Behind everything is a box made from Blue's answer bubble without its tail (BUBBLE_TILES:
+# corner, side, top and fill, flipped for the rest), COLS x ROWS tiles at X, Y. It uses sprite slots from SLOT, above
+# anything the game draws in play, so its drawing loop never reaches them. It's drawn in palette PALETTE, the title's,
+# which is empty during play. The bubble's black and golds (BUBBLE_COLOURS) are written in while the menu is up and
+# the palette is restored after.
+#
+# Select (player 1's, 0x10FDAC bit 1, unused in play since pause-start) hides PAUSE, the menu and the box for a clean
+# pause screen, and shows them again. Up, Down and A do nothing while they're hidden.
 PAUSE_SITE = 0x11ACC        # bsr.w 0x1541A ; jsr 0xE856 ...
 PAUSE_ENTER, PAUSE_EXIT = 0x1541A, 0x15446
-PAUSE_ADDRS = [0x15436, 0x15462]   # (the inline printer's fix address word in each)
+PAUSE_ADDRS = [0x15436, 0x15462]   # the inline printer's fix address word in each
 RESUME_AT = 0x11B16
-START_CHECK_SITE = 0x11B06  # pause-start's `jsr <its Start press check>` (Z clear on a new press)
+START_CHECK_SITE = 0x11B06  # pause-start's jsr <Start press check>; Z clear on a new press
 WAIT_FRAME = 0xE856
 MODE = 0x103004
-RESTART_POINTS = [0x107100, 0x107500, 0x103024]   # (longs: 0 = none - the stage's beginning)
+RESTART_POINTS = [0x107100, 0x107500, 0x103024]   # longs; 0 = none, so the stage's beginning
 ATTRACT_TOGGLE = 0x1033CA   # bit 0 clear: the attract cycle with the title runs next
 PAUSE_WAS = 0x722C
-PAUSE_AT = 0x7000 + 18 * 32 + 12   # column 18, row 12 (was 17): centred over the menu
+PAUSE_AT = 0x7000 + 18 * 32 + 12   # column 18 (was 17), row 12: centred over the menu
 MENU_ADDR = 0x7000 + 13 * 32 + 15   # column 13, row 15
 ITEMS = ["RESUME", "RESTART LEVEL", "QUIT TO TITLE"]
 WIDTH = 16
-CURSOR = 0x10E816           # spare RAM: the cursor (byte), the buttons last frame (byte), the font base (word),
-PREV = 0x10E817             # hidden (byte), Select last frame (byte), the palette put aside (16 words)
+CURSOR = 0x10E816           # spare RAM: cursor (byte), last frame's buttons (byte), font base (word),
+PREV = 0x10E817             # hidden (byte), last frame's Select (byte), saved palette (16 words)
 BASE = 0x10E818
 HIDDEN = 0x10E81A
 SELECT_PREV = 0x10E81B
 PALETTE_SAVE = 0x10E830
 P1_NOW = 0x10FD96
-BUTTONS = 0x10FDAC          # (bit 1: player 1's Select)
-BUBBLE_TILES = (0x58D9, 0x58D7, 0x58DA, 0x58D6)   # (frame 0x345C's: corner, left side, top, fill)
+BUTTONS = 0x10FDAC          # bit 1 = player 1's Select
+BUBBLE_TILES = (0x58D9, 0x58D7, 0x58DA, 0x58D6)   # from frame 0x345C: corner, left side, top, fill
 SLOT, COLS, ROWS = 300, 10, 6
-X, Y = 86, 64               # (screen pixels; the tiles' outline is 6 px in from the left, 8 down from the top)
+X, Y = 86, 64               # screen pixels; the outline is 6 px in from the tiles' left and 8 down from their top
 PALETTE = 0x7E
-BUBBLE_COLOURS = {3: 0x7FD4, 4: 0x4FB1, 15: 0x0000}   # (the bubble's: light gold, gold, black)
+BUBBLE_COLOURS = {3: 0x7FD4, 4: 0x4FB1, 15: 0x0000}   # the bubble's light gold, gold and black
 
 
 def bubble_words():
@@ -78,7 +81,7 @@ def apply(rom):
     move.w #0x%(ptile)X,0x3C0000
     move.w 0x3C0002,%%d0
     move.w (%%sp)+,%%sr
-    sub.w #0x50,%%d0                   | ('P': the font's base)
+    sub.w #0x50,%%d0                   | the font's base, from 'P'
     move.w %%d0,0x%(base)X
     clr.b 0x%(cursor)X
     clr.b 0x%(hidden)X
@@ -86,7 +89,7 @@ def apply(rom):
     move.b 0x%(buttons)X,%%d0
     andi.b #2,%%d0
     move.b %%d0,0x%(selprev)X
-    lea 0x%(palram)X,%%a0               | the palette put aside, the bubble's colours in
+    lea 0x%(palram)X,%%a0               | save the palette and write in the bubble's colours
     lea 0x%(palsave)X,%%a1
     moveq #15,%%d0
 0:  move.w (%%a0)+,(%%a1)+
@@ -101,7 +104,7 @@ def apply(rom):
 1:  jsr 0x%(wait)X
     jsr 0x%(start)X                  | Start: resume
     bne resume
-    move.b 0x%(buttons)X,%%d0           | Select: hide / show it all
+    move.b 0x%(buttons)X,%%d0           | Select: hide or show it all
     andi.b #2,%%d0
     move.b 0x%(selprev)X,%%d1
     move.b %%d0,0x%(selprev)X
@@ -160,7 +163,7 @@ resume:
     jsr 0x%(exit)X
     jmp 0x%(resume_at)X
 
-| the menu, the box and the palette gone
+| remove the menu and the box, and restore the palette
 close:
     bsr erase
     bsr unbubble
@@ -171,7 +174,7 @@ close:
     dbf %%d0,0b
     rts
 
-| the three lines, the cursor (>) on the picked one
+| draw the three lines, with the cursor (>) on the selected one
 draw:
     movem.l %%d0-%%d3/%%a0,-(%%sp)
     lea items(%%pc),%%a0
@@ -185,11 +188,11 @@ draw:
 11: moveq #0,%%d0
     move.b (%%a0)+,%%d0
     beq 12f
-    tst.w %%d2                         | (the first character: the cursor or a space)
+    tst.w %%d2                         | the first character is the cursor or a space
     bne 13f
     cmp.b 0x%(cursor)X,%%d3
     bne 13f
-    moveq #0x11,%%d0                   | (the game's cursor)
+    moveq #0x11,%%d0                   | the game's cursor
 13: addq.w #1,%%d2
     add.w 0x%(base)X,%%d0
     move.w %%d0,0x3C0002
@@ -203,7 +206,7 @@ draw:
     movem.l (%%sp)+,%%d0-%%d3/%%a0
     rts
 
-| the three lines blanked
+| blank the three lines
 erase:
     movem.l %%d0-%%d3,-(%%sp)
     move.w #0x%(addr)X,%%d1
@@ -224,7 +227,7 @@ erase:
     movem.l (%%sp)+,%%d0-%%d3
     rts
 
-| PAUSE's place: the text at a0 (PAUSE or blanks)
+| write the text at a0 (PAUSE or blanks) where PAUSE goes
 pause:
     move.w %%sr,-(%%sp)
     or.w #0x0700,%%sr
@@ -240,7 +243,7 @@ pause:
     move.w (%%sp)+,%%sr
     rts
 
-| the box: COLS chained sprites from SLOT
+| draw the box: COLS chained sprites from SLOT
 bubble:
     move.w %%sr,-(%%sp)
     or.w #0x0700,%%sr
@@ -268,7 +271,7 @@ bubble:
     move.w (%%sp)+,%%sr
     rts
 
-| the box hidden (height 0)
+| hide the box (height 0)
 unbubble:
     move.w %%sr,-(%%sp)
     or.w #0x0700,%%sr

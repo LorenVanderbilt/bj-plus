@@ -5,7 +5,7 @@ DESCRIPTION = "High score name entry typed into the table (after the ending): a 
 # The name entry after the ending (0x5491E, ENTRIES) works differently: it inserts the row first, then has the name
 # typed straight into it at TABLE + 16 * rank. So after each of those, a row still holding ':::' gets ' BLU', a
 # space and three letters like the table's other names.
-ENTRIES = [(0x54934, 0x4E248, 0x1030DC), (0x5494A, 0x4E2D4, 0x1030DD)]   # (jsr, its routine, the player's rank)
+ENTRIES = [(0x54934, 0x4E248, 0x1030DC), (0x5494A, 0x4E2D4, 0x1030DD)]   # jsr, its routine, the player's rank
 TABLE = 0x103384               # the first row's name; rows are 16 bytes apart
 DEFAULT = 0x3A3A3A
 

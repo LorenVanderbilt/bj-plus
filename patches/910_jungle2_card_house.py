@@ -23,7 +23,7 @@ MAP_TABLE = 0x7C432            # Jungle Zone 2's front layer
 BLOCK = 5                      # the top of the icy climb. Blocks 1-6 are the stage's top row and 7-12 the bottom,
                                # so 5 is above 11; the summit is its bottom right, Blue at about col 10, row 10
 PLATFORM_FROM = (7, 8, 8)      # (block, row, col) of the stage's floating platform
-PLATFORM_SIZE = (2, 5)         # (rows, cols)
+PLATFORM_SIZE = (2, 5)         # rows, cols
 PLATFORMS = [(3, 0)]           # (row, col) of each copy's top left in BLOCK: the house's, up and left of the summit
 ICE_KIND = 0xB8
 ICE_BLOCKS = [(0x5F, 0x49), (0x50, 0x60), (0x3D, 0x60), (0x29, 0x60)]   # (x, y) in 2 px units; Blue

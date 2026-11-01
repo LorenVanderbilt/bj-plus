@@ -38,7 +38,7 @@ LOOP_TICK = 0x28660          # jsr 0x218A0, the countdown tick in the screen's l
 GIVE_ITEM, DONE = 0x4BEF0, 0x107861
 WIN_COUNT = 0x10E81C         # word
 WIN_HOLD = 150
-MAP_COVER = [   # (VRAM address of the first tile word, (tile, attribute) going down)
+MAP_COVER = [   # VRAM address of the first tile word, (tile, attribute) going down
     (16 * 64 + 11 * 2, [(0x5812, 0xDD00), (0x4A87, 0xF000)]),
     (17 * 64 + 11 * 2, [(0x5812, 0xDD00), (0x4B44, 0xF000)]),
 ]

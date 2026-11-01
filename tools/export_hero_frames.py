@@ -1,6 +1,7 @@
-"""Write art/hero_big/<frame>.png for the big hero's 1.5x copies (patches/020_hero_big_art.py: the idle fidget, the
-ocarina, burning in lava; the throws, which until there's a PNG use stand-in poses) - the copy as drawn now, with MARGIN pixels round its main block, in its palette's
-colours - the starting point for redrawing it. Leaves an existing file alone unless --force.
+"""Write art/hero_big/<frame>.png for each of the big hero's 1.5x copies in patches/020_hero_big_art.py: the idle
+fidget, the ocarina, burning in lava, and the throws (which use stand-in poses until they have a PNG). Each is the
+copy as drawn now, with MARGIN pixels around its main block, in its palette's colours, as a starting point for
+redrawing it. An existing file is left alone unless --force is given.
 
     python3 tools/export_hero_frames.py [134 188 ...] [--force]      (no frames: all of them)
 
@@ -34,7 +35,7 @@ def frames(rom):
             out.append(w & 0x3FFC)
         q += 4 if w >= 0x8000 else 2
     out += hb.OCARINA_FRAMES
-    out += sorted(set(hb.THROW_ART.values())) + [hb.THROW_MID]   # (the throws' drawings and the in-between)
+    out += sorted(set(hb.THROW_ART.values())) + [hb.THROW_MID]   # the throws' drawings and the in-between
     for n in hb.BURN_ANIMS:
         p, i = rom.u32(hb.ANIM_TABLE + 4 * n), 0
         while rom.u16(p + 2 * i) < 0xFFFE:

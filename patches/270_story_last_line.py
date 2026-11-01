@@ -80,7 +80,7 @@ def apply(rom):
     jsr 0x9FBE
     st 0x%(box_on)X
     lea 0x%(jp)X,%%a0
-    tst.b 0x10FD83                      | (the BIOS's language: Japanese, else English)
+    tst.b 0x10FD83                      | the BIOS's language: Japanese, else English
     beq.s 1f
     lea 0x%(en)X,%%a0
 1:  move.w #0x%(pos)X,%%d0

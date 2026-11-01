@@ -54,7 +54,7 @@ def apply(rom):
             writes += "    move.w #0x%04X,0x3C0000\n    move.w #0x%04X,0x3C0002\n" % (addr, word)
     code = rom.place_code("""
     move.w %%sr,-(%%sp)
-    or.w #0x0700,%%sr                   | (no interrupt between the VRAM address and its writes)
+    or.w #0x0700,%%sr                   | no interrupt between the VRAM address and its writes
 %(writes)s    move.w (%%sp)+,%%sr
     rts
 """ % {"writes": writes}, why="shop title SHOP on the top plate")

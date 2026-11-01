@@ -54,7 +54,7 @@ SPRITE_FREE_START, SPRITE_FREE_END = 0x2F9C, 0x2FFF
 # The sprite frame table (frame number / 4 -> definition address) ends in filler: frames 0x34D0-0x3FFC all point at
 # one definition and nothing uses them. New frames go at the very end.
 FRAME_TABLE = 0x60772
-FRAME_FREE_START, FRAME_FREE_END = 0x3C00, 0x3FFC   # (0x34D0-0x3FFC all point at the same empty definition)
+FRAME_FREE_START, FRAME_FREE_END = 0x3C00, 0x3FFC   # 0x34D0-0x3FFC all point at the same empty definition
 AS, LD, OBJCOPY = "m68k-neogeo-elf-as", "m68k-neogeo-elf-ld", "m68k-neogeo-elf-objcopy"
 # Where each patch's code / data blocks sit (--pin writes it from a build): patches keep these addresses while they
 # fit, so editing one patch doesn't move the others' code (save states hold return addresses into it).

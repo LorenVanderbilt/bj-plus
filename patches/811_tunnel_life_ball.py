@@ -83,8 +83,8 @@ def apply(rom):
     assert rom.u16(FRAME_LOOP) == 0x4EF9, "tunnel-life-ball: needs round-clear-dim's hook at the vblank wait"
     next_frame = rom.u32(FRAME_LOOP + 2)
     code = rom.place_code("""
-    bra.w frame                         | (+0)
-    bra.w lily_start                    | (+4)
+    bra.w frame                         | +0
+    bra.w lily_start                    | +4
 
 | once a frame (d1-a5 free): refresh the ball's colours in its stage, then chain on
 frame:

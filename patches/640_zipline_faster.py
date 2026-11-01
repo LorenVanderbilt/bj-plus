@@ -1,16 +1,16 @@
 NAME = "zipline-faster"
 DESCRIPTION = "Strange Space 3's zipline (the game's only one) carries Blue along its rope faster"
 
-# The zipline's handle (object code 0x50584) follows a fixed path: each frame it keeps its place (+0 / +2 into +0x48),
-# calls the path routine (PATH_CALL: jsr 0x19EEE, with its tables in a0 / a1 - a step a frame, minus when the path is
-# over) and then moves itself and its rider by the difference. Now the path is stepped again on every EVERY-th frame:
-# the same route, 1 + 1 / EVERY times as fast (2: half as fast again; 1: twice). The rider and the camera follow the
-# handle, so they keep up.
+# The zipline's handle (object 0x50584) follows a fixed path. Each frame it saves its position (+0 / +2 into +0x48),
+# calls the path routine (PATH_CALL, with its tables in a0 / a1), which takes one step and returns minus when the
+# path is over, and then moves itself and its rider by the difference. The path now takes an extra step every
+# EVERY-th frame: the same route at 1 + 1 / EVERY times the speed (2 is half as fast again, 1 is twice as fast). The
+# rider and the camera follow the handle, so they keep up.
 PATH_CALL = 0x50592            # jsr 0x19EEE
 PATH = 0x19EEE
-TABLES = (0x50726, 0x50762)    # (lea'd into a0 / a1 just before the call)
+TABLES = (0x50726, 0x50762)    # loaded into a0 / a1 just before the call
 EVERY = 2
-STEPS = 0x10EA81               # a byte (spare RAM): frames since the last extra step
+STEPS = 0x10EA81               # spare RAM byte: frames since the last extra step
 
 
 def apply(rom):
@@ -21,10 +21,10 @@ def apply(rom):
     bcs 1f
     clr.b 0x%(steps)X
     jsr 0x%(path)X
-    bmi 9f                              | (the path's over)
-    lea 0x%(a0)X,%%a0                   | (its tables again, for the usual step)
+    bmi 9f                              | the path is over
+    lea 0x%(a0)X,%%a0                   | its tables again, for the usual step
     lea 0x%(a1)X,%%a1
-1:  jmp 0x%(path)X                      | the usual step - its flags go back to the handle (minus: over)
+1:  jmp 0x%(path)X                      | the usual step; its flags go back to the handle (minus: over)
 9:  rts
 """ % {"path": PATH, "steps": STEPS, "every": EVERY, "a0": TABLES[0], "a1": TABLES[1]},
         why="zipline: its path stepped faster")

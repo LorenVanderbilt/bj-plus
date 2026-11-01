@@ -11,7 +11,7 @@ DESCRIPTION = "More free sprite tiles for new art: 84 copies of the developers' 
 #   * spare-tiles took only blank runs, tile-pool only frames' duplicates - so these were left.
 # They go on the end of rom.tile_pool (after spare-tiles'), so tiles already handed out keep their numbers.
 # (Its own patch, last, so the tiles before it keep theirs.)
-RUN = (0x57AC, 84)             # (first, count)
+RUN = (0x57AC, 84)             # first, count
 PLACEHOLDER = ["1111111111111111"] + ["1" + "".join("1" if x == 13 - y else "." for x in range(14)) + "1"
                                      for y in range(14)] + ["1111111111111111"]
 
