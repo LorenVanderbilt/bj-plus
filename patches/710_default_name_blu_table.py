@@ -1,13 +1,12 @@
 NAME = "default-name-blu-table"
 DESCRIPTION = "High score name entry typed into the table (after the ending): a name left as ... goes in as BLU too"
 
-# default-name-blu turns a name left at ':::' (drawn as ...) into BLU as the entry goes into TODAY'S BEST (the insert
-# copies the player's name). But the high score name entry the ending's path runs (0x5491E: ENTRIES, per player) puts
-# the entry in first (no name yet) and then has the name typed straight into the table's row - TABLE + 16 * the rank
-# (RANKS) + 0, the name's long ($3A3A3A3A to start). So after each of those, a row still at ':::' gets ' BLU' (as the
-# table's other names: a space, then the 3 letters).
-ENTRIES = [(0x54934, 0x4E248, 0x1030DC), (0x5494A, 0x4E2D4, 0x1030DD)]   # (the jsr, its routine, the player's rank)
-TABLE = 0x103384               # the first row's name (rows 16 bytes apart)
+# default-name-blu turns a name left as ':::' (drawn as ...) into BLU when the entry is copied into TODAY'S BEST.
+# The name entry after the ending (0x5491E, ENTRIES) works differently: it inserts the row first, then has the name
+# typed straight into it at TABLE + 16 * rank. So after each of those, a row still holding ':::' gets ' BLU', a
+# space and three letters like the table's other names.
+ENTRIES = [(0x54934, 0x4E248, 0x1030DC), (0x5494A, 0x4E2D4, 0x1030DD)]   # (jsr, its routine, the player's rank)
+TABLE = 0x103384               # the first row's name; rows are 16 bytes apart
 DEFAULT = 0x3A3A3A
 
 

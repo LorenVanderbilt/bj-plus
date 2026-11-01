@@ -1,12 +1,12 @@
 NAME = "wall-light-keep"
 DESCRIPTION = "Daruma Empire 1's yellow wall light: its colours kept after a continue (they went missing)"
 
-# wall-light's palette (its LIGHT_PAL, empty in the stage) is written only as its tile is drawn, so when the level's
-# palettes load after that (a continue there: the wall on screen as the level's built) the light was left without
-# colours. Now they're put there each frame in its stage, at the vblank wait (FRAME_LOOP, round-clear-dim's hook
-# there - tunnel-life-ball's first: ours before both) - not while the screen's black (screen-blackout) or dimmed
-# (round-clear-dim).
-FRAME_LOOP = 0xE8AC             # jmp <tunnel-life-ball's frame> - the vblank wait's loop, once a frame
+# wall-light writes its palette (LIGHT_PAL, unused in the stage) only when its tile is drawn. After a continue the
+# wall is already on screen when the level's palettes load, so the light lost its colours.
+#
+# The colours are now copied in every frame in that stage from the vblank wait (FRAME_LOOP), chained ahead of
+# tunnel-life-ball and round-clear-dim, except while the screen is blacked out or dimmed.
+FRAME_LOOP = 0xE8AC             # jmp <tunnel-life-ball> in the vblank wait loop
 
 
 def apply(rom):
@@ -16,7 +16,7 @@ def apply(rom):
     assert rom.u16(FRAME_LOOP) == 0x4EF9, "wall-light-keep: needs round-clear-dim's hook at the vblank wait"
     next_frame = rom.u32(FRAME_LOOP + 2)
     code = rom.place_code("""
-| the vblank wait's loop, a frame over (d1-a5 free): in the stage, the light's colours kept - then on
+| once a frame (d1-a5 free): refresh the light's colours in its stage, then chain on
     cmpi.b #%(light_stage)d,0x%(stage)X
     bne 0f
     tst.b 0x%(black)X

@@ -1,27 +1,31 @@
 NAME = "turn-down-exit"
 DESCRIPTION = "NPC rooms: turning down the riddle man's riddles or Red's duel leaves at once; after the riddles, a moment before the fade; the boatman throws you out when you can't pay"
 
-# Turning the riddle man down a third time, or Red's duel ("I GUESS I'M A COWARD."), ends the talk with 0x25ABE
-# (from each choice table) and the room loop goes on to its wait before the fade out - which npc-wait made a wait for
-# a button (for reading a last line). Here the last thing was an answer just chosen, so it looked stuck. Now those
-# choices go through `refused` (the original action, then SKIP set), and each room's wait (`move.w #30,d0 ; jsr
-# <npc-wait's routine>`) through its own: SKIP set - cleared, a frame; else as before - except the riddle man's,
-# where the last line is already closed by a press (that press ends the talk), so npc-wait waited for a second one, up
-# to 10 s: there, the room's 30 frames and LINGER more instead (the quiz lost or won: his line stays a moment).
-# SKIP is cleared as each room starts (in its set-up: the 8 bytes at START, run as they were, then the clear).
-# The boatman's NO FLOWERS, NO BOAT, GET OUT! (text-fixes) ends the talk with its end-of-text callback (0x22502, as
-# renting a boat does): BOATMAN_BROKE's callback now sets SKIP first, so his room's wait is LINGER frames - time to
-# read it - and then you're out, no press needed (a rented boat's last line still waits for one).
-ROOMS = [   # (name, the choice table entry (0x25ABE) or None, START, the wait (move.w #N,d0 ; jsr npc-wait),
-            #  npc-wait kept?, frames before leaving when SKIP is set)
-    ("quiz", 0x266B6, 0x25A4A, 0x25AAC, False, 1),  # (START: clr.l 0x786A(a6) ; clr.b 0x7861(a6))
-    ("red", 0x28304, 0x27AF0, 0x27B60, True, 1),    # (START: clr.b 0x7861(a6) ; clr.b 0x786F(a6))
-    ("boat", None, 0x21B0A, 0x21B70, True, 60),     # (START: clr.l 0x786A(a6) ; clr.b 0x7861(a6))
+# Turning the riddle man down a third time, or refusing Red's duel ("I GUESS I'M A COWARD."), ends the talk through
+# 0x25ABE. The room then waits before fading out, and npc-wait turned that wait into a wait for a button so a last
+# line can be read. Here the last thing on screen is the answer just chosen, so the room looked stuck.
+#
+# Those choices now go through `refused`, which runs the original action and sets SKIP. Each room's wait
+# (move.w #30,d0 ; jsr <npc-wait>) goes through its own routine: if SKIP is set it clears it and waits one frame,
+# otherwise it waits as before. The riddle man is the exception. His last line is already closed by the press that
+# ends the talk, so npc-wait would wait up to 10 s for a second press. His room waits its 30 frames plus LINGER
+# instead, so his last line stays up a moment whether the quiz was won or lost.
+#
+# SKIP is cleared as each room starts: the room set-up's 8 bytes at START run as before, then the clear.
+#
+# The boatman's NO FLOWERS, NO BOAT, GET OUT! (text-fixes) ends the talk with its end-of-text callback, 0x22502, the
+# same one renting a boat uses. BOATMAN_BROKE's callback now sets SKIP first, so his room waits LINGER frames, long
+# enough to read it, and then throws you out without a press. A rented boat's last line still waits for one.
+ROOMS = [   # (name, choice table entry for 0x25ABE or None, START, the wait (move.w #N,d0 ; jsr npc-wait),
+            #  keep npc-wait?, frames before leaving when SKIP is set)
+    ("quiz", 0x266B6, 0x25A4A, 0x25AAC, False, 1),  # START: clr.l 0x786A(a6) ; clr.b 0x7861(a6)
+    ("red", 0x28304, 0x27AF0, 0x27B60, True, 1),    # START: clr.b 0x7861(a6) ; clr.b 0x786F(a6)
+    ("boat", None, 0x21B0A, 0x21B70, True, 60),     # START: clr.l 0x786A(a6) ; clr.b 0x7861(a6)
 ]
-BOATMAN_BROKE = 0x22528        # lea <NO FLOWERS, NO BOAT, GET OUT!>,a0 - its 0xFC callback: 0x22502 (the talk ends)
+BOATMAN_BROKE = 0x22528        # lea <NO FLOWERS, NO BOAT, GET OUT!>,a0; its 0xFC callback is 0x22502
 TALK_ENDS = 0x22502
 REFUSE_ACTION = 0x25ABE
-SKIP = 0x10E9FC              # a byte (spare RAM: may hold anything at first - cleared as a room starts)
+SKIP = 0x10E9FC              # spare RAM byte, cleared as each room starts
 WAIT = 0xE858                # d0 = frames
 LINGER = 60
 
@@ -57,7 +61,7 @@ refused:
     rts
 """ % {"table": table, "rooms": rooms, "refuse": REFUSE_ACTION, "skip": SKIP}, why="NPC rooms: turned down, out at once")
     for n, (name, entry, start, wait, keep, linger) in enumerate(ROOMS):
-        start_at, wait_at = code + 4 + 8 * n, code + 8 + 8 * n      # (the table: bra.w each)
+        start_at, wait_at = code + 4 + 8 * n, code + 8 + 8 * n      # the bra.w table
         if entry is not None:
             rom.write(entry, code.to_bytes(4, "big"), expect=REFUSE_ACTION.to_bytes(4, "big"),
                       why="%s: turned down - noted, so the room is left at once" % name)

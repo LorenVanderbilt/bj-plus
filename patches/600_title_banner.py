@@ -122,12 +122,6 @@ def placeholder():
     return px
 
 
-def palette_colours(rom):
-    """Fix palette FIXED_PALETTE as RGB (the placeholder's colours)."""
-    from png_tiles import neo_to_rgb
-    return [neo_to_rgb(rom.u16(0x1000 + FIXED_PALETTE * 32 + 2 * i)) for i in range(16)]
-
-
 def own_colours():
     """COLOURS' 16 colours as RGB (a GIMP palette: one 'r g b name' a line after its header)."""
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

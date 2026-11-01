@@ -1,29 +1,30 @@
 NAME = "goal-flowers"
 DESCRIPTION = "Hit the goal vine at the very top (its top score) and flowers sprout from the ground around it"
 
-# The goal vine's touch (TOUCH: jsr 0x5E036 first, a5 = the segment touched) scores by the segment's height, 0x5F(a5)
-# - TOP (9) is the top score, 7770. There it now also spawns FLOWERS: the pink currency flower (frame 0x209C - in every
-# stage's palettes), on the ground (GROUND below the goal's base, BASE: its y / x, as the score
-# popup uses it) either side of the vine. Each lies flat on the ground from the touch (vertical shrink +0x27 at 0:
-# a 1-pixel line, full width), waits its delay, then stretches up through ZOOMS - the hero's crush in reverse - out
-# of the ground, a little bounce at the end - and stays till the stage ends. It never moves: the drawer keeps a
-# shrunken sprite's bottom where the full-size one's is (its y is the full-size top, GROUND below the base).
-ENABLED = False                # set aside (2026-10-18): the user isn't sold on it yet - True to try it again
+# Touching the goal vine (TOUCH, with a5 = the segment touched) scores by the segment's height at 0x5F(a5). TOP (9)
+# gives the top score, 7770. A top hit now also spawns FLOWERS on the ground either side of the vine: the pink
+# currency flower (frame 0x209C, available in every stage's palettes), placed GROUND below the goal's base (BASE, as
+# the score pop-up uses it).
+#
+# Each flower starts squashed flat (vertical shrink +0x27 at 0, a 1-pixel line), waits its delay, then stretches up
+# out of the ground through ZOOMS, like the hero's crush in reverse with a small bounce at the end. It stays until
+# the stage ends. It never has to move, since the drawer keeps a shrunk sprite's bottom where the full-size one's is.
+ENABLED = False                # set aside 2026-10-18, not convincing yet; True to try it again
 TOUCH = 0x52994                # jsr 0x5E036
 TOUCH_FIRST = 0x5E036
 HEIGHT, TOP = 0x5F, 9
-ALLOCATE = 0xFFEC              # a free object in a1 (ne: none)
-BASE = 0x103C08                # the goal's base: y, x (128 a pixel; y upwards)
-GROUND = -0x100                # a flower's top at full size, below the base (its foot 16 px lower, on the grass)
-PRIORITY = 0x7F                # +0x28: drawn as the crowns are
+ALLOCATE = 0xFFEC              # returns a free object in a1; ne if none
+BASE = 0x103C08                # the goal's base: y, x (128 to a pixel; y up)
+GROUND = -0x100                # a full-size flower's top, below the base; its foot is 16 px lower, on the grass
+PRIORITY = 0x7F                # +0x28: the same as the crowns
 PINK = 0x209C
-# (x from the base in pixels, delay in frames, frame) - one object each: the goal's sparkles take most of the rest
+# (x from the base in px, delay in frames, frame), one object each; the goal's sparkles use most of the rest
 FLOWERS = [(-28, 0, PINK), (28, 3, PINK), (-47, 6, PINK), (46, 9, PINK), (-68, 12, PINK), (66, 15, PINK),
            (-86, 18, PINK), (88, 21, PINK), (-108, 24, PINK), (106, 27, PINK)]
 GROW = [0, 40, 78, 112, 142, 168, 190, 208, 222, 234, 244, 250, 255]
 BOUNCE = [246, 234, 224, 218, 220, 228, 240, 250, 255]
 ZOOMS = GROW + BOUNCE
-WAIT, STEP = 0x50, 0x54       # the flower's own fields: delay, step
+WAIT, STEP = 0x50, 0x54       # the flower's fields: delay, step
 
 
 def apply(rom):
@@ -38,7 +39,7 @@ def apply(rom):
     bra 9f
 1:  move.w %(step)d(%%a5),%%d0
     cmpi.w #%(last)d,%%d0
-    bcc 2f                              | (grown: holds the last)
+    bcc 2f                              | fully grown: hold the last step
     addq.w #1,%(step)d(%%a5)
 2:  lea zooms(%%pc),%%a0
     move.b (%%a0,%%d0.w),0x27(%%a5)
@@ -59,7 +60,7 @@ zooms:
 1:  movem.l %%d7/%%a3,-(%%sp)
     jsr 0x%(allocate)X
     movem.l (%%sp)+,%%d7/%%a3
-    bne 8f                              | (no free object)
+    bne 8f                              | no free object
     move.w 0x%(base)X,%%d0
     subi.w #%(ground)d,%%d0
     move.w %%d0,(%%a1)
@@ -68,7 +69,7 @@ zooms:
     move.w %%d0,2(%%a1)
     move.l #0x%(flower)X,4(%%a1)
     move.w (%%a3)+,%(wait)d(%%a1)
-    move.w (%%a3)+,8(%%a1)              | its frame, flat till its turn
+    move.w (%%a3)+,8(%%a1)              | its frame, flat until its turn
     clr.w %(step)d(%%a1)
     clr.b 0x20(%%a1)
     move.b #6,0x21(%%a1)

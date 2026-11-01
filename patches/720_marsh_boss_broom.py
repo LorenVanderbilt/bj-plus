@@ -1,41 +1,40 @@
 NAME = "marsh-boss-broom"
 DESCRIPTION = "Empire Marsh boss's death: the broom cracks, breaks in a puff, and its pieces hop apart and tumble down gently"
 
-# Beaten, the witch flies off and her broom (object 0x2B88C) hangs, then steps through its crack frames (0x173C,
-# 0x1740: 8 frames each) and splits: the handle (a new object: 8 turning frames) and the bristles (the broom, as
-# BRISTLES). But its step's countdown looped back inside the same frame (CRACK_LOOP: bne to its own start) - the crack
-# frames passed in one frame, unseen; now it waits a frame at a time (bne to the rts).
-# As it cracks (PUFF_AT: its step - STEP_CHECK - or the split, SPLIT: the broom becomes BRISTLES) a puff of dust
-# comes up
-# where it breaks: an object of its own
-# billowing through the final boss's dust frames (DUST, PUFF_STEP frames each - PUFF_LIFE in all), drifting up
-# (PUFF_RISE), then gone; its colours DUST_COLOURS (the final hall's 0x4F) made a warm grey (GREY) and written into
-# PUFF_PALETTE (nothing in the marsh boss's room uses it) while it's out - drawn with it (+0x20, the palette override).
-# The pieces: the handle turns a frame every TURN (was every frame - a whole turn in 8). As the bristles start to
-# fall (FALLS: each piece's speeds and gravity set - +0x0C y speed, +0x0E x speed, +0x10 y gravity, as the mover
-# 0xA258 has them), they now hop up first (HOP; was none), go half as fast sideways (X_SPEED, was 0x50) and fall a
-# little slower (GRAVITY, was -0x10).
-CRACK_LOOP = 0x2B8B2           # bne 0x2B8A8 (its countdown, again in the same frame) -> bne 0x2B8D6 (rts)
-SPLIT = 0x2B916                # move.l #BRISTLES,4(a5) - then move.l a1,0x4010(a5) (a1: the handle)
+# When the witch is beaten she flies off and her broom (object 0x2B88C) hangs in the air, plays its crack frames
+# (0x173C, 0x1740, 8 frames each), and splits into the handle (a new object with 8 turning frames) and the bristles
+# (the broom itself, continuing at BRISTLES). The crack countdown looped back within the same frame (CRACK_LOOP), so
+# both crack frames went by unseen. It now branches to the rts and counts once per frame.
+#
+# At crack step PUFF_AT (checked at STEP_CHECK, or at the split) a puff of dust comes up where the broom breaks. It's
+# its own object, playing the final boss's dust frames (DUST, PUFF_STEP frames each) while drifting up, then
+# disappearing. The dust colours (DUST_COLOURS, from the final hall's palette 0x4F) are turned a warm grey (GREY) and
+# written into PUFF_PALETTE, which nothing in the boss room uses, while the puff is out.
+#
+# The handle now turns one frame every TURN frames instead of every frame. When the pieces start to fall (FALLS),
+# they hop up first (HOP), drift sideways at half speed (X_SPEED, was 0x50) and fall a little slower (GRAVITY, was
+# -0x10). Speeds are in the fields 0xA258 moves objects by: +0x0C y speed, +0x0E x speed, +0x10 y gravity.
+CRACK_LOOP = 0x2B8B2           # bne 0x2B8A8 (loops in the same frame), now bne 0x2B8D6 (rts)
+SPLIT = 0x2B916                # move.l #BRISTLES,4(a5), then move.l a1,0x4010(a5) with a1 = the handle
 BRISTLES = 0x2B924
-NEW_OBJECT = 0xFFEC            # -> a1 (ne: none free)
+NEW_OBJECT = 0xFFEC            # returns a1; ne if no slot is free
 MOVE = 0xA258
-DUST = [0x1A00, 0x1A04, 0x1A08, 0x1A0C, 0x1A10, 0x1A14, 0x1A18]   # (32 x 32)
+DUST = [0x1A00, 0x1A04, 0x1A08, 0x1A0C, 0x1A10, 0x1A14, 0x1A18]   # 32x32 each
 DUST_COLOURS = [0xFFFF, 0xEFFA, 0xFFE5, 0xEFC4, 0x5FA1, 0x8F80, 0x8E60, 0x8D40, 0xAC10, 0xCA00, 0x8900, 0xC700,
-                0x7500, 0x8400, 0xC200]   # (colours 1-15)
-GREY = (1.0, 0.94, 0.85)       # (the dust's brightness, tinted: r, g, b)
+                0x7500, 0x8400, 0xC200]   # colours 1-15
+GREY = (1.0, 0.94, 0.85)       # r, g, b tint applied to the dust's brightness
 PUFF_PALETTE = 0x7B
-PUFF_UP, PUFF_X = -26, 10        # px from the broom's place (up, right; 128 a px)
+PUFF_UP, PUFF_X = -26, 10        # px up and right of the broom
 PUFF_STEP, PUFF_RISE = 3, 0x30
 PUFF_LIFE = PUFF_STEP * len(DUST)
-PUFF_AT = 2                    # (the broom's step it comes at: 1, 2 - its crack frames, 8 frames each - 3 the split)
-STEP_CHECK = 0x2B8CE           # cmpi.w #3,0x4000(a5) ; beq <the split> - each step
-PUFF_PRIORITY = 0xC0           # (+0x28: lower draws in front - the pieces 0xD0 / 0xD8, Blue 0x80; the template's 0xFD)
-TURN_AT = 0x2B980              # move.w #1,0x4002(a5) - the handle's frames: one every TURN
+PUFF_AT = 2                    # broom step: 1 and 2 are the crack frames, 3 is the split
+STEP_CHECK = 0x2B8CE           # cmpi.w #3,0x4000(a5) ; beq <split>, at each step
+PUFF_PRIORITY = 0xC0           # +0x28, lower draws in front: pieces 0xD0 / 0xD8, Blue 0x80
+TURN_AT = 0x2B980              # move.w #1,0x4002(a5): the handle's frame delay
 TURN = 3
-FALLS = [(0x2B93C, "a0", -1), (0x2B948, "a5", 1)]   # (move.w #-0x10,0x10(an) ; move.w #+-0x50,0x0E(an): the handle,
-                                                     # the bristles; x's sign)
-HOP = 0x100                    # (~16 px up)
+FALLS = [(0x2B93C, "a0", -1), (0x2B948, "a5", 1)]   # handle, bristles: move.w #-0x10,0x10(an) ;
+                                                     # move.w #+-0x50,0x0E(an), and the sign of x
+HOP = 0x100                    # about 16 px up
 X_SPEED = 0x28
 GRAVITY = -0x0C
 
@@ -56,14 +55,14 @@ def apply(rom):
     bra.w split
     bra.w step
 
-split:                                  | (the broom becomes the bristles)
-    move.l #0x%(bristles)X,4(%%a5)      | (what the jsr replaced)
+split:                                  | the broom becomes the bristles
+    move.l #0x%(bristles)X,4(%%a5)      | replaced by the jsr
 %(at_split)s    rts
 
-step:                                   | (each crack step: 0x4000(a5) the step, 3 the split)
+step:                                   | each crack step: 0x4000(a5) = step, 3 = split
     cmpi.w #%(at)d,0x4000(%%a5)
     bne 1f
-%(at_step)s1:  cmpi.w #3,0x4000(%%a5)                | (what the jsr replaced: its beq follows)
+%(at_step)s1:  cmpi.w #3,0x4000(%%a5)                | replaced by the jsr; its beq follows
     rts
 
 spawn:                                  | a puff where it breaks
@@ -78,7 +77,7 @@ spawn:                                  | a puff where it breaks
 9:  movem.l (%%sp)+,%%d0-%%d2/%%a0-%%a1
     rts
 
-puff:                                   | (the puff: the dust's frames, PUFF_STEP each, drifting up, then gone)
+puff:                                   | dust frames, PUFF_STEP each, drifting up, then removed
     tst.b 0x29(%%a5)
     bne 1f
     st 0x29(%%a5)
@@ -88,7 +87,7 @@ puff:                                   | (the puff: the dust's frames, PUFF_STE
     clr.w 0x10(%%a5)
     clr.w 0x12(%%a5)
     move.b #0x%(palette)X,0x20(%%a5)
-    move.b #0x%(priority)X,0x28(%%a5)      | (in front of the broom's pieces)
+    move.b #0x%(priority)X,0x28(%%a5)      | in front of the broom's pieces
 1:  lea greys(%%pc),%%a0                | its colours
     lea 0x%(palette_ram)X,%%a1
     moveq #14,%%d0
@@ -96,9 +95,9 @@ puff:                                   | (the puff: the dust's frames, PUFF_STE
     dbf %%d0,0b
     subq.w #1,0x50(%%a5)
     bne 2f
-    clr.b 0x28(%%a5)                    | (done: gone)
+    clr.b 0x28(%%a5)                    | done: remove it
     rts
-2:  moveq #0,%%d0                       | its frame: (PUFF_LIFE - left) / PUFF_STEP
+2:  moveq #0,%%d0                       | frame = (PUFF_LIFE - frames left) / PUFF_STEP
     move.w #%(life)d,%%d0
     sub.w 0x50(%%a5),%%d0
     divu #%(step)d,%%d0

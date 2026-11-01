@@ -1,31 +1,32 @@
 NAME = "marsh2-step"
 DESCRIPTION = "Empire Marsh 2: the step up beside the waterfall reaches further left, over the still water that didn't match the waves"
 
-# Empire Marsh 2's front layer (map table MAP_TABLE; the map format: tools/hackbuild.py, Rom.map_quarter), block BLOCK: a grassy
-# ledge (columns 9-14, its grass at rows 3-4) and to its right a step two tiles higher (its left edge column 15:
-# grass tufts rows 0-1, the band's corner row 2, the edge row 3; on into block 19). Above the ledge the lake's
-# surface row (tile 0x3C1) runs on as a still strip, with the waterfall's light foot in columns 13-14 - neither
-# matching the waves behind. The step now starts at column EDGE (the user's pick: 2 tiles further left) - COLUMNS:
-# the waterfall-with-tufts and the band from block 19 on to column 15, the tufts' left end at EDGE, the band's corner
-# there the ledge's own (ragged over the water - the step's old edge pieces had the waterfall's water painted in),
-# solid dirt below where the ledge's grass is in front; the ledge's band runs on into the step's face. The front layer is what the
-# hero stands on: the new step is solid like the old. A flower that grew on the ledge where the step now is (FLOWER, in
-# the stage's object list for the block: see jungle2-card-house) moves up onto it.
-ENABLED = False                       # (parked 2026-10-25, after the beta - the user: not looking right yet; see TODO)
+# Block BLOCK of Empire Marsh 2's front layer (map table MAP_TABLE; the map format is in tools/hackbuild.py,
+# Rom.map_quarter) has a grassy ledge in columns 9-14 with a step two tiles higher to its right, starting at column 15.
+# Above the ledge, the lake's surface row (tile 0x3C1) and the foot of the waterfall (columns 13-14) are a still strip
+# that doesn't match the waves behind.
+#
+# The step now starts two tiles further left, at column EDGE, which covers the strip. COLUMNS holds the new cells:
+# the waterfall with grass tufts on top, the ledge's ragged corner piece over the water, and solid dirt below. The
+# ledge's grass band runs on into the step's face. The front layer is what Blue stands on, so the new step is solid.
+#
+# A flower on the ledge where the step now is (FLOWER, in the block's object list; see jungle2-card-house) moves up
+# onto it.
+ENABLED = False                       # parked 2026-10-25 until after the beta: not looking right yet (see TODO)
 MAP_TABLE = 0x8F732
 BLOCK = 12
 EDGE = 13
-COLUMNS = {                           # rows 1-4 of each column from EDGE on (row 0, the waterfall's top, as it is)
-    "edge": [(0xEC00, 0x110A),         # 1: the waterfall with the step's grass tufts, their left end (the old edge's)
-             (0xED20, 0x114C),         # 2: the band's left corner - a ragged border over the water (the ledge's own)
-             (0xED50, 0x22A),          # 3: dirt, ragged on the left (the ledge's own edge) - above the ledge's grass
-             (0xA970, 0x132)],         # 4: dirt, the ledge's band running into it
-    "inside": [[(0xEC00, 0x10C7), (0xED10, 0x1148), (0xA970, 0x132), (0xA970, 0x132)],   # the tufts' middle, the band,
-               [(0xEC00, 0x110B), (0xED10, 0x1149), (0xA970, 0x132), (0xA970, 0x128)]],  # dirt - alternating
+COLUMNS = {                           # rows 1-4 of each column from EDGE on; row 0 (the waterfall's top) is kept
+    "edge": [(0xEC00, 0x110A),         # waterfall with the left end of the grass tufts
+             (0xED20, 0x114C),         # the band's left corner, ragged over the water
+             (0xED50, 0x22A),          # dirt with a ragged left edge
+             (0xA970, 0x132)],         # dirt, with the ledge's band running into it
+    "inside": [[(0xEC00, 0x10C7), (0xED10, 0x1148), (0xA970, 0x132), (0xA970, 0x132)],   # tufts, band, dirt;
+               [(0xEC00, 0x110B), (0xED10, 0x1149), (0xA970, 0x132), (0xA970, 0x128)]],  # the two alternate
 }
-LEDGE_BAND = (4, (0x9010, 0x1148))    # (row, cell): the ledge's band, on into the step's face (no end piece)
-STAGE_TABLE, STAGE = 0x60502, 10      # the object lists; Empire Marsh 2
-FLOWER = (0x200, (0x70, 0x68), (0x70, 0x70))   # (kind, where it was, where it goes): x, y (up) in 2 px units
+LEDGE_BAND = (4, (0x9010, 0x1148))    # (row, cell): the ledge's band continuing into the step, no end piece
+STAGE_TABLE, STAGE = 0x60502, 10      # object lists; Empire Marsh 2
+FLOWER = (0x200, (0x70, 0x68), (0x70, 0x70))   # (kind, old x/y, new x/y) in 2 px units, y up
 
 
 def apply(rom):

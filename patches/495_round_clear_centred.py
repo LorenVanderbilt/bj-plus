@@ -1,14 +1,14 @@
 NAME = "round-clear-centred"
 DESCRIPTION = "ROUND CLEAR and its bonus lines centred: one column (8 pixels) right"
 
-# ROUND CLEAR's two routines (ROUTINES: after the goal, after a boss) draw everything a column left of centre - the
-# big letters span pixels 64-240 (middle 152, the screen's 160), the bonus lines likewise. Each position moves one
-# fix column (+0x20 in a fix address):
-#   the letters: move.w #<offset>,d0 ; move.w #<tile>,d1 (offset +0x7002 = the fix address; 0x104 = column 8)
-#   the bonus lines' text: jsr 0x9FE6 (the inline printer) ; dc.w <fix address> ; the string
-#   their numbers: move.w #<fix address>,d0 (then moveq #4,d1 - 4 digits)
-# The HUD's (`hud`, after this) takes over each routine's first two moves and replays them, from what's here.
-ROUTINES = [(0x54CD0, 0x54FD6), (0x54FD8, 0x551AC)]   # (first instruction, its rts)
+# The two ROUND CLEAR routines (after the goal and after a boss) draw everything one column left of centre: the big
+# letters span pixels 64-240, centred on 152 rather than the screen's 160, and the bonus lines are off the same way.
+# Every position moves one fix column right (+0x20 in a fix address):
+#   letters: move.w #<offset>,d0 ; move.w #<tile>,d1 (fix address = offset + 0x7002; 0x104 is column 8)
+#   bonus line text: jsr 0x9FE6 (the inline printer) ; dc.w <fix address> ; the string
+#   bonus numbers: move.w #<fix address>,d0, then moveq #4,d1 for 4 digits
+# hud, which runs later, takes over each routine's first two moves and replays them from the values set here.
+ROUTINES = [(0x54CD0, 0x54FD6), (0x54FD8, 0x551AC)]   # first instruction, its rts
 COUNTS = {"letters": 20, "lines": 7, "numbers": 6}
 COLUMN = 0x20
 

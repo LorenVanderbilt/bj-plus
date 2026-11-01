@@ -1,19 +1,20 @@
 NAME = "one-up-popup"
 DESCRIPTION = "1UP (the gold cocoon): its pop-up in invincible-points' style - the small gold font, rising, slowing and fading"
 
-# The game's score pop-ups (0x5E132 / 0x5E158 -> 0x5E17C: a new object, code 0x5E1CE, rising 64 frames) take their
-# frame from a table (0x5E1E6): points, and 1UP (ONE_UP_FRAME - the gold cocoon, ...). The 1UP one is now handed to
-# invincible-points' pop-up (its code's first entry; frame base in +0x52, +0x29 clear to start it): "1UP" in its small
-# gold font (palette 6, black outline), above the head of the hero who got it (UP / RIGHT), rising and slowing, thinned out at the
-# end, gone. Its frames: the text and its fade (two tiles each). Hooked at the pop-up set-up's last instruction
-# (SET_UP_END). The fruit's points next.
-SET_UP_END = 0x5E1C6           # move.w #64,0x78(a1) ; rts - the pop-up set up (a1)
+# The game's score pop-ups (0x5E132 / 0x5E158, set up by 0x5E17C) are objects running 0x5E1CE that rise for 64
+# frames. Their frame comes from a table at 0x5E1E6, which covers the points and the gold cocoon's 1UP
+# (ONE_UP_FRAME).
+#
+# The 1UP is now handed to invincible-points' pop-up, with its frame base in +0x52 and +0x29 cleared to start it. It
+# shows "1UP" in the small gold font above the head of the hero who got it, rising, slowing and fading out. The hook
+# is on the set-up's last instruction (SET_UP_END); fruit-popup chains on from here.
+SET_UP_END = 0x5E1C6           # move.w #64,0x78(a1) ; rts, with a1 = the pop-up
 ONE_UP_FRAME = 0x2FD0
 POINTS_SITE = 0x42C9E          # invincible-points' first hook: jsr <its code + 4>
-UP, RIGHT = 28, 16             # px: from the hero who got it (his x / y fields: the pop-up then starts above his head,
-                               # centred - the game put it by the item, level with his head)
-HEROES = (0x104000, 0x104080)  # players 1 / 2's hero objects
-HERO_CODE = 0x3BD10            # (a hero's +4 while he's playing)
+UP, RIGHT = 28, 16             # px from the hero's position, so it starts centred above his head (the game put it
+                               # by the item, level with his head)
+HEROES = (0x104000, 0x104080)  # hero objects for players 1 and 2
+HERO_CODE = 0x3BD10            # a hero's +4 while he's playing
 GLYPHS = {
     "1": [".1.", "11.", ".1.", ".1.", ".1.", ".1.", "111"],
     "U": ["1..1", "1..1", "1..1", "1..1", "1..1", "1..1", ".11."],
@@ -37,11 +38,11 @@ def apply(rom):
     move.w #64,0x78(%%a1)
     cmpi.w #0x%(one_up)X,8(%%a1)
     bne 9f
-    move.l #0x%(popup)X,4(%%a1)        | (invincible-points' pop-up)
+    move.l #0x%(popup)X,4(%%a1)        | invincible-points' pop-up
     move.w #%(frame)d,0x52(%%a1)
     clr.b 0x29(%%a1)
     movem.l %%d0-%%d1/%%a0,-(%%sp)
-    lea 0x%(hero1)X,%%a0               | (player 2's hero if he's playing and nearer the game's place)
+    lea 0x%(hero1)X,%%a0               | player 2's hero if he's playing and nearer
     cmpi.l #0x%(hero_code)X,0x%(hero2)X+4
     bne 1f
     move.w 2(%%a1),%%d0

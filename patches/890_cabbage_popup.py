@@ -1,11 +1,11 @@
 NAME = "cabbage-popup"
 DESCRIPTION = "The cabbage: its 10000 points pop-up in invincible-points' style, above the hero's head, like the fruit's"
 
-# The cabbage (pickup type 10) shows the score pop-ups' 10000 (CABBAGE_FRAME). Like fruit-popup's, it now goes to
-# invincible-points' pop-up: "+10000" in the small gold font, from above the head of the hero who got it (lower over a
-# shrunk one), rising, slowing, thinned out, gone. 4 tiles - after dev-tiles, which made the room. fruit-popup's hook
-# at the pop-up set-up's end (SET_UP_END) now calls ours first.
-SET_UP_END = 0x5E1C6           # jsr <fruit-popup's>
+# The cabbage (pickup type 10) shows a 10000 score pop-up (CABBAGE_FRAME). Like the fruit, it now uses
+# invincible-points' pop-up: "+10000" in the small gold font, rising from above the hero's head (lower over a shrunk
+# hero), then fading. It costs 4 tiles, which dev-tiles freed up. This chains into fruit-popup's hook at the end of
+# the pop-up set-up (SET_UP_END).
+SET_UP_END = 0x5E1C6           # jsr <fruit-popup>
 CABBAGE_FRAME, TEXT = 0x3200, "+10000"
 
 
@@ -24,15 +24,15 @@ def apply(rom):
         frames.append(rom.add_frame([tiles], inv.PALETTE, why="cabbage pop-up (fade %d)" % fade))
     assert frames == [frames[0] + 4 * f for f in range(len(frames))]
     code = rom.place_code("""
-    jsr 0x%(before)X                    | (the fruit's and the 1UP's first)
+    jsr 0x%(before)X                    | the fruit and 1UP checks first
     cmpi.w #0x%(frame)X,8(%%a1)
     beq 5f
     rts
 5:  move.w #%(base)d,0x52(%%a1)
-    move.l #0x%(popup)X,4(%%a1)        | (invincible-points' pop-up)
+    move.l #0x%(popup)X,4(%%a1)        | invincible-points' pop-up
     clr.b 0x29(%%a1)
     movem.l %%d0-%%d1/%%a0/%%a2,-(%%sp)
-    lea 0x%(hero1)X,%%a0               | (player 2's hero if he's playing and nearer the game's place)
+    lea 0x%(hero1)X,%%a0               | player 2's hero if he's playing and nearer
     lea 0x%(block1)X,%%a2
     cmpi.l #0x%(hero_code)X,0x%(hero2)X+4
     bne 1f
@@ -51,7 +51,7 @@ def apply(rom):
 1:  move.l (%%a0),(%%a1)                | above his head
     addi.w #%(up)d,(%%a1)
     addi.w #%(right)d,2(%%a1)
-    tst.b 1(%%a2)                       | (shrunk: lower)
+    tst.b 1(%%a2)                       | shrunk: start lower
     bne 4f
     subi.w #%(drop)d,(%%a1)
 4:  movem.l (%%sp)+,%%d0-%%d1/%%a0/%%a2

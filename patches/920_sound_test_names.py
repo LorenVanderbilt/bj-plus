@@ -1,30 +1,31 @@
 NAME = "sound-test-names"
 DESCRIPTION = "Sound test: the MUSIC: line names each track and skips the ones that aren't music; the SOUND FX: line's names from the live sheet"
 
-# The sound test's MUSIC: line (`title-menu`'s st2_loop) showed only the track's number. Now its name follows it, from
-# docs/music_labels.csv (the user's sheet: a row a track - its number in hex, as shown, and its Name; "E" or blank =
-# not music, skipped; "?" = unnamed): NAME_CALL - where the line is set up for st2_line, its a2 (a name after the
-# number, 0: none) given - goes to a routine that points a2 at the track's name; STEP_STORE - where Left / Right
-# store the stepped number - to one that keeps stepping past the skipped ones (round the range). Names are padded
-# to the longest, so a shorter one clears a longer one's end. Both sites are found by their bytes in title-menu's
-# code (it would move if that grew).
-# The SOUND FX: line's list (title-menu's sfx_table: a code and a padded name each, built from a frozen copy of the
-# sheet so title-menu's size never changes) is replaced by one from the live docs/sfx_labels.csv (a grid: row = the
-# code's high digit, column = its low digit; "E" = not used, "?" = unnamed) - SFX_NAME (st2_sfx, d0 = the code and a2
-# = the name of the list's SOUND_NO-th) jumps to a copy reading the new list, and the list's length in its range
-# checks (SFX_FIRST_CHECK, SFX_STEP) is the new one.
+# The sound test's MUSIC: line (st2_loop in title-menu) used to show only the track number. Now the track's name
+# follows it, read from docs/music_labels.csv: one row per track, with its number in hex and its name. "E" or blank
+# means not music and is skipped; "?" means unnamed.
+#
+# Two sites in title-menu's code are hooked, found by their bytes since that code moves if it grows. NAME_CALL, where
+# the line is set up for st2_line, now points a2 at the track's name. STEP_STORE, where Left / Right store the new
+# number, now keeps stepping past skipped tracks, wrapping round the range. Names are padded to the longest, so a
+# short name clears the end of a longer one.
+#
+# The SOUND FX: line's list (title-menu's sfx_table) is built from a frozen copy of the sheet so title-menu's size
+# never changes. Here it's replaced by a list from the live docs/sfx_labels.csv, a grid with the code's high digit as
+# the row and its low digit as the column. SFX_NAME jumps to a copy of st2_sfx that reads the new list, and the range
+# checks (SFX_FIRST_CHECK, SFX_STEP) get the new length.
 LABELS = "docs/music_labels.csv"
-FIRST, END = 0x04, 0x24        # the music range: 0x04 .. 0x23 (title-menu's FIRST_SOUND .. FIRST_EFFECT-1)
-MUSIC_NO = 0x10E931            # title-menu's MUSIC: line's number (RAM)
+FIRST, END = 0x04, 0x24        # music is 0x04-0x23 (title-menu's FIRST_SOUND to FIRST_EFFECT - 1)
+MUSIC_NO = 0x10E931            # RAM: the MUSIC: line's track number
 NAME_CALL = bytes.fromhex("10390010E931323C")     # move.b MUSIC_NO,d0 ; move.w #ST2_LINE0,d1 ; moveq #0,d3 ;
                                                   # sub.l a2,a2 ; bsr st2_line
-STEP_STORE = bytes.fromhex("13C00010E931")        # move.b d0,MUSIC_NO (d0 the stepped number, d2 the step: -1 / 1)
-LINE_ROOM = 32 - len("MUSIC: ") - 2 - 1 - 1       # title-menu's LINE_BUF: label, 2 digits, a space, the name, 0
+STEP_STORE = bytes.fromhex("13C00010E931")        # move.b d0,MUSIC_NO (d0 = new number, d2 = step, -1 or 1)
+LINE_ROOM = 32 - len("MUSIC: ") - 2 - 1 - 1       # LINE_BUF holds the label, 2 digits, a space, the name and a 0
 SFX_LABELS = "docs/sfx_labels.csv"
-SOUND_NO = 0x10E901            # title-menu's SOUND FX: line's place in the list (RAM)
+SOUND_NO = 0x10E901            # RAM: the SOUND FX: line's position in the list
 SFX_NAME = bytes.fromhex("700010390010E901C0FC")  # st2_sfx: moveq #0,d0 ; move.b SOUND_NO,d0 ; mulu #<entry>,d0 ...
-SFX_FIRST_CHECK = bytes.fromhex("10390010E9010C40")   # move.b SOUND_NO,d0 ; cmp.w #<count>,d0 (on entry)
-SFX_STEP = bytes.fromhex("303C")                      # move.w #<count>-1,d0 ; cmp.w #<count>,d0 (Left / Right)
+SFX_FIRST_CHECK = bytes.fromhex("10390010E9010C40")   # move.b SOUND_NO,d0 ; cmp.w #<count>,d0, on entry
+SFX_STEP = bytes.fromhex("303C")                      # move.w #<count>-1,d0 ; cmp.w #<count>,d0, on Left / Right
 SFX_ROOM = 32 - len("SOUND FX: ") - 2 - 1 - 1
 
 
@@ -33,7 +34,7 @@ def labels():
     import os
     path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), LABELS)
     rows = list(csv.reader(open(path, encoding="utf-8")))
-    while rows and not rows[0][0].startswith("Number"):     # (a title row Numbers adds on export)
+    while rows and not rows[0][0].startswith("Number"):     # skip the title row Numbers adds on export
         rows.pop(0)
     names = {}
     for row in rows[1:]:
@@ -57,7 +58,7 @@ def sfx_labels():
     import os
     path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), SFX_LABELS)
     rows = list(csv.reader(open(path, encoding="utf-8")))
-    while rows and rows[0][0].strip():                       # (a title row Numbers adds on export)
+    while rows and rows[0][0].strip():                       # skip the title row Numbers adds on export
         rows.pop(0)
     cols = [int(c, 16) for c in rows[0][1:]]
     out = []
@@ -103,7 +104,7 @@ def apply(rom):
     code = rom.place_code("""
     bra.w name
     bra.w step
-| the MUSIC: line: st2_line's d1 / d3 as before, a2 = the track's name (d0 = its number, kept)
+| MUSIC: line set-up: d1 / d3 as before, a2 = the name of track d0 (d0 kept)
 name:
     move.w #0x%(line0)X,%%d1
     moveq #0,%%d3
@@ -114,7 +115,7 @@ name:
     mulu #%(entry)d,%%d2
     add.w %%d2,%%a2
     rts
-| Left / Right: d0 = the stepped number, d2 = the step - past the tracks that aren't music, round the range
+| Left / Right: d0 = new number, d2 = step; skip tracks that aren't music, wrapping round
 step:
     lea skips(%%pc),%%a0
 1:  tst.b -0x%(first)X(%%a0,%%d0.w)
@@ -142,7 +143,7 @@ names:
     rom.write(step, bytes.fromhex("4EB9") + (code + 4).to_bytes(4, "big"), expect=STEP_STORE,
               why="sound test, MUSIC: line: Left / Right skip what isn't music")
 
-    # the SOUND FX: line: the live sheet's list
+    # the SOUND FX: line's list, from the live sheet
     sfx = sfx_labels()
     sw = max(len(n) for c, n in sfx)
     assert sw <= SFX_ROOM, "sound-test-names: a sound effect's name longer than the line's %d" % SFX_ROOM

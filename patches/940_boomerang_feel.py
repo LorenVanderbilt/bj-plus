@@ -1,37 +1,41 @@
 NAME = "boomerang-feel"
 DESCRIPTION = "Boomerang: each level's reach, speed and size retuned; level 2 throws two out at once, level 3 three - every third throw bigger"
 
-# The boomerang (player block +0x2B: level 1-3) flies one turn of a loop round a point LOOP[level] ahead (radius that
-# + 0x800; 0x4793E), its angle stepping 0x0A00 a frame - a 26-frame trip - and is drawn as animation 197 + level.
-# `acorn-bomb` (480) lets a second one be thrown at once - a new press of A during the throw - when its
-# `second_boomerang` says so (its code's fifth entry, SECOND_ENTRY: a stand-in that says no, until filled in here).
-# The user's tuning (tools/probes/boomerang_tune.lua, 2026-10-25), by level - reach (px ahead of Blue), trip (frames,
-# out and back), size, how many out at once:
-#   1: 60 px, 35 frames, 90%, one;  2: 65 px, 40 frames, 75%, two;  3: as 2, three - every third throw bigger (BIG:
-#   full size).
-# So: the throw (SPAWN) takes the player's own slot, or with it taken a pool slot (POOL, as enemies' shots use) while
-# fewer than EXTRA[level] of theirs are in the pool; 480's check answers the same; each boomerang as it starts
-# (LOOK_SITES) gets its level's drawing, size and angle step (its direction kept). The
-# reach is the loop table: reach = LOOP / 128 + (LOOP + 0x800) / 256 px. And it always comes back to Blue: over the
-# trip's second half (PLACE_CALLS - after its place on the loop is set) its place is drawn from the loop's toward the
-# thrower's - all the loop's at halfway, all the thrower's at the end (where it's gone) - so a throw from a jump comes
-# back to Blue wherever he's fallen to.
+# The boomerang (level 1-3 at player block +0x2B) flies one turn of a loop around a point LOOP[level] ahead of Blue
+# (table at 0x4793E; radius LOOP + 0x800). Its angle steps 0x0A00 a frame, a 26-frame trip, and it's drawn as
+# animation 197 + level. acorn-bomb (480) lets a second one be thrown with a new press of A during the throw, when
+# its second_boomerang check (the code's fifth entry, SECOND_ENTRY) allows it. That check is filled in here.
+#
+# Tuning per level, found with tools/probes/boomerang_tune.lua on 2026-10-25 (reach ahead of Blue, frames out and
+# back, size, how many out at once):
+#   1: 60 px, 35 frames, 90%, one
+#   2: 65 px, 40 frames, 75%, two
+#   3: as 2 but three, with every third throw full size (BIG)
+#
+# The throw (SPAWN) takes the player's own slot, or if that's taken a slot in the general pool (POOL, also used by
+# enemy shots) while fewer than EXTRA[level] of theirs are out. 480's check gives the same answer. Each boomerang gets
+# its level's drawing, size and angle step as it starts (LOOK_SITES), keeping its direction. The reach comes from the
+# loop table: reach = LOOP / 128 + (LOOP + 0x800) / 256 px.
+#
+# It also always comes back to Blue. Over the second half of the trip (PLACE_CALLS, after its place on the loop is
+# set) its position is blended from the loop's toward the thrower's, reaching him at the end. A throw from a jump
+# comes back to Blue wherever he's landed.
 REACH = {1: 60, 2: 65, 3: 65}
 TRIP = {1: 35, 2: 40, 3: 40}
 SIZE = {1: 90, 2: 75, 3: 75}
-EXTRA = {1: 0, 2: 1, 3: 2}         # pool boomerangs allowed besides the player's own slot's
-BIG = (199, 0xFF)                  # every third throw at level 3: animation (level 2's drawing), zoom (full size)
-THROWS = 0x10ECF8                  # each player's level 3 throws, counted round 0-2 (bytes; spare RAM)
+EXTRA = {1: 0, 2: 1, 3: 2}         # boomerangs allowed in the pool, besides the player's own slot
+BIG = (199, 0xFF)                  # every third level 3 throw: level 2's animation at full size
+THROWS = 0x10ECF8                  # spare RAM: each player's level 3 throw count, 0-2
 LOOP = 0x4793E
-PLACE_CALLS = (0x478DC, 0x47926)  # jsr 0x4D446 - each frame: its place on the loop (+0 y, +2 x), its angle on
+PLACE_CALLS = (0x478DC, 0x47926)  # jsr 0x4D446 each frame: its place on the loop (+0 y, +2 x) at its angle
 PLACE = 0x4D446
-TRIP_DONE = 0x78                   # (+0x78: the angle steps so far - a whole turn ends it)
-HEROES = 0x4000                    # each player's hero object (+ 0x80 a player; offsets from 0x100000)
-LOOK_SITES = (0x478AA, 0x478F4)    # move.w #197,d0 ; add.b 0x2B(a4),d0 - the animation; a5 the boomerang, a4 the player
-SPAWN = 0x475BC                    # move.b 0x7E(a5),d0 ; bne.s 0x47610 (player 2's)
+TRIP_DONE = 0x78                   # +0x78: angle travelled so far; a full turn ends the trip
+HEROES = 0x4000                    # player 1's hero object, from 0x100000; player 2's is 0x80 on
+LOOK_SITES = (0x478AA, 0x478F4)    # move.w #197,d0 ; add.b 0x2B(a4),d0 (a5 = boomerang, a4 = player)
+SPAWN = 0x475BC                    # move.b 0x7E(a5),d0 ; bne.s 0x47610 (player 2)
 SPAWN_P1, SPAWN_P2 = 0x475C2, 0x47610
 SPAWN_FAIL = 0x47590
-ACORN_SPAWN = 0x47662              # (acorn-bomb's jmp <its code> - its fifth entry, +16: second_boomerang)
+ACORN_SPAWN = 0x47662              # acorn-bomb's jmp <its code>; the fifth entry (+16) is second_boomerang
 SECOND_ENTRY = 16
 OWN_SLOT = (0x4100, 0x4180)
 BLOCK = (0x7000, 0x7400)
@@ -74,7 +78,7 @@ pooled:
     movem.l (%%sp)+,%%d2/%%a0
     rts
 
-| Z set if player d0 may throw another boomerang into the pool now: their own slot's taken, fewer of theirs in the
+| Z set if player d0 may throw another boomerang into the pool: their own slot is taken and they have fewer in the
 | pool than their level allows
 may_more:
     movem.l %%d0-%%d2/%%a0-%%a1,-(%%sp)
@@ -108,20 +112,20 @@ extra:
     .byte %(extra)s
     .even
 
-| each frame, after its place on the loop: over the trip's second half, drawn toward the thrower - the loop's
-| place + (the thrower's - it) * (trip - half) / half
+| each frame, after its place on the loop is set: over the second half, blend toward the thrower,
+| loop place + (thrower - loop place) * (trip - half) / half
 place:
     jsr 0x%(place_fn)X
     movem.l %%d0-%%d2/%%a0,-(%%sp)
     move.w %(done)d(%%a5),%%d2
     sub.w #0x8000,%%d2
-    bcs 19f                             | (the first half: the loop's)
+    bcs 19f                             | first half: stay on the loop
     lea 0x%(heroes)X(%%a6),%%a0
     tst.b %(owner)d(%%a5)
     beq 18f
     lea 0x80(%%a0),%%a0
 18: moveq #1,%%d1
-20: move.w (%%a0),%%d0                  | (y, then x)
+20: move.w (%%a0),%%d0                  | y, then x
     sub.w (%%a5),%%d0
     muls %%d2,%%d0
     add.l %%d0,%%d0
@@ -163,7 +167,7 @@ pool2:
     beq 10f
     jmp 0x%(fail)X
 10: moveq #1,%%d1
-11: move.b %%d1,-(%%sp)                 | (as the original, after its slot is found)
+11: move.b %%d1,-(%%sp)                 | as the original does once it has a slot
     jsr 0x10098
     jsr 0x5E05E
     move.l 0(%%a5),0(%%a1)
@@ -173,8 +177,8 @@ pool2:
     moveq #0,%%d0
     rts
 
-| as a boomerang starts: its level's angle step (its direction kept), drawing and size - at level 3 every third throw
-| the big one; d0 = the animation
+| as a boomerang starts: its level's angle step (keeping its direction), drawing and size, with every third level 3
+| throw the big one; d0 = the animation
 look:
     movem.l %%d1-%%d2/%%a0,-(%%sp)
     moveq #0,%%d2
@@ -207,7 +211,7 @@ look:
     move.b %%d1,0x27(%%a5)
     cmpi.b #3,%%d2
     bne 14f
-    moveq #2,%%d2                       | (level 3 drawn as level 2)
+    moveq #2,%%d2                       | level 3 is drawn as level 2
 14: move.w #197,%%d0
     add.w %%d2,%%d0
 15: movem.l (%%sp)+,%%d1-%%d2/%%a0

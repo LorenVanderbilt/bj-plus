@@ -5,34 +5,38 @@ from png_tiles import read_rgba, write_indexed, neo_to_rgb, rgb_to_neo
 NAME = "tunnel-life-ball"
 DESCRIPTION = "Lower Earth Empire 2's hidden tunnel: its reward, the white lily (+10 flowers), is a life ball (+1 heart)"
 
-# The placed white lily's start (LILY_START, in the game's object kind tables LILY_KINDS) is ours: in LILY_STAGE, at
-# the tunnel's end (LILY_AT, level coordinates from the level's own camera 0x10021A / 0x10020E, as wall-moss), it
-# starts as a life ball (pickup type LIFE_BALL); elsewhere as before. The game's only life ball is the lottery's prize
-# (frame LOTTERY_BALL: 32 across, in a 64 x 48 frame Blue can't pick up - he's stopped by it), so the build makes a
-# 16 x 16 one (BALL_ART - first shrunk from the lottery's ~35 px, then the user's to draw; one new tile, a new frame
-# with the lily's hit box) in BALL_PAL (empty in the stage). Its colours are put there each frame in the stage, at the
-# vblank wait (FRAME_LOOP, round-clear-dim's hook there: ours first) - not while the screen's black (screen-blackout)
-# or dimmed (round-clear-dim). (The hardware shrink was tried: it drew well, but the shrunk frame couldn't be picked
-# up.)
-LILY_START = 0x50CB8            # move.b #1,0x4D(a5) ; move.w #0x20A0,8(a5) ... bra 0x51872 - a placed white lily
-LILY_KINDS = [0x5F4DC, 0x5FCDC]   # (the kind tables' entries pointing at it)
-LILY_PICKUP = 0x51872           # (the pickups' code)
+# The white lily at the end of Lower Earth Empire 2's hidden tunnel becomes a life ball.
+#
+# Placed white lilies start at LILY_START (reached from the object tables at LILY_KINDS). We hook that: a lily at
+# LILY_AT in LILY_STAGE becomes a LIFE_BALL pickup, and every other lily is left alone. Its position is worked out from
+# the level camera at 0x10021A / 0x10020E, the same way wall-moss does it.
+#
+# The only life ball in the game is the lottery prize (LOTTERY_BALL), a 64x48 frame that Blue bumps into instead of
+# picking up. So we add a 16x16 one drawn from BALL_ART, as one new tile and frame with the lily's hit box. If
+# BALL_ART is missing, a first draft is shrunk from the lottery ball and saved next to a full-size reference.
+#
+# The ball's colours go in BALL_PAL, which this stage doesn't use. They're copied in every frame from the vblank wait
+# (FRAME_LOOP, chained ahead of round-clear-dim), except while the screen is blacked out or dimmed.
+#
+# Hardware-shrinking the lottery frame instead drew fine, but the shrunk sprite couldn't be picked up.
+LILY_START = 0x50CB8            # move.b #1,0x4D(a5) ; move.w #0x20A0,8(a5) ... bra 0x51872
+LILY_KINDS = [0x5F4DC, 0x5FCDC]   # object table entries that point to LILY_START
+LILY_PICKUP = 0x51872           # shared pickup code
 LILY_STAGE, LILY_AT = 4, (1072, -784)   # Lower Earth Empire 2; level x, y (y = y field / 128 + 0x10020E)
 LIFE_BALL, LOTTERY_BALL, LILY_FRAME = 9, 0x326C, 0x20A0
 BALL_PAL = 0xA8
-BALL_ART = "art/life_ball/life_ball.png"   # 16 x 16, up to 15 colours (its own) - edit it, the build remakes the tile
-BALL_REFERENCE = "art/life_ball/lottery_ball_reference.png"   # (the lottery's, full size)
+BALL_ART = "art/life_ball/life_ball.png"   # 16x16, up to 15 colours; the build makes the tile from it
+BALL_REFERENCE = "art/life_ball/lottery_ball_reference.png"
 BALL_COLOURS = [0x0000, 0xE37D, 0xB58D, 0xF69D, 0xA8AE, 0xF9BE, 0x3BCE, 0x6CDF, 0x2EEF, 0x7FFF, 0x5FBC, 0x1F9B,
-                0x1E7A, 0x6D49, 0x6C28, 0x0000]   # (the lottery's palette 0xB2: the first BALL_ART's)
-BOXES = 0x64772                 # hit boxes: a pointer per frame number
-FRAME_LOOP = 0xE8AC             # jmp <round-clear-dim's frame> - the vblank wait's loop, once a frame
+                0x1E7A, 0x6D49, 0x6C28, 0x0000]   # lottery palette 0xB2, used for the first draft
+BOXES = 0x64772                 # hit box pointer per frame number
+FRAME_LOOP = 0xE8AC             # jmp <round-clear-dim> in the vblank wait loop
 STAGE = 0x103005
 
 
 def small_life_ball(rom):
-    """The small life ball from BALL_ART (made from the lottery's ball, shrunk, if it isn't there yet - with the big
-    one beside it as BALL_REFERENCE): one tile, a frame (returned) in BALL_PAL; its colours (up to 15) are the
-    picture's own."""
+    """Add the small life ball's tile and frame from BALL_ART, drafting BALL_ART first if it doesn't exist.
+    Returns the frame and BALL_PAL's 16 colours."""
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     art, reference = os.path.join(root, BALL_ART), os.path.join(root, BALL_REFERENCE)
     if not os.path.exists(art):
@@ -47,7 +51,7 @@ def small_life_ball(rom):
         xs = [x for x in range(len(big[0])) if any(line[x] for line in big)]
         top, left = ys[0], xs[0]
         h, w = ys[-1] - top + 1, xs[-1] - left + 1
-        f = max(w, h) / 16              # (each new pixel: its block's most common colour, if it's mostly solid)
+        f = max(w, h) / 16              # each pixel takes its block's most common colour if the block is mostly solid
         top -= (max(w, h) - h) / 2
         left -= (max(w, h) - w) / 2
         px = [[0] * 16 for _ in range(16)]
@@ -82,7 +86,7 @@ def apply(rom):
     bra.w frame                         | (+0)
     bra.w lily_start                    | (+4)
 
-| the vblank wait's loop, a frame over (d1-a5 free): in the stage, the ball's colours kept - then on
+| once a frame (d1-a5 free): refresh the ball's colours in its stage, then chain on
 frame:
     cmpi.b #%(lily_stage)d,0x%(stage)X
     bne 0f
@@ -99,7 +103,7 @@ frame:
 ball_colours:
     .word %(ball_colours)s
 
-| a placed white lily starting: at the hidden tunnel's end, a life ball
+| a placed white lily starting: turn the one at the tunnel's end into a life ball
 lily_start:
     cmpi.b #%(lily_stage)d,0x%(stage)X
     bne 9f

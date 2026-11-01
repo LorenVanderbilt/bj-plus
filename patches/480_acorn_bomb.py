@@ -1,41 +1,43 @@
 NAME = "acorn-bomb"
 DESCRIPTION = "Acorn bomb: levels 2 / 3 thrown further; level 3 keeps level 2's size but two can be out at once (thrown quickly - the boomerang's second too)"
 
-# The acorn bomb (player block +0x2C: level 1-3) is an object in one fixed slot per player (0x104100 / 0x104180, the
-# boomerang's too: the spawn 0x47662 asks 0xA158 for just that slot, so while one is out another can't be thrown).
-# Thrown, it gets a speed by level from one of three tables (by the throw's direction: SPEEDS, (x, y) words for levels
-# 0-3), its look from animation 200 + level (0x47A8E) and, when it goes off, 236 + level - 1 (0x47B22: level 3's the
-# biggest, raised 0x800). Levels 2 and 3 threw alike.
-#   * level 2 and 3 speeds x RANGE;
-#   * level 3 looks like level 2 (thrown and going off);
-#   * level 3: with the player's own slot taken, a second one goes in a free slot of the game's general pool
-#     (POOL, as enemies' shots use) - only one there per player (an acorn of theirs already in the pool: no);
-#   * level 3: the thrower's throw (THROWING's states, both weapons') no longer holds up the second - a new press of
-#     A during it, with the acorn in hand and a second allowed, throws again at once (the acorn's attack); the same
-#     for the boomerang (its attack: BOOMERANG_ATTACKS) when `second_boomerang` allows it - a stand-in here (never),
-#     which boomerang-feel fills in with its own rule (the code's fifth entry).
+# The acorn bomb (level 1-3 at player block +0x2C) is an object in one fixed slot per player, 0x104100 / 0x104180,
+# shared with the boomerang. The spawn (0x47662) asks 0xA158 for that slot only, so only one can be out at a time.
+# A thrown acorn gets its speed from one of three tables chosen by the throw's direction (SPEEDS: (x, y) words for
+# levels 0-3). It's drawn as animation 200 + level (0x47A8E), and its explosion is 236 + level - 1 (0x47B22), with
+# level 3's the biggest, raised 0x800. Levels 2 and 3 threw the same distance.
+#
+# The changes:
+#   * Level 2 and 3 speeds are multiplied by RANGE.
+#   * Level 3 looks like level 2, both thrown and exploding.
+#   * At level 3, if the player's own slot is taken, a second acorn goes into a free slot of the general object pool
+#     (POOL, also used by enemy shots). Only one per player is allowed there.
+#   * At level 3 the throw animation (THROWING, shared by both weapons) no longer holds up the second throw. A new
+#     press of A during it throws again at once. The boomerang (BOOMERANG_ATTACKS) does the same when
+#     second_boomerang allows it. Here that always says no; boomerang-feel fills in its own rule through the code's
+#     fifth entry.
 SPEEDS = (0x47BAC, 0x47BBC, 0x47BCC)
 RANGE = 1.15
 LOOK_SITE = 0x47A8E          # move.w #200,d0 ; add.b 0x2C(a4),d0
-GONE_LEVEL3 = 0x47B2E        # move.w #238,d0 (level 3's going off) -> level 2's (0x47B48)
+GONE_LEVEL3 = 0x47B2E        # move.w #238,d0 (level 3's explosion), now level 2's (0x47B48)
 GONE_LEVEL2 = 0x47B48
-SPAWN = 0x47662              # move.b 0x7E(a5),d0 ; bne 0x476B8 (player 2's)
+SPAWN = 0x47662              # move.b 0x7E(a5),d0 ; bne 0x476B8 (player 2)
 SPAWN_P1, SPAWN_P2 = 0x47668, 0x476B8
 SPAWN_FAIL = 0x47590
-THROWING = ((0x3DADC, 0x3DAA8), (0x3DB7A, 0x3DB4E))   # the throw's state (jsr 0x3BF0A first, each frame; a5 =
-                                                      # the thrower) and the acorn's attack: on the ground, in the air
+THROWING = ((0x3DADC, 0x3DAA8), (0x3DB7A, 0x3DB4E))   # (throw state, acorn attack) on the ground and in the air;
+                                                      # the state calls 0x3BF0A first each frame, a5 = the thrower
 THROWING_FIRST = 0x3BF0A
-OWN_SLOT = (0x4100, 0x4180)  # (offsets from 0x100000)
+OWN_SLOT = (0x4100, 0x4180)  # offsets from 0x100000
 BLOCK = (0x7000, 0x7400)     # each player's block
 LEVEL = 0x2C
-POOL = (0x4480, 0x5B00)      # (first slot, last)
-ACORN_CODE = (0x47946, 0x47BAC)   # its routines: an object running one of them (+4) is an acorn
+POOL = (0x4480, 0x5B00)      # first and last slot
+ACORN_CODE = (0x47946, 0x47BAC)   # an object whose +4 is in this range is an acorn
 OWNER = 0x7E
-BOOMERANG_ATTACKS = (0x3DA96, 0x3DB3C)   # its attack: on the ground, in the air
-BUTTONS = (0x10FD96, 0x10FD9C)    # BIOS: each player's buttons now (bit 4: A)
-FRAME = 0x100207             # the game's frame counter (a byte)
-SEEN = 0x10E9F8              # per player: the frame the throw was last seen, A down then (bytes; spare RAM) - a press
-                             # counts only between two frames of the same throw (the one that starts it doesn't)
+BOOMERANG_ATTACKS = (0x3DA96, 0x3DB3C)   # on the ground, in the air
+BUTTONS = (0x10FD96, 0x10FD9C)    # BIOS: each player's buttons held, bit 4 = A
+FRAME = 0x100207             # the game's frame counter, a byte
+SEEN = 0x10E9F8              # spare RAM, per player: the frame the throw was last seen and A then. A press only
+                             # counts between two frames of the same throw, not the press that started it
 
 
 SECOND = r"""| Z set if player d0 (0 / 1) may throw a second acorn now: level 3, their own slot taken, none of theirs in the pool
@@ -78,7 +80,7 @@ def apply(rom):
         x, y = (rom.u16(t + 8 + i) for i in (0, 2))
         new = b"".join((round(v * RANGE)).to_bytes(2, "big") for v in (x, y))
         rom.write(t + 8, new + new, why="acorn bomb: level 2 / 3 thrown further")
-    # the pool spawn: the original's own inline block (the 0xA158 call's data after its slot range), per player
+    # the pool spawn reuses the original's inline data for 0xA158, after its slot range, per player
     blocks = []
     for at in (SPAWN_P1, SPAWN_P2):
         data = bytes(rom.data[at + 6 + 4: at + 6 + 4 + 26])
@@ -99,7 +101,7 @@ second_boomerang:
     andi.b #0xFB,%%ccr
     rts
 
-| the throw: the player's own slot; level 3 with it taken - a pool slot (one there per player)
+| the throw: the player's own slot, or at level 3 a pool slot if that's taken (one per player)
 spawn:
     move.b %(owner)d(%%a5),%%d0
     bne 2f
@@ -125,7 +127,7 @@ pool2:
     beq 8f
     jmp 0x%(fail)X
 8:  moveq #1,%%d1
-9:  move.b %%d1,-(%%sp)                 | (as the original, after its slot is found)
+9:  move.b %%d1,-(%%sp)                 | as the original does once it has a slot
     jsr 0x10098
     jsr 0x5E05E
     move.l 0(%%a5),0(%%a1)
@@ -135,7 +137,7 @@ pool2:
     moveq #0,%%d0
     rts
 
-| its look: 200 + level, level 3 as 2
+| its animation: 200 + level, with level 3 drawn as 2
 look:
     moveq #0,%%d0
     move.b %(level)d(%%a4),%%d0
@@ -145,10 +147,10 @@ look:
 10: add.w #200,%%d0
     rts
 
-| the throw's state each frame: a new press of A, a second acorn allowed - thrown at once (the state left for the
-| acorn's attack, a1)
+| the throw state, each frame: on a new press of A with a second acorn allowed, throw at once by leaving the state
+| for the acorn's attack (a1)
 throwing_ground:
-    clr.l -(%%sp)                       | (which attack: the ground's / the air's, then the attack itself)
+    clr.l -(%%sp)                       | which attack: ground or air, then the attack itself
     bra 13f
 throwing_air:
     move.l #4,-(%%sp)
@@ -161,12 +163,12 @@ throwing_air:
     beq 11f
     lea 0x%(buttons2)X,%%a0
     addq.l #2,%%a1
-11: move.b 0x%(frame)X,%%d1             | (d2: seen last frame)
+11: move.b 0x%(frame)X,%%d1             | d2: was it seen last frame?
     move.b (%%a1),%%d2
     move.b %%d1,(%%a1)
     addq.b #1,%%d2
     sub.b %%d1,%%d2
-    move.b 1(%%a1),%%d1                 | (A down then)
+    move.b 1(%%a1),%%d1                 | was A down then?
     move.b (%%a0),%%d0
     andi.b #0x10,%%d0
     move.b %%d0,1(%%a1)
@@ -187,8 +189,8 @@ throwing_air:
 15: move.l 20(%%sp),%%d1
     move.l 0(%%a0,%%d1.w),20(%%sp)
     movem.l (%%sp)+,%%d0-%%d2/%%a0-%%a1
-    move.l (%%sp)+,(%%sp)               | (the attack in place of the return into the state: its rts goes back
-    rts                                 | where the state's would)
+    move.l (%%sp)+,(%%sp)               | replace the return address with the attack, so its rts goes
+    rts                                 | back where the state's would
 12: movem.l (%%sp)+,%%d0-%%d2/%%a0-%%a1
     addq.l #4,%%sp
     rts

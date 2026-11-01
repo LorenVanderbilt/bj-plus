@@ -1,24 +1,25 @@
 NAME = "invincible-points"
 DESCRIPTION = "Invincible (bamboo shoot): an enemy run through shows its points (+50 / +250) rising from it and fading away"
 
-# Powered up (the player block's form 2), touching an enemy kills it (0x42C72): its points worked out (0x47526: 0x50,
-# or 0x250 for some kinds - POINTS), added to the player's score (SCORE_SITES: jsr 0x5E28E player 1 / 0x5E294 player
-# 2, the enemy pushed just before), then the enemy's death. Each of those calls now goes through new code that also
-# starts a pop-up where the enemy was: a new object (NEW_OBJECT) UP px above its place, showing the points (+50 / +250)
-# in a small font in SPEED UP's gold (palette 6, always loaded: the gold by row, a black outline - GLYPHS) - rising
-# (RISE, slowing by SLOW) for LIFE frames, its last ones thinned out to fade it (FADES: a checkerboard of half its
-# pixels - there's no see-through; a quarter step too was dropped for the leaf tornado's tiles), then gone.
-SCORE_SITES = [(0x42C9E, 0x5E28E), (0x42CA6, 0x5E294)]   # (jsr <add to player N's score>)
-POINTS_AT = [(0x4752C, 0x250), (0x47536, 0x50)]           # (move.l #points,d0 in 0x47526)
-NEW_OBJECT = 0xFFEC            # -> a1 (ne: none free)
-MOVE = 0xA258                  # the mover: +0x0C y speed, +0x10 its change a frame
-PALETTE = 6                    # (SPEED UP's)
-PRIORITY = 0x20                # (+0x28: lower draws in front - Blue 0x80)
-UP, LEFT = 18, 11              # px: the pop-up's top left from the enemy's place
+# While powered up (form 2 in the player block), touching an enemy kills it (0x42C72). Its points come from 0x47526
+# (0x50, or 0x250 for some kinds) and are added to the score by the calls in SCORE_SITES, with the enemy pushed on
+# the stack just before.
+#
+# Each call now also spawns a pop-up object (NEW_OBJECT) UP px above the enemy, showing +50 or +250 in a small font
+# (GLYPHS) in SPEED UP's gold. Palette 6 is always loaded, so it can be used anywhere. The pop-up rises (RISE, slowing
+# by SLOW) for LIFE frames, then fades by dropping half its pixels in a checkerboard (FADES), since the hardware has no
+# transparency. A second, sparser fade step was dropped to save tiles for the leaf tornado.
+SCORE_SITES = [(0x42C9E, 0x5E28E), (0x42CA6, 0x5E294)]   # jsr <add to player 1 / 2's score>
+POINTS_AT = [(0x4752C, 0x250), (0x47536, 0x50)]           # move.l #points,d0 in 0x47526
+NEW_OBJECT = 0xFFEC            # returns a1; ne if no slot is free
+MOVE = 0xA258                  # moves an object: +0x0C y speed, +0x10 its change per frame
+PALETTE = 6                    # SPEED UP's
+PRIORITY = 0x20                # +0x28: lower draws in front; Blue is 0x80
+UP, LEFT = 18, 11              # px from the enemy to the pop-up's top left
 RISE, SLOW = 0x40, -1
 LIFE = 48
-FADES = [(12, 1)]              # (frames left, fade step): from then on
-ROWS = [7, 5, 3, 1, 3, 5, 8]   # (each glyph row's gold: palette 6's colours, as SPEED UP's rows)
+FADES = [(12, 1)]              # (frames left, fade step)
+ROWS = [7, 5, 3, 1, 3, 5, 8]   # palette 6 colour for each glyph row, as in SPEED UP
 OUTLINE = 15
 GLYPHS = {
     "+": [".....", "..1..", "..1..", "11111", "..1..", "..1..", "....."],
@@ -29,7 +30,7 @@ GLYPHS = {
 
 
 def picture(text, fade):
-    """32 x 16 pixels (two tiles): text in the small gold font with its outline, centred; fade 1 / 2 thins it out."""
+    """text centred in 32x16 pixels (two tiles), gold with an outline; fade 1 or 2 thins it out."""
     glyphs = [GLYPHS[c] for c in text]
     w = sum(len(g[0]) for g in glyphs) + len(glyphs) - 1
     gold = [[0] * 32 for _ in range(16)]
@@ -71,11 +72,11 @@ def apply(rom):
     code = rom.place_code("""
     bra.w popup
 %(wrappers)s
-spawn:                                  | (d0 the points; the enemy at 24(sp) - pushed before the call to us)
+spawn:                                  | d0 = points; the enemy is at 24(sp), pushed by the caller
     movem.l %%d0-%%d2/%%a0-%%a1,-(%%sp)
     jsr 0x%(new)X
     bne 9f
-    movea.l 24(%%sp),%%a0               | (after it: the new object's call changes a0 / d0)
+    movea.l 24(%%sp),%%a0               | reload: NEW_OBJECT changes a0 and d0
     move.l (%%sp),%%d0
     move.l #popup,4(%%a1)
     move.l (%%a0),(%%a1)
@@ -89,7 +90,7 @@ spawn:                                  | (d0 the points; the enemy at 24(sp) - 
 9:  movem.l (%%sp)+,%%d0-%%d2/%%a0-%%a1
     rts
 
-popup:                                  | (each frame: rising, the last frames thinned out, then gone)
+popup:                                  | each frame: rise, fade near the end, then remove
     tst.b 0x29(%%a5)
     bne 1f
     st 0x29(%%a5)
@@ -102,11 +103,11 @@ popup:                                  | (each frame: rising, the last frames t
     move.b #0x%(priority)X,0x28(%%a5)
 1:  subq.w #1,0x50(%%a5)
     bne 2f
-    clr.b 0x28(%%a5)                    | (done: gone)
+    clr.b 0x28(%%a5)                    | done: remove it
     rts
 2:  move.w 0x52(%%a5),%%d0
 %(fades)s3:  move.w %%d0,8(%%a5)
-    tst.w 0x0C(%%a5)                    | (stopped rising: stays)
+    tst.w 0x0C(%%a5)                    | once it stops rising, it stays put
     bgt 4f
     clr.w 0x0C(%%a5)
     clr.w 0x10(%%a5)

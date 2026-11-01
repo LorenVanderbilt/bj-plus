@@ -1,12 +1,14 @@
 NAME = "keep-flowers-on-death"
 DESCRIPTION = "Losing a life no longer takes a quarter of the flowers; the riddle man's prize keeps them through a game over too"
 
-# Losing a life took a quarter of the player's flowers (block +0x10: halved, then half of that added back) without a
-# word - unless +0x1C was set (the riddle man's prize, was "FLOWERS WILL REMAIN EVEN AFTER DIE"). Each player's check
-# (tst.b 0x1C(block) ; bne <past it>) now always skips it (SKIPS). The continue's quarter (0x3BA56) stays, skipped
-# with the prize as before; the game over save's (SAVE_PENALTY, the save builder) is now skipped with the prize too -
-# so the prize ("NEVER LOSE FLOWERS.", text-fixes) keeps them through a game over.
-SKIPS = [0x11EA2, 0x124F8]   # bne.s past the penalty (player 1, player 2) -> bra.s
+# Losing a life silently took a quarter of the player's flowers (block +0x10), unless +0x1C was set by the riddle
+# man's prize ("FLOWERS WILL REMAIN EVEN AFTER DIE"). Each player's check (tst.b 0x1C(block) ; bne <past it>) now
+# always skips the penalty (SKIPS).
+#
+# Continuing still costs a quarter (0x3BA56), and the prize still prevents it. The game over save's penalty
+# (SAVE_PENALTY, in the save builder) is now skipped with the prize too, so the prize ("NEVER LOSE FLOWERS." in
+# text-fixes) keeps them through a game over.
+SKIPS = [0x11EA2, 0x124F8]   # players 1 and 2: bne.s past the penalty, now bra.s
 SAVE_PENALTY = 0xF00C        # move.b 16(a4),d0 ; lsr.b #1,d0 ; move.b d0,16(a4) ; lsr.b #1,d0 ; add.b d0,16(a4)
 PRIZE = 0x1C
 

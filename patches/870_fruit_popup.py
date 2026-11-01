@@ -1,15 +1,16 @@
 NAME = "fruit-popup"
 DESCRIPTION = "Fruit: its points pop-up (+100 / +150) in invincible-points' style, above the hero's head, like the 1UP's"
 
-# The fruit (pickup types 48-52) shows score pop-ups 100 or 150 (the pop-ups' frames FRUIT_FRAMES). Like one-up-popup's
-# 1UP, those now go to invincible-points' pop-up: "+100" / "+150" in its small gold font, from above the head of the
-# hero who got it, rising, slowing, thinned out, gone. 8 tiles (creature-tiles freed the room). one-up-popup's hook
-# at the pop-up set-up's end (SET_UP_END) now calls ours first. Over a shrunk hero (form 0) these and the 1UP start
-# SHRUNK_DROP px lower.
-SET_UP_END = 0x5E1C6           # jsr <one-up-popup's> (was move.w #64,0x78(a1))
+# Fruit (pickup types 48-52) shows a score pop-up of 100 or 150 (FRUIT_FRAMES). Like one-up-popup's 1UP, these now
+# use invincible-points' pop-up: "+100" or "+150" in its small gold font, rising from above the hero's head, then
+# fading. It costs 8 tiles, which creature-tiles freed up.
+#
+# This chains into one-up-popup's hook at the end of the pop-up set-up (SET_UP_END). Over a shrunk hero (form 0)
+# both these and the 1UP start SHRUNK_DROP px lower.
+SET_UP_END = 0x5E1C6           # jsr <one-up-popup>, originally move.w #64,0x78(a1)
 FRUIT_FRAMES = {0x31C8: "+100", 0x31E4: "+150"}
-BLOCKS = (0x107000, 0x107400)  # players 1 / 2's blocks (+1: the form - 0 shrunk)
-SHRUNK_DROP = 26               # px lower over a shrunk hero (one-up-popup's UP is for the big one)
+BLOCKS = (0x107000, 0x107400)  # player blocks; +1 is the form, 0 = shrunk
+SHRUNK_DROP = 26               # px lower over a shrunk hero; one-up-popup's UP suits the big one
 
 
 def apply(rom):
@@ -35,29 +36,29 @@ def apply(rom):
     bra 5f
 1:""" % (frame, base) for frame, base in bases.items())
     code = rom.place_code("""
-    jsr 0x%(one_up)X                    | (the 1UP's: its set-up's last instruction, then the 1UP above the hero)%(checks)s
-    cmpi.l #0x%(popup)X,4(%%a1)        | (not fruit: the 1UP's, just started? - then only the shrunk hero's drop)
+    jsr 0x%(one_up)X                    | one-up-popup: the replaced instruction, then the 1UP%(checks)s
+    cmpi.l #0x%(popup)X,4(%%a1)        | not fruit: if it's a new 1UP, only apply the shrunk drop
     bne 9f
     tst.b 0x29(%%a1)
     bne 9f
     movem.l %%d0-%%d1/%%a0/%%a2,-(%%sp)
     bsr hero
     bra 6f
-5:  move.l #0x%(popup)X,4(%%a1)        | (invincible-points' pop-up)
+5:  move.l #0x%(popup)X,4(%%a1)        | invincible-points' pop-up
     clr.b 0x29(%%a1)
     movem.l %%d0-%%d1/%%a0/%%a2,-(%%sp)
     bsr hero
     move.l (%%a0),(%%a1)                | above his head
     addi.w #%(up)d,(%%a1)
     addi.w #%(right)d,2(%%a1)
-6:  tst.b 1(%%a2)                       | (shrunk: lower, nearer his head)
+6:  tst.b 1(%%a2)                       | shrunk: start lower, nearer his head
     bne 7f
     subi.w #%(drop)d,(%%a1)
 7:  movem.l (%%sp)+,%%d0-%%d1/%%a0/%%a2
 9:  rts
 
-hero:                                   | a0 / a2: the hero who got it, his player block (player 2's if he's
-    lea 0x%(hero1)X,%%a0               | playing and nearer the game's place)
+hero:                                   | a0 / a2 = the hero who got it and his player block (player 2
+    lea 0x%(hero1)X,%%a0               | if he's playing and nearer)
     lea 0x%(block1)X,%%a2
     cmpi.l #0x%(hero_code)X,0x%(hero2)X+4
     bne 1f
