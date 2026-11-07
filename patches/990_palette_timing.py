@@ -1,5 +1,6 @@
 NAME = "palette-timing"
-DESCRIPTION = "Our colour changes are made in the vblank, not while the picture is drawn (no streaks on real hardware)"
+DESCRIPTION = ("Our colour changes are made in the vblank, not while the picture is drawn (no streaks on real "
+               "hardware); screen-blackout's VRAM reads wait as the console needs")
 
 # The patches' colour changes are queued during the frame and written at the start of the next vblank.
 #
@@ -31,6 +32,8 @@ ELEVATOR = bytes.fromhex("720E" "30D9" "51C9FFFC")   # elevator-spin: moveq #14,
 SPARKLE = bytes.fromhex("23F00000"), bytes.fromhex("23F00004")
                                 # goal bells: move.l (a0,d0.w),<colour> ; move.l 4(a0,d0.w),<the next two>
 PENDULUM = bytes.fromhex("41F900400FC2")      # goal bells: lea 0x400FC2,a0 ; then 3 x move.w #colour,(a0)+ ; rts
+HEIGHTS_LOOP = bytes.fromhex("3680" "30D4" "5240" "51C9FFF8")
+                                # screen-blackout: 1: move.w d0,(a3) ; move.w (a4),(a0)+ ; addq.w #1,d0 ; dbf d1,1b
 CODE_START = 0xB69A0            # the patches' new code (see tools/hackbuild.py)
 LOOPS = 24                      # copy loops into palette RAM in the patches' code, as found when this was written
 
@@ -179,3 +182,24 @@ sparkle:
               why="goal bells: the sparkles' colours queued for the vblank")
     rom.write(pendulum, st(DRAWN + 1) + bytes.fromhex("4E75"), expect=rom.data[pendulum:pendulum + 8],
               why="goal bells: the pendulum's colours left to the vblank")
+
+    # The same goes for VRAM, which has its own rule. The LSPC needs about 16 CPU cycles from setting the address
+    # to a read (the NeoGeo Dev Wiki's VRAM page), and MAME and FBNeo don't enforce it. Screen-blackout read each
+    # sprite's height 8 cycles after setting its address, so on the console it saved stale heights at random, and
+    # the screens came back with sprites missing or misplaced. It was the only VRAM access in the patches that was
+    # too fast (tools/vram_timing.py). The loop is now a jsr to the same loop with a wait before each read.
+    blackout = rom.other_patch("screen-blackout")
+    heights = find1(rom, bytes.fromhex("41F9") + blackout.SAVED.to_bytes(4, "big") + bytes.fromhex("303C8201323C") +
+                    (blackout.SPRITES - 1).to_bytes(2, "big") + HEIGHTS_LOOP, "screen-blackout's sprite height reads")
+    heights += 14
+    wait = rom.place_code("""
+1:  move.w %d0,(%a3)                    | the sprite's SCB3 address
+    addq.w #1,%d0
+    nop                                 | then 16 cycles or more before the read
+    nop
+    move.w (%a4),(%a0)+
+    dbf %d1,1b
+    rts
+""", why="screen-blackout: each sprite's height read after the LSPC's wait")
+    rom.write(heights, jsr(wait) + bytes.fromhex("4E714E71"), expect=HEIGHTS_LOOP,
+              why="screen-blackout: the sprite heights read with the LSPC's wait")
