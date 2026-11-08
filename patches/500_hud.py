@@ -5,8 +5,8 @@ DESCRIPTION = "HUD: no LIFE; score, flowers (x000) and hearts at the screen's ed
 # 2x2 blocks of fix tiles (from 0x4EAC8). Each routine now returns after the hearts (LIFE_DRAWN), and the hearts move
 # out towards the screen's edges (HEARTS_AT): player 1's drawn rightwards from column 3, player 2's leftwards from
 # column 35. They were at columns 5 and 33. Since 2026-11-07 the score, flowers, lives and hearts sit two columns in
-# and a row down from where they were (columns 1 and 37, from row 2), for a CRT's cropped edges: the user's call on
-# the TV, against the CRT-safe area measured from Riding Hero (../neogeo-notes/findings.md: columns 3-36, rows 4-28,
+# from where they were (columns 1 and 37), on the same rows, the score lines level with TIME, for a CRT's cropped
+# edges: the user's call on the TV, against the CRT-safe area measured from Riding Hero (../neogeo-notes/findings.md: columns 3-36, rows 4-28,
 # rows 3-29 at the most); TIME stays where it was.
 #
 # The timer (0x4E560, steady or blinking when time is short) drew TIME at fix offset 0x201 (column 16, row 3, since
@@ -30,10 +30,10 @@ CLEARED = 0x10E9FD           # a byte (spare RAM): 0xA5 once cleared
 BLANK_TILE = 0x0520
 # The flowers: each player's count (block +0x10) was drawn at the bottom, by the item bar (player 1's 0x4E99C at row
 # 27, columns 2-6: flower = and the number, leading zeros blank; player 2's 0x4E9D0, columns 33-37). Now under the
-# score, above the hearts (row 5), flower x and always 3 digits (000): each routine jumps to `flowers`. For 2
+# score, above the hearts (row 4), flower x and always 3 digits (000): each routine jumps to `flowers`. For 2
 # pixels' room above and below, the score line is drawn 2 pixels higher and the hearts 6 (SCORE, HEARTS_UP - their
 # glyphs as new shifted fix tiles).
-FLOWERS = [(0x4E99C, 0x7000 + 3 * 32 + 5), (0x4E9D0, 0x7000 + 32 * 32 + 5)]   # routine, where its icon goes: row 5
+FLOWERS = [(0x4E99C, 0x7000 + 3 * 32 + 4), (0x4E9D0, 0x7000 + 32 * 32 + 4)]   # routine, where its icon goes: row 4
 FLOWER_ICON, TIMES, DIGIT_0 = 0x442F, 0x552A, 0x5530
 # The x in the flowers and the lives: the font's (TIMES) with each arm a pixel shorter, the crossing where it was.
 SMALL_X = ["........",
@@ -48,7 +48,7 @@ TO_DECIMAL = 0x4D8B6         # d0 -> d1: its decimal digits (BCD)
 # The lives (the hero's face, x and the count): player 1's 0x4EA04 at row 3, columns 12-14; player 2's 0x4EA3A at
 # columns 25-27 - now on the flowers' line, a space on (player 1: columns 9-11; player 2: 28-30, a space before its
 # flowers), drawn by `lives`. As before only the count's last digit shows.
-LIVES = [(0x4EA04, 0x7000 + 9 * 32 + 5), (0x4EA3A, 0x7000 + 28 * 32 + 5)]   # routine, where the face goes
+LIVES = [(0x4EA04, 0x7000 + 9 * 32 + 4), (0x4EA3A, 0x7000 + 28 * 32 + 4)]   # routine, where the face goes
 # The item bar (rows 28-29) a row higher, off the screen's bottom edge (TVs crop it), and a column in from the side
 # (player 1's right, player 2's left): its frame (inline strings at 0x9FE2 calls), the markers over it (row 27) and
 # each player's boxes (their base fix address) - each address moved (BAR).
@@ -74,7 +74,7 @@ FACE_REMAP = {10: 2, 11: 9, 12: 15}  # player 1's face: its suit's entries
 LIVES_SHIFT = 4
 LIFE_DRAWN = [0x4EA84, 0x4EAAA]   # lea <LIFE's tiles>(pc),a0 - after the hearts (player 1, 2): rts instead
 BLANK = 0x5520
-HEARTS_AT = [(0x4EA7C, 0x70A4, 0x7067), (0x4EAA2, 0x7424, 0x7467)]   # move.w #fix address,d0, old, new: rows 6-7 (from row 7)
+HEARTS_AT = [(0x4EA7C, 0x70A4, 0x7066), (0x4EAA2, 0x7424, 0x7466)]   # move.w #fix address,d0, old, new: rows 5-6 (from row 6)
 # The hearts' 2x2 blocks (0x4E8CC, from the tables HEART_TABLES: full, empty, none) drawn 6 pixels higher: rows 5-6
 # from a row-6 address (the draw `blocks` in its place for those tables; the hearts are 13 pixels tall: nothing in
 # a third row).
@@ -109,9 +109,9 @@ BAR_ROWS = (27, 28)          # its boxes: 2x2 blocks there
 HEARTS_UP = 6
 # The score line (player 1's 0x4E954: 6 digits from 0x1030A1, leading zeros blank, at column 4, then 1P= at 1;
 # player 2's 0x4E978: from 0x1030A5 at 33, 2P= at 30; now at 6 / 3 and 31 / 28) drawn 2 pixels higher by `score`:
-# each glyph as two shifted tiles, its top in row 3 and the rest in row 4.
-SCORE = [(0x4E954, 0x1030A1, 0x7000 + 6 * 32 + 4, 0x7000 + 3 * 32 + 4, 0x5531),    # (routine, BCD, digits,
-         (0x4E978, 0x1030A5, 0x7000 + 31 * 32 + 4, 0x7000 + 28 * 32 + 4, 0x5532)]   # label, its digit)
+# each glyph as two shifted tiles, its top in row 2 and the rest in row 3, level with TIME.
+SCORE = [(0x4E954, 0x1030A1, 0x7000 + 6 * 32 + 3, 0x7000 + 3 * 32 + 3, 0x5531),    # (routine, BCD, digits,
+         (0x4E978, 0x1030A5, 0x7000 + 31 * 32 + 3, 0x7000 + 28 * 32 + 3, 0x5532)]   # label, its digit)
 SCORE_UP = 2
 P_TILE, EQUALS_TILE = 0x5550, 0x5508
 TIMER = [   # (the move.w #offset,d0 before each printer call, its old offset): normal, then blinking

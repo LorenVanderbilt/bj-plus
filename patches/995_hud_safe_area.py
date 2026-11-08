@@ -2,11 +2,11 @@ NAME = "hud-safe-area"
 DESCRIPTION = "HUD inside a CRT's safe area: the old layout's cells cleared once, for saves made before it moved"
 
 # On a real TV the picture's edges are cropped, and the HUD sat at them (the user, on the BackBit). Its score,
-# flowers, lives and hearts now sit two columns in and a row down, and the item bars a column in; `hud`
-# (patches/500_hud.py) has the positions. They're inside the CRT-safe area measured from Riding Hero
-# (../neogeo-notes/findings.md: columns 3-36, rows 4-28; columns 2-37, rows 3-29 at the most): the score line is in
-# row 3, a row higher than the area, the user's call on the TV. The two players' item bars together reach columns
-# 2-37, since they don't fit side by side inside 3-36. TIME stays where it was.
+# flowers, lives and hearts now sit two columns in, on the same rows, and the item bars a column in; `hud`
+# (patches/500_hud.py) has the positions. The boundary is the CRT-safe area measured from Riding Hero
+# (../neogeo-notes/findings.md: columns 3-36, rows 4-28; columns 2-37, rows 3-29 at the most). The score lines stay
+# in rows 2-3, level with TIME, above even the outer limit: the user's call on their CRT, where they fit. The two
+# players' item bars together reach columns 2-37, since they don't fit side by side inside 3-36.
 #
 # A save state made before the move still has the old layout's tiles in the fix layer, and the HUD redraws only its
 # new cells. So on the first frame of play after a load (the HUD's call in the gameplay loop, HUD_CALL), every cell
@@ -32,8 +32,8 @@ def mirror(cs):
 # player 1's cells (column, row); player 2's are mirrored, column 39 - c
 OLD = (cells(range(1, 10), (2, 3)) | cells(range(1, 6), (4,)) | cells(range(7, 10), (4,)) |    # score, flowers, lives
        cells(range(1, 11), (5, 6)) | cells((1,), (26, 27, 28)))                               # hearts, the bar's end
-NEW = (cells(range(3, 12), (3, 4)) | cells(range(3, 8), (5,)) | cells(range(9, 12), (5,)) |
-       cells(range(3, 13), (6, 7)) | cells(range(2, 20), (26, 27, 28)))
+NEW = (cells(range(3, 12), (2, 3)) | cells(range(3, 8), (4,)) | cells(range(9, 12), (4,)) |
+       cells(range(3, 13), (5, 6)) | cells(range(2, 20), (26, 27, 28)))
 
 
 def apply(rom):
