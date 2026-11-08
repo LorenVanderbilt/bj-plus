@@ -1,7 +1,7 @@
 NAME = "lottery-box-hearts"
 DESCRIPTION = "Lottery after a boss: the gnomes' text box covers the hearts behind it (they were drawn over its corner)"
 
-# hud draws the hearts in fix rows 5-6 from column 1 rightwards, and the lottery's text box (BOX, the text engine's
+# hud draws the hearts in fix rows 6-7 from column 3 rightwards, and the lottery's text box (BOX, the text engine's
 # object, frame 0x3254 at a fixed place) is drawn over that corner. The box is made of sprites and the hearts are on
 # the fix layer, which the hardware always draws in front, so the hearts showed over the box's border and first line.
 #
@@ -19,13 +19,13 @@ BOX = (0x21562, 0x3254, 0xA800, 0x4800)   # the box object's code, frame, y and 
 BOX_SLOT = 0x104600             # its object slot, the same in every lottery
 SWAPPED = 0x10EA68              # spare RAM byte: set while the hearts are swapped for their copies
 BOX_LEFT, BOX_TOP = 22, 43      # fix-layer pixels: the 7th of column 2, the 4th of row 5
-COLUMNS, ROWS = range(1, 11), (5, 6)   # player 1's hearts: up to 5, two columns each
+COLUMNS, ROWS = range(3, 13), (6, 7)   # player 1's hearts: up to 5, two columns each
 
 
 def heart_words(rom, hud):
     """hud's heart tiles by row, {row: [fix words]}, worked out the way hud makes them (shared tiles give the same
     words)."""
-    words = {5: set(), 6: set()}
+    words = {row: set() for row in ROWS}
     for table in hud.HEART_TABLES:
         tiles = [rom.u16(table + 2 * i) for i in range(4)]          # left top, left bottom, right top, right bottom
         for col in (0, 1):

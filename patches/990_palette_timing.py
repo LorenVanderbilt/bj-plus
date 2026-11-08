@@ -25,13 +25,22 @@ DESCRIPTION = ("Our colour changes are made in the vblank, not while the picture
 # cone's colours to spare RAM while the screen is black), is made at once as before.
 USED = 0x10D5F0                 # spare RAM (a word): bytes in the queue; 0 = empty, as the attract's RAM clear leaves it
 DRAWN = 0x10D5F2                # spare RAM (2 bytes): set when the HUD's lives / the bells' pendulum want their colours
-QUEUE, QUEUE_SIZE = 0x10D600, 0xC00   # spare RAM, to 0x10E1FF
+QUEUE, QUEUE_SIZE = 0x10D600, 0x400   # spare RAM, to 0x10D9FF (the busiest frame seen queued ~220 bytes: the shop)
 AFTER_ANIM = bytes.fromhex("4EF9000099A0")   # anim-speed's jmp to the game's vblank handler
 GAME_MODE = 0x10FD80            # negative while the game (not the BIOS) is running
 ELEVATOR = bytes.fromhex("720E" "30D9" "51C9FFFC")   # elevator-spin: moveq #14,d1 ; 1: move.w (a1)+,(a0)+ ; dbf d1,1b
 SPARKLE = bytes.fromhex("23F00000"), bytes.fromhex("23F00004")
                                 # goal bells: move.l (a0,d0.w),<colour> ; move.l 4(a0,d0.w),<the next two>
 PENDULUM = bytes.fromhex("41F900400FC2")      # goal bells: lea 0x400FC2,a0 ; then 3 x move.w #colour,(a0)+ ; rts
+BLACK_LOOP = bytes.fromhex("48D000FE" "42A8001C" "41E80020" "51C8FFF2")
+                                # screen-blackout: 1: movem.l d1-d7,(a0) ; clr.l 28(a0) ; lea 32(a0),a0 ; dbf d0,1b
+REVEAL_SHARE = 64               # the reveal's palettes copied in each vblank (about 20 lines' worth)
+DIM_QUARTERS = 4                # ROUND CLEAR's dim: worked out a quarter of the palettes at a time, two a frame
+DIM_STAGES = (0x10A800, 0x10DA00)   # 2 KB each, a quarter's colours: the shops' object store (free at ROUND CLEAR,
+                                # as round-clear-dim's BUF after it) and spare RAM after the queue (to 0x10E1FF)
+DIM_RAM = 0x10D5E0              # spare RAM: +0 / +4 where each stage's quarter goes (0 = none), +8 the stage the
+                                # dim's tick works into (longs)
+WAITING = 0x10D5F4              # spare RAM (a byte): set during the reveal's own vblank waits
 HEIGHTS_LOOP = bytes.fromhex("3680" "30D4" "5240" "51C9FFF8")
                                 # screen-blackout: 1: move.w d0,(a3) ; move.w (a4),(a0)+ ; addq.w #1,d0 ; dbf d1,1b
 CODE_START = 0xB69A0            # the patches' new code (see tools/hackbuild.py)
@@ -99,6 +108,97 @@ def find1(rom, pattern, what):
     at = rom.data.find(pattern, CODE_START)
     assert at >= 0 and rom.data.find(pattern, at + 1) < 0, "palette-timing: %s not found once" % what
     return at
+
+
+def dim_writes(rom, jsr):
+    """ROUND CLEAR's dim: worked out into DIM_STAGES during the frame, copied in at the next vblank's start."""
+    # The dim worked out each step's colours straight into palette RAM, half the palettes a frame, and the work ran
+    # down the whole picture (the user saw diagonal lines on the BackBit). Its tick now works a quarter at a time
+    # into a stage in RAM, two quarters a frame (each into its own stage, DIM_STAGES, as no 4 KB in one piece is
+    # free), and at the start of the next frame's vblank wait both are copied in with movem (about 28 lines, inside
+    # the vblank), before the next two are worked out. A step still takes 2 frames: the fade is as it was.
+    dim = rom.other_patch("round-clear-dim")
+    entry = rom.u32(dim.ROUTINES[0] + 2)
+    head = entry + 4                    # its table's second entry: bra.w frame (the vblank wait loop's jump)
+    assert rom.u16(head) == 0x6000
+    frame = head + 2 + int.from_bytes(rom.data[head + 2:head + 4], "big", signed=True)
+    assert rom.data[frame:frame + 4] == bytes.fromhex("301F6100"), "palette-timing: round-clear-dim's frame moved?"
+    tick = frame + 4 + int.from_bytes(rom.data[frame + 4:frame + 6], "big", signed=True)
+    body = rom.data[tick:tick + 0x100]
+
+    def at(pattern):
+        k = body.find(pattern)
+        assert k >= 0 and body.find(pattern, k + 1) < 0, "palette-timing: round-clear-dim's %s" % pattern.hex()
+        return tick + k
+    quarter_pals, quarter_bytes = dim.PALS // DIM_QUARTERS, dim.PALS * 32 // DIM_QUARTERS
+    half_pals, half_bytes = dim.PALS // dim.STEP_FRAMES, dim.PALS * 32 // dim.STEP_FRAMES
+    edits = [(bytes.fromhex("C6FC") + half_bytes.to_bytes(2, "big"), bytes.fromhex("C6FC") + quarter_bytes.to_bytes(2, "big")),
+             (bytes.fromhex("383C") + (half_pals - 1).to_bytes(2, "big"), bytes.fromhex("383C") + (quarter_pals - 1).to_bytes(2, "big")),
+             (bytes.fromhex("C2FC") + half_pals.to_bytes(2, "big"), bytes.fromhex("C2FC") + quarter_pals.to_bytes(2, "big")),
+             (bytes.fromhex("0C39") + dim.STEP_FRAMES.to_bytes(2, "big") + dim.HALF.to_bytes(4, "big"),
+              bytes.fromhex("0C39") + DIM_QUARTERS.to_bytes(2, "big") + dim.HALF.to_bytes(4, "big")),
+             (bytes.fromhex("43F9") + (0x400000 + dim.FIRST_PAL * 32).to_bytes(4, "big") + bytes.fromhex("D3C3"),
+              bytes.fromhex("2279") + (DIM_RAM + 8).to_bytes(4, "big") + bytes.fromhex("4E71"))]
+                                        # lea <palettes>,a1 ; adda.l d3,a1 -> movea.l <the stage>,a1 ; nop
+    assert QUEUE + QUEUE_SIZE <= DIM_STAGES[1] and DIM_STAGES[1] + 0x800 <= 0x10E200
+    for old, new in edits:
+        rom.write(at(old), new, expect=old, why="ROUND CLEAR's dim: a quarter a frame, worked out into RAM")
+
+    code = rom.place_code("""
+| the vblank wait's loop, each frame: last frame's two quarters copied in, then round-clear-dim's frame as it was,
+| with its tick called twice (a stage each), noting which quarter each works out
+    lea 0x%(ram)X,%%a4
+    lea 0x%(stage0)X,%%a0
+    bsr copy
+    lea 0x%(ram)X+4,%%a4
+    lea 0x%(stage1)X,%%a0
+    bsr copy
+    move.w (%%sp)+,%%d0
+    move.l #0x%(stage0)X,0x%(ram)X+8
+    lea 0x%(ram)X,%%a5
+    bsr part
+    move.l #0x%(stage1)X,0x%(ram)X+8
+    lea 0x%(ram)X+4,%%a5
+    bsr part
+    dbf %%d0,1f
+    jmp 0x%(loop_end)X
+1:  jmp 0x%(loop_top)X
+
+| a stage (a0) copied to where (a4) says, if it says
+copy:
+    tst.l (%%a4)
+    beq 1f
+    movea.l (%%a4),%%a1
+    clr.l (%%a4)
+    move.w #%(pals)d-1,%%d1
+2:  movem.l (%%a0)+,%%d2-%%d7/%%a2-%%a3
+    movem.l %%d2-%%d7/%%a2-%%a3,(%%a1)
+    lea 32(%%a1),%%a1
+    dbf %%d1,2b
+1:  rts
+
+| the tick, into the stage set; if it worked a quarter out, where it goes noted at (a5) (d0, a5 kept)
+part:
+    moveq #0,%%d1
+    move.b 0x%(half)X,%%d1              | the quarter it'll work out, if it does
+    move.w 0x%(half)X-1,%%d2            | STEP and HALF (a byte each): changed if it did
+    movem.l %%d0-%%d2/%%a5,-(%%sp)
+    jsr 0x%(tick)X
+    movem.l (%%sp)+,%%d0-%%d2/%%a5
+    cmp.w 0x%(half)X-1,%%d2
+    beq 1f
+    mulu #%(bytes)d,%%d1
+    add.l #0x%(pal)X,%%d1
+    move.l %%d1,(%%a5)
+1:  rts
+""" % {"ram": DIM_RAM, "stage0": DIM_STAGES[0], "stage1": DIM_STAGES[1], "pals": quarter_pals, "half": dim.HALF,
+       "tick": tick, "bytes": quarter_bytes, "pal": 0x400000 + dim.FIRST_PAL * 32, "loop_end": dim.FRAME_LOOP_END,
+       "loop_top": dim.FRAME_LOOP_TOP}, why="ROUND CLEAR's dim: two quarters a frame, copied in at the vblank")
+    into = rom.data.find(bytes.fromhex("4EF9") + head.to_bytes(4, "big"), CODE_START)
+    assert into >= 0 and rom.data.find(bytes.fromhex("4EF9") + head.to_bytes(4, "big"), into + 1) < 0, \
+        "palette-timing: the vblank wait loop's jump to round-clear-dim not found once"
+    rom.write(into + 2, code.to_bytes(4, "big"), expect=head.to_bytes(4, "big"),
+              why="vblank wait, each frame: ROUND CLEAR's dim copied in first")
 
 
 def apply(rom):
@@ -203,3 +303,143 @@ sparkle:
 """, why="screen-blackout: each sprite's height read after the LSPC's wait")
     rom.write(heights, jsr(wait) + bytes.fromhex("4E714E71"), expect=HEIGHTS_LOOP,
               why="screen-blackout: the sprite heights read with the LSPC's wait")
+
+    # Screen-blackout's two whole-palette jobs ran on past the vblank, and on the console they showed as diagonal
+    # white lines on the black screen (the user, on the BackBit), before a title card and going into a shop.
+    #
+    # Going black cleared every palette a palette at a time, to about line 40. It now clears four palettes a pass
+    # with eight zeroed registers, about a quarter faster, which finishes inside the vblank.
+    #
+    # The reveal's first part copied every new palette but the fix layer's and the backdrop's, with every sprite
+    # hidden, and it ran to about line 183. Hidden sprites don't stop the streaks, so the copy is now spread over
+    # several vblanks, REVEAL_SHARE palettes in each, starting at the next one. The screen stays black a few frames
+    # longer. Its waits are nested inside the vblank wait's end, so WAITING makes screen-blackout's own hook there
+    # pass them by.
+    zero = find1(rom, BLACK_LOOP, "screen-blackout's palette clear")
+    at = rom.data.find(bytes.fromhex("7C006100"), CODE_START)
+    while at >= 0 and rom.data[at + 6:at + 14] != bytes.fromhex("13FC0001") + blackout.PHASE.to_bytes(4, "big"):
+        at = rom.data.find(bytes.fromhex("7C006100"), at + 2)
+    assert at >= 0, "palette-timing: screen-blackout's reveal (moveq #0,d6 ; bsr replay) not found"
+    replay = at + 4 + int.from_bytes(rom.data[at + 4:at + 6], "big", signed=True)
+    assert rom.data[replay:replay + 6] == bytes.fromhex("45F9") + blackout.LIST.to_bytes(4, "big")
+    assert rom.u16(blackout.VBLANK_END) == 0x4EF9
+    vblank_end = rom.u32(blackout.VBLANK_END + 2)
+    pal_count = blackout.PALETTE_BYTES // 32
+    assert pal_count % 4 == 0 and (pal_count - 16) % 4 == 0
+    jobs = rom.place_code("""
+    bra.w zero                          | +0
+    bra.w share                         | +4
+    bra.w end                           | +8
+    bra.w last                          | +12
+
+| going black: d0 = palettes - 1 (a multiple of 4), a0 the first, d1-d7 zero
+zero:
+    move.l %%a1,-(%%sp)
+    suba.l %%a1,%%a1
+    addq.w #1,%%d0
+    lsr.w #2,%%d0
+    subq.w #1,%%d0
+1:  movem.l %%d1-%%d7/%%a1,(%%a0)
+    movem.l %%d1-%%d7/%%a1,32(%%a0)
+    movem.l %%d1-%%d7/%%a1,64(%%a0)
+    movem.l %%d1-%%d7/%%a1,96(%%a0)
+    lea 128(%%a0),%%a0
+    dbf %%d0,1b
+    movea.l (%%sp)+,%%a1
+    rts
+
+| the reveal's first part (replay with d6 = 0): the noted loads again, in order, but the fix layer's (0-15) and the
+| backdrop's (255), %(share)d palettes a vblank from the next one
+share:
+    moveq #0,%%d6                       | palettes left in this vblank: none, the sprites were just hidden
+    lea 0x%(list)X,%%a2
+    move.w 0x%(count)X,%%d3
+    bra 4f
+2:  movem.l (%%a2)+,%%a0-%%a1
+    move.w (%%a2)+,%%d2
+3:  move.l %%a0,%%d0
+    sub.l #0x%(pal)X,%%d0
+    lsr.l #5,%%d0
+    cmpi.w #16,%%d0
+    bcs 7f
+    cmpi.w #255,%%d0
+    beq 7f
+    subq.w #1,%%d6
+    bpl 6f
+    movem.l %%d0-%%d7/%%a0-%%a5,-(%%sp)
+    st 0x%(waiting)X
+    jsr 0xE856
+    clr.b 0x%(waiting)X
+    movem.l (%%sp)+,%%d0-%%d7/%%a0-%%a5
+    move.w #%(share)d-1,%%d6
+6:  movem.l (%%a1),%%d0-%%d1/%%d4-%%d5/%%d7/%%a3-%%a5
+    movem.l %%d0-%%d1/%%d4-%%d5/%%d7/%%a3-%%a5,(%%a0)
+7:  lea 32(%%a0),%%a0
+    lea 32(%%a1),%%a1
+    dbf %%d2,3b
+4:  dbf %%d3,2b
+    rts
+
+| the reveal's second part (replay with d6 = 1): just the fix layer's palettes (0-15) and the backdrop's (255) - a
+| load that can't hold any of them is passed over whole
+last:
+    lea 0x%(list)X,%%a2
+    move.w 0x%(count)X,%%d3
+    bra 4f
+2:  movem.l (%%a2)+,%%a0-%%a1
+    move.w (%%a2)+,%%d2
+    move.l %%a0,%%d0
+    sub.l #0x%(pal)X,%%d0
+    lsr.l #5,%%d0                       | its first palette
+    cmpi.w #16,%%d0
+    bcs 3f
+    add.w %%d2,%%d0                     | its last
+    cmpi.w #255,%%d0
+    bcs 4f
+3:  move.l %%a0,%%d0
+    sub.l #0x%(pal)X,%%d0
+    lsr.l #5,%%d0
+    cmpi.w #16,%%d0
+    bcs 6f
+    cmpi.w #255,%%d0
+    bne 7f
+6:  movem.l (%%a1),%%d0-%%d1/%%d4-%%d5/%%d7/%%a3-%%a5
+    movem.l %%d0-%%d1/%%d4-%%d5/%%d7/%%a3-%%a5,(%%a0)
+7:  lea 32(%%a0),%%a0
+    lea 32(%%a1),%%a1
+    dbf %%d2,3b
+4:  dbf %%d3,2b
+    rts
+
+| the vblank wait's end: screen-blackout's, unless this is one of the reveal's own waits
+end:
+    tst.b 0x%(waiting)X
+    bne 1f
+    jmp 0x%(vblank_end)X
+1:  movem.l (%%sp)+,%%d1-%%d7/%%a0-%%a5
+    rts
+""" % {"share": REVEAL_SHARE, "list": blackout.LIST, "count": blackout.COUNT, "pal": blackout.PALETTES,
+       "waiting": WAITING, "vblank_end": vblank_end}, why="screen-blackout: going black and the reveal in the vblank")
+    rom.write(zero, jsr(jobs) + bytes.fromhex("6008"), expect=BLACK_LOOP[:8],
+              why="screen-blackout: going black, four palettes a pass")
+    rom.write(at, jsr(jobs + 4), expect=rom.data[at:at + 6],
+              why="screen-blackout: the reveal's palettes, a share each vblank")
+    rom.write(blackout.VBLANK_END + 2, (jobs + 8).to_bytes(4, "big"), expect=vblank_end.to_bytes(4, "big"),
+              why="the vblank wait's end: past screen-blackout's while the reveal waits")
+
+    # The reveal's second part showed every sprite again (380 VRAM writes) and then put in the fix layer's and the
+    # backdrop's palettes, which ran to about line 73. The palettes go first now, at the top of the vblank, and a load
+    # that can't hold any of them is passed over whole (going through every palette of every load took most of the
+    # time); the VRAM writes after them are fine during the picture.
+    at = rom.data.find(bytes.fromhex("2F006100"), CODE_START)
+    while at >= 0 and not (rom.data[at + 6:at + 10] == bytes.fromhex("7C016100") and rom.u16(at + 12) == 0x201F):
+        at = rom.data.find(bytes.fromhex("2F006100"), at + 2)
+    assert at >= 0, "palette-timing: screen-blackout's reveal, second part (bsr show_all ; moveq #1,d6 ; bsr replay)"
+    second = at + 2
+    show_all = second + 2 + rom.u16(second + 2)
+    assert second + 8 + rom.u16(second + 8) == replay
+    assert rom.data[show_all:show_all + 6] == bytes.fromhex("40E7007C0700"), "palette-timing: show_all moved?"
+    bsr = lambda at, to: bytes.fromhex("6100") + (to - (at + 2)).to_bytes(2, "big", signed=True)
+    dim_writes(rom, jsr)
+    rom.write(second, bytes.fromhex("7C01") + bsr(second + 2, jobs + 12) + bsr(second + 6, show_all),
+              expect=rom.data[second:second + 10], why="screen-blackout's reveal: the last palettes before the sprites")
