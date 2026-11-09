@@ -13,8 +13,10 @@
 # Personal defaults go in local.cfg (not committed), a shell file, e.g.:  DIFFICULTY=1
 # To record a play session so it can be replayed exactly later (saved to recordings/NAME.inp):
 #   ./run.sh --mvs --skip anim-speed hero-big-art -- -record NAME.inp     (recordings are mode-specific)
-# Controls (MAME defaults): 1 = Start, 5 = Select (AES) / insert coin (MVS), arrows = move,
-# Left Ctrl/Alt/Space/Shift = A/B/C/D, Tab = MAME menu, Esc = quit.
+# Controls: 1 = Start, 5 = Select (AES) / insert coin (MVS), arrows = move, Z/X/C/V = A/B/C/D (the shared
+# ../neogeo-notes/tools/mame/neogeo-keys.cfg: macOS takes Ctrl+arrows), Tab = MAME menu, Esc = quit.
+# M = save for Claude (sta/aes/new_01.sta, new_02 ... - ../neogeo-notes/tools/mame/savekey.lua), Shift+F7 = MAME's own save.
+# A remap saved from MAME's Tab menu (cfg/aes.cfg) overrides neogeo-keys.cfg.
 cd "$(dirname "$0")" || exit 1
 mode=aes
 bios=""
@@ -34,15 +36,27 @@ while [ $# -gt 0 ] && [ "$1" != "--" ]; do
     shift
 done
 [ "$1" = "--" ] && shift
+# MAME runs only one -autoboot_script: the save key, --difficulty's and any given after -- all go through run_scripts
+scripts="../neogeo-notes/tools/mame/savekey.lua"
+n=$#
+while [ $n -gt 0 ]; do
+    if [ "$1" = "-autoboot_script" ] && [ $n -gt 1 ]; then
+        scripts="$scripts;$2"; shift 2; n=$((n - 2))
+    else
+        set -- "$@" "$1"; shift; n=$((n - 1))
+    fi
+done
 python3 tools/hackbuild.py $build_args || exit 1
 out=build
 states=""
 [ -n "$ORIGINAL" ] && { out=build/original; states="-state_directory sta_original"; }   # (its saves apart from the hack's)
 mkdir -p recordings
+keys="-ctrlrpath ../neogeo-notes/tools/mame -ctrlr neogeo-keys -autoboot_script tools/run_scripts.lua"
 if [ "$mode" = aes ]; then
     [ -f $out/aes/neogeo.xml ] || { echo "No AES build (need roms/aes.zip) - use --mvs, or see tools/hackbuild.py"; exit 1; }
-    script=""
-    [ -n "$DIFFICULTY" ] && { export HACK_DIFFICULTY="$DIFFICULTY"; script="-autoboot_script tools/difficulty.lua"; }
-    exec mame aes -hash $out/aes -rompath $out/aes -cart bjourney $states $bios $script -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
+    [ -n "$DIFFICULTY" ] && { export HACK_DIFFICULTY="$DIFFICULTY"; scripts="$scripts;tools/difficulty.lua"; }
+    export RUN_SCRIPTS="$scripts"
+    exec mame aes -hash $out/aes -rompath $out/aes -cart bjourney $states $bios $keys -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
 fi
-exec mame bjourney -rompath $out/roms $states $bios -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
+export RUN_SCRIPTS="$scripts"
+exec mame bjourney -rompath $out/roms $states $bios $keys -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"

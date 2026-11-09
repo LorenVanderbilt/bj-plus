@@ -51,6 +51,13 @@ FIX_FREE_RANGES = [(0x2FC, 0x31F), (0x360, 0x3FF), (0x321, 0x35F)]
 # Sprite tiles 0x2F9C-0x2FFF are blank in the C ROMs (the end of a bank), no frame definition uses them, and the
 # game never writes them to the sprite tables (checked through the attract cycle and several levels).
 SPRITE_FREE_START, SPRITE_FREE_END = 0x2F9C, 0x2FFF
+# The AES set's second sprite ROM pair is bigger (the user, 2026-11-08: room for new art; the ideal is real hardware,
+# and the BackBit takes bigger ROMs - Joy Joy Kid Plus's grown set works on it): c3 / c4 grow from 512 KB to
+# AES_C34_SIZE each, adding blank tiles 0x6000-0x7FFF, 4 MB of sprites in all. They're handed out only once the
+# free tiles above and the tile pool have run out, so nothing placed before moves. c1 / c2 can't grow: c3 / c4's tiles
+# are numbered from where c1 / c2 end. The MVS set keeps the original sizes (MAME's arcade driver insists on them):
+# its game never draws the AES-only art, so anything using the added tiles must be AES-only (the build says when).
+AES_C34_SIZE = 0x100000
 # The sprite frame table (frame number / 4 -> definition address) ends in filler: frames 0x34D0-0x3FFC all point at
 # one definition and nothing uses them. New frames go at the very end.
 FRAME_TABLE = 0x60772
@@ -77,8 +84,13 @@ class Rom:
         self.fix = bytearray(fix)          # the fix-layer ROM (S ROM): 32 bytes per 8x8 tile, 4 bits per pixel
         self.fix_orig = bytes(fix)
         # the sprite ROMs, {file name: contents}: c1/c2 hold tiles 0-0x3FFF, c3/c4 the rest
-        self.sprites = {n: bytearray(d) for n, d in (sprites or {}).items()}
-        self.sprites_orig = {n: bytes(d) for n, d in (sprites or {}).items()}
+        grow = lambda n, d: bytes(d) + bytes(max(0, AES_C34_SIZE - len(d))) if n in C_NAMES[2:] else bytes(d)
+        self.c_orig_size = {n: len(d) for n, d in (sprites or {}).items()}
+        self.sprites = {n: bytearray(grow(n, d)) for n, d in (sprites or {}).items()}
+        self.sprites_orig = {n: grow(n, d) for n, d in (sprites or {}).items()}
+        self.aes_tiles = (list(range(self.SPRITE_TILES_PER_PAIR + self.c_orig_size[C_NAMES[2]] // 64,
+                                     self.SPRITE_TILES_PER_PAIR + AES_C34_SIZE // 64)) if sprites else [])
+        self.aes_tiles_used = 0      # the added tiles handed out (the MVS set doesn't have them)
         self.next_free = FREE_START
         self.free_fix_tiles = [t for a, b in FIX_FREE_RANGES for t in range(a, b + 1)]
         self.next_sprite_tile = SPRITE_FREE_START
@@ -397,8 +409,13 @@ class Rom:
         n = self.next_sprite_tile
         if n > SPRITE_FREE_END:
             if not self.tile_pool:
-                raise SystemExit("out of free sprite tiles (0x%X-0x%X, and the tile pool)" % (SPRITE_FREE_START,
-                                                                                              SPRITE_FREE_END))
+                if not self.aes_tiles:
+                    raise SystemExit("out of free sprite tiles (0x%X-0x%X, the tile pool and the AES set's added "
+                                     "ones)" % (SPRITE_FREE_START, SPRITE_FREE_END))
+                n = self.aes_tiles.pop(0)
+                self.aes_tiles_used += 1
+                self.put_sprite_tile(n, pixels, why + " (AES set only)")
+                return n
             n = self.tile_pool.pop(0)
             self.put_sprite_tile(n, pixels, why)
             return n
@@ -406,26 +423,46 @@ class Rom:
         self.next_sprite_tile = n + 1
         return n
 
-    def _frame_definition(self, tiles, palette, pieces=()):
+    def add_aes_tile_run(self, tiles, why=""):
+        """Store len(tiles) sprite tiles (each pixels[y][x]) in consecutive slots of the AES set's added space, the
+        first on a multiple of len(tiles) (4 for a tile the hardware animates through 4 frames, attribute bit 2: it
+        swaps the tile number's low 2 bits), and return the first tile number."""
+        n = len(tiles)
+        free = set(self.aes_tiles)
+        first = next((t for t in self.aes_tiles if t % n == 0 and all(t + k in free for k in range(n))), None)
+        if first is None:
+            raise SystemExit("out of the AES set's added sprite tiles")
+        for k, pixels in enumerate(tiles):
+            self.aes_tiles.remove(first + k)
+            self.put_sprite_tile(first + k, pixels, why + " (AES set only)")
+        self.aes_tiles_used += n
+        return first
+
+    def _frame_definition(self, tiles, palette, pieces=(), tile_attr=None):
         """The bytes of a frame definition in the per-tile form (see 0xA996): columns-1, rows-1, 0, palette, the tile
         number's high byte; then for each column top to bottom a byte: 0 = blank, else the tile number's low byte -
-        or, when the high byte changes (or the low byte is 0 or 1), 1, 0x20, the new high byte, the low byte."""
+        or, when the high byte changes (or the low byte is 0 or 1), 1, 0x20, the new high byte, the low byte.
+        tile_attr: the tiles' attribute bits 0-3 (flips, auto-animation), set by the first tile and kept by the rest."""
         rows, cols = len(tiles), len(tiles[0])
         first = next(t for row in tiles for t in row if t is not None)
         if any(t is not None and t > 0xFFFF for row in tiles for t in row):
             raise SystemExit("frame definitions: tiles above 0xFFFF need the attribute bits")
         hi = first >> 8
         body = bytearray([cols - 1, rows - 1, 0, palette, hi])
+        attr_set = tile_attr is None
         for c in range(cols):
             for r in range(rows):
                 t = tiles[r][c]
                 if t is None:
                     body.append(0)
+                elif not attr_set:
+                    hi, attr_set = t >> 8, True
+                    body += bytes([1, 0x20 | tile_attr, hi, t & 0xFF])
                 elif t >> 8 == hi and (t & 0xFF) > 1:
                     body.append(t & 0xFF)
-                else:
+                else:                        # (an escape sets the attribute bits again)
                     hi = t >> 8
-                    body += bytes([1, 0x20, hi, t & 0xFF])
+                    body += bytes([1, 0x20 | (tile_attr or 0), hi, t & 0xFF])
         for x, up, column in pieces:         # extra one-column sprites (see 0xAF1C): offsets in 2px units
             hi = column[0] >> 8
             body += bytes([len(column) - 1, x & 0xFF, up & 0xFF, palette, hi])
@@ -462,11 +499,15 @@ class Rom:
                 tiles[r][c] = (hi << 8) | b
         return tiles, attr
 
-    def add_frame(self, tiles, palette, why="", pieces=()):
+    def add_frame(self, tiles, palette, why="", pieces=(), tile_attr=None):
         """Add a sprite frame: tiles[row][col] = a tile number or None (blank), drawn with palette (0-255) unless the
         object overrides it. pieces: extra columns (x, up, [tile, ...]) - x right and up from the top left in 2px
-        units, tiles top to bottom. Returns the new frame number (what the game stores in an object's +8)."""
-        body = self._frame_definition(tiles, palette, pieces)
+        units, tiles top to bottom. tile_attr: as in _frame_definition. Returns the new frame number (what the game
+        stores in an object's +8)."""
+        return self.add_frame_body(self._frame_definition(tiles, palette, pieces, tile_attr), why)
+
+    def add_frame_body(self, body, why=""):
+        """Add a sprite frame from a definition's bytes (the format in _frame_definition); returns its number."""
         addr = self.alloc(len(body))
         self.data[addr:addr + len(body)] = body
         n = self.next_frame
@@ -512,6 +553,8 @@ def write_aes_set(entries, patched):
     for info, data in entries:
         if info.filename.startswith("022-"):
             game[info.filename] = patched.get(info.filename, data)
+            if info.filename in C_NAMES[2:]:            # the AES set's bigger c3 / c4
+                game[info.filename] += bytes(AES_C34_SIZE - len(game[info.filename]))
     with zipfile.ZipFile(os.path.join(AES_DIR, "bjourney.zip"), "w", zipfile.ZIP_DEFLATED) as z:
         for name, data in sorted(game.items()):
             z.writestr(name, data)
@@ -544,7 +587,7 @@ def write_aes_set(entries, patched):
 %s
 %s
 \t\t\t</dataarea>
-\t\t\t<dataarea name="sprites" size="0x300000">
+\t\t\t<dataarea name="sprites" size="0x%x">
 %s
 %s
 %s
@@ -555,6 +598,7 @@ def write_aes_set(entries, patched):
 </softwarelist>
 """ % (rom("022-p1.p1", "0x000000", "load16_word_swap"), rom("022-s1.s1", "0x000000"), rom("022-m1.m1", "0x000000"),
        rom("022-v11.v11", "0x000000"), rom("022-v22.v22", "0x100000"),
+       2 * (len(game["022-c1.c1"]) + len(game["022-c3.c3"])),
        rom("022-c1.c1", "0x000000", "load16_byte"), rom("022-c2.c2", "0x000001", "load16_byte"),
        rom("022-c3.c3", "0x200000", "load16_byte"), rom("022-c4.c4", "0x200001", "load16_byte"))
     open(os.path.join(AES_DIR, "neogeo.xml"), "w").write(xml)
@@ -635,7 +679,10 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     with zipfile.ZipFile(os.path.join(OUT_DIR, "bjourney.zip"), "w", zipfile.ZIP_DEFLATED) as z:
         for info, data in entries:
-            z.writestr(info.filename, patched.get(info.filename, data))
+            z.writestr(info.filename, patched.get(info.filename, data)[:len(data)])   # the MVS set: original sizes
+    if rom.aes_tiles_used:
+        print("%d sprite tile(s) in the AES set's added space: the MVS set (build/roms) shows that art blank"
+              % rom.aes_tiles_used)
     shutil.copy(os.path.join(ROOT, "roms", "neogeo.zip"), os.path.join(OUT_DIR, "neogeo.zip"))
     print("Built %s" % os.path.relpath(os.path.join(OUT_DIR, "bjourney.zip"), ROOT))
     write_aes_set(entries, patched)

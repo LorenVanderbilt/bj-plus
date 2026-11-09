@@ -3,6 +3,8 @@ DESCRIPTION = "Title screen: the bird tows a PLUS banner across under the logo a
 
 import os
 
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # The title's bird (object BIRD, with x at +2 and y at +0, a 32x32 sprite) flies right to left under the logo at
 # 1.5 px a frame and pops Blue's balloon as its left edge passes screen x 140. On the title, its screen x is
 # 2 * (+2 / 256) - 127 and the sprite's top is +0 / 256 - 20.
@@ -32,6 +34,8 @@ import os
 ARTS = ["art/title/bannerA1C%d.png" % n for n in range(1, 7)]   # all one size, up to 128 x 32, in
                                # COLOURS' colours (index 0 clear) - else the placeholder (one picture)
 COLOURS = "art/title/banner_palette.gpl"
+PAINTED = ["art/title/banner_coloured/bannerA1C%d.png" % n for n in range(1, 7)]
+LETTER_SWATCH = "art/title/banner_coloured/letter_colours.png"   # each letter's four colours, a row each
 FRAME_TIME = 6
 SEQUENCE = [0, 1, 2, 3, 4, 5]
 FRAME_CALL = 0x1AF94           # jsr (the title's per-frame chain: title-menu, title-clouds)
@@ -74,6 +78,12 @@ PALETTE = 0x7E
 # U in LETTER_SLOTS[0], L and S in [1]) and the tiles with U or S use a second palette, SECOND_PALETTE (nothing on
 # the title draws with it): PALETTE has P's and L's colours there, SECOND_PALETTE U's and S's. (No tile holds L and U,
 # or P / L with U / S - the build checks.) LETTERS = None: the letters as painted.
+#
+# PAINTED: the pictures with their letters already coloured, for editing by hand (2026-11-08: PLUS redrawn in the
+# logo's letters - L, U and S shrunk from BLUE'S, P from its B without the bottom bowl). Where they're there they're
+# used instead of colouring ARTS' ink: each pixel is clear (magenta), a COLOURS colour (the cloth), or one of a
+# letter's four colours (light, main, dark, outline - as letter_palettes() makes them, shown in LETTER_SWATCH), which
+# also says which letter it belongs to.
 LETTERS = {"P": "pink", "L": "green", "U": "orange", "S": "yellow"}
 LETTER_INK = 1
 SHADE = 2
@@ -195,6 +205,33 @@ def colour_letters(px):
     return out, owner
 
 
+def painted_letters(path):
+    """A PAINTED picture as colour_letters() gives it: its pixels (palette entries) and each pixel's letter."""
+    import re
+    from png_tiles import read_rgba
+    gpl = [tuple(map(int, l.split()[:3])) for l in open(os.path.join(ROOT, COLOURS)) if re.match(r"\s*\d+\s+\d+\s+\d+", l)]
+    pals = letter_palettes()
+    letter_colour = {}                          # RGB -> (letter, its palette slot)
+    for letter in "PLUS":
+        for slot in LETTER_SLOTS[GROUPS[letter]]:
+            letter_colour[pals[1 if letter in "US" else 0][slot]] = (letter, slot)
+    rgba = read_rgba(os.path.join(ROOT, path))
+    px = [[0] * len(rgba[0]) for _ in rgba]
+    owner = [[None] * len(rgba[0]) for _ in rgba]
+    for y, row in enumerate(rgba):
+        for x, (c, a) in enumerate(row):
+            if not a or c == (255, 0, 255):
+                continue
+            if c in letter_colour:
+                owner[y][x], px[y][x] = letter_colour[c]
+            else:
+                assert c in gpl[1:], "%s: pixel %d,%d is #%02x%02x%02x - not the cloth's or a letter's colour" % (
+                    path, x, y, *c)
+                px[y][x] = gpl.index(c)
+                assert px[y][x] not in LETTER_SLOTS[0] + LETTER_SLOTS[1], "%s: cloth in a letter colour slot" % path
+    return px, owner
+
+
 def letter_palettes():
     """(PALETTE's, SECOND_PALETTE's) 16 colours: COLOURS with P / L's, U / S's letter colours in their slots."""
     out = []
@@ -273,7 +310,8 @@ def apply(rom):
     cols, rows = (width + 15) // 16, (height + 15) // 16
     owners = None
     if coloured:
-        done = [colour_letters(px) for px in frames]
+        painted = all(os.path.exists(os.path.join(ROOT, p)) for p in PAINTED)
+        done = [painted_letters(p) for p in PAINTED] if painted else [colour_letters(px) for px in frames]
         frames, owners = [f for f, _ in done], [o for _, o in done]
 
     def tile_palette(n, c, r):
