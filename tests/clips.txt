@@ -3,6 +3,7 @@
 # tests/clips/<name>.inp: recorded with
 #   ./run.sh -- -state <save> -record <name>.inp
 # (into recordings/, which MAME overwrites without asking), then copied here - the test replays the copy.
+# A clip recorded from power-on (./run.sh -- -record <name>.inp) has the save "boot".
 round_clear  goal_bell  (the bells swing on their hooks as the stalk rocks: goal-bells-rock) ROUND CLEAR and its bonus lines centred, after the goal; TIME on the score line, the time under it (2026-10-14; frame 900 catches the stage wipe mid-way: its edge shifts a row when a patch changes how busy a frame is - not a fault)
 dino_exclaim  dino_exclaim  the green dinosaur spots Blue standing still: its red mark held ~1/3 s, a pause, then the charge (2026-10-14)
 armadillo_exclaim  armadillo_exclaim  the armadillo spots Blue: its ! bubble held ~1/2 s (2026-10-14)
@@ -65,3 +66,4 @@ lava  lava  Lower Earth Empire 2's lava: Blue burning, the lava swallowing him (
 mantis_exit  boss_mantis  the last level's mini boss, the mantis: beaten, his farewell, then he sinks all the way out of sight and the scene fades by itself (mantis-exit, 2026-10-27)
 boss_hits  miniboss_mech  Mechanical City 2's mini boss beaten at the default difficulty - its hit count (boss-hits, 2026-10-27)
 keep_on_death  spike_ice  two lives lost on Strange Space 3's ice spikes: the 10 flowers and the boomerang kept each time (keep-flowers-on-death, item-keep); a third death, a continue: a quarter of the flowers taken (10 -> 7, as the original) (2026-10-27)
+wheel_gondolas  boot  level=1 from power-on to Empire Marsh 1's sunken wheels (wheel-reflection): the wheels and their gondolas reflected, rippling; gondolas cut off at the waterline as they dip and come back out (2026-11-08)

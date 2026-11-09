@@ -39,6 +39,7 @@ FRAMES = 300                     # a save alone: as tools/regress.lua plays it
 TIMEOUT = 300                    # seconds a run may take (a save alone ~10, a clip about its length / 10)
 
 
+BOOT = "boot"                  # a test's save: none, the clip starts from power-on
 LEVELS = {}   # tests played at a difficulty: {name: LEVEL 1-8} (a "level=N" after the save in tests/clips.txt)
 
 
@@ -76,8 +77,10 @@ def play(name, save, clip, now):
                REGRESS_CLIP="1" if clip else "0")
     if name in LEVELS:                   # (tools/difficulty.lua, run by regress.lua, as ./run.sh with DIFFICULTY)
         env["HACK_DIFFICULTY"] = str(LEVELS[name])
-    cmd = ["mame", "aes", "-hash", "build/aes", "-rompath", "build/aes", "-cart", "bjourney", "-state", save,
-           "-window", "-video", "none", "-sound", "none", "-nothrottle", "-skip_gameinfo", "-noautosave",
+    cmd = ["mame", "aes", "-hash", "build/aes", "-rompath", "build/aes", "-cart", "bjourney"]
+    if save != BOOT:
+        cmd += ["-state", save]
+    cmd += ["-window", "-video", "none", "-sound", "none", "-nothrottle", "-skip_gameinfo", "-noautosave",
            "-cfg_directory", str(OUT / "cfg"), "-nvram_directory", str(OUT / "nvram"),
            "-snapshot_directory", str(out), "-snapname", "%i", "-autoboot_script", "tools/regress.lua"]
     if clip:
@@ -99,7 +102,7 @@ def play(name, save, clip, now):
         problems.append("faulted (%s frames in the exception handlers)" % fields["faults"].strip())
     if int(fields["stuck"]):
         problems.append("stuck at 0x" + fields["last_pc"].strip())
-    if int(fields["bios"]) > 30:
+    if int(fields["bios"]) > (150 if save == BOOT else 30):     # (from power-on: the BIOS's start-up, ~95 frames)
         problems.append("in the BIOS for %s frames (a reset?)" % fields["bios"].strip())
     for i, f in enumerate(fields["snaps"].split()):
         snap = out / ("%04d.png" % i)
