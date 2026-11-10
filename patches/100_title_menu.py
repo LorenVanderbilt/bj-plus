@@ -44,7 +44,7 @@ DESCRIPTION = "Title menu (AES): Start opens (CONTINUE /) NEW GAME / OPTIONS on 
 # 0x10317F) to the card, identified by the game's id (0x0022) and a sub-number (0x10FDD0; the original uses 0,
 # the hack 1 - one card entry). It offers to save at game over and in the continue countdowns (taking a quarter
 # of the flowers); its LOAD prompt at the start of a game is replaced by CONTINUE.
-#   * Every hack save is stamped (`stamp`): label BLUE'S J.+, a marker (0x10317D), the AUTO SAVE setting
+#   * Every hack save is stamped (`stamp`): label BJ PLUS (save-name adds the stage), a marker (0x10317D), the AUTO SAVE setting
 #     (0x10317E), the checksum redone. The original game's own saves go through 0xEE88, hooked just before it
 #     writes the card.
 #   * AUTO SAVE (options; off by default): off, the game's own SAVE YES/NO prompts, as in the original; on, no
@@ -184,7 +184,8 @@ DIFF_DIP_READ = 0x133A4      # move.b 0x10FD8C,d0 - the attract cycle's set-up c
 DIFF_HEARTS = 0x134E0        # the difficulty (0x103063) -> starting hearts (0x103C02 / 0x103C03)
 OPT_BUF = 0x10EB00           # the options screen's string table, with the settings filled in (128 bytes)
 LINE_BUF = 0x10E980          # a line of text being put together (32 bytes)
-SAVE_LABEL_NAME = "BLUE'S J.+  "   # the first 12 characters of the hack's save label (the original's: BLUE'S J.)
+SAVE_LABEL_NAME = "BJ PLUS "       # the start of the hack's save label (the original's: BLUE'S J.); save-name
+                                  # (patches/997) writes the rest, the stage
 PAL = 15                     # fix palette for the options screens' text
 TITLE_PAL = 5                # the title's PUSH START palette
 MENU_COL, MENU_LAST_ROW = 16, 21   # title menu: fix column, and the row of its last line (a line every other row;
@@ -653,7 +654,7 @@ checksum:
     move.l (%sp)+,%a0
     rts
 
-| a built save becomes the hack's: the label (what card screens show) BLUE'S J.+ and the stage, the marker, the
+| a built save becomes the hack's: the label (what card screens show) BJ PLUS (save-name: and the stage), the marker, the
 | auto-save setting (0x10317E), and the checksum again
 stamp:
     movem.l %d0-%d1/%a0-%a1,-(%sp)
@@ -1648,7 +1649,7 @@ TABLES
         "OPT_AUTO_SAVE": str(OPT_AUTO_SAVE), "OPT_MEMORY_CARD": str(OPTIONS.index("MEMORY CARD")), "AUTO_ON": "0x%X" % AUTO_ON, "AUTO_WORD": "0x%X" % AUTO,
         "GAME_SAVE_PREP": "0x%X" % GAME_SAVE_PREP, "RAM_CLEAR_REST": "0x%X" % RAM_CLEAR_REST, "BEST_SUB": "0x%X" % BEST_SUB,
         "SAVE_BUF": "0x%X" % SAVE_BUF, "HACK_SLOT": str(HACK_CARD_SUB), "LINE_BUF": "0x%X" % LINE_BUF,
-        "SAVE_LABEL_NAME": SAVE_LABEL_NAME, "LABEL_NAME": str(len(SAVE_LABEL_NAME)), "LABEL_LEN": "20",
+        "SAVE_LABEL_NAME": SAVE_LABEL_NAME.ljust(12), "LABEL_NAME": str(len(SAVE_LABEL_NAME)), "LABEL_LEN": "20",
         "CARD_SIG_LEN": "14", "CARD_ACTION_COUNT": str(len(CARD_ACTIONS)),
         "CARD_STATUS_ADDR": "0x%X" % fix_addr(COL, 11), "CARD_FREE_ADDR": "0x%X" % fix_addr(COL + 12, 11),
         "CARD_LIST_ADDR": "0x%X" % fix_addr(COL, 13), "CARD_LIST_END": "0x%X" % fix_addr(COL, 27),
