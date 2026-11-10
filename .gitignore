@@ -19,3 +19,9 @@ dist/
 art/title_sky_preview.png
 art/title_sky_try*.png
 patches_original/
+# The original game's own graphics, kept locally as drawing references - never committed
+art/reference/
+art/**/ref_*.png
+art/**/*_reference.png
+art/**/reference_scene.png
+art/gameover_smog/*.gif

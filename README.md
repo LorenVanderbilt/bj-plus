@@ -5,10 +5,11 @@ a stiff little hero, a translation that loses the story's warmth, countdowns eve
 Journey Plus is a romhack that keeps the game you remember and smooths out the rougher details: a bigger, redrawn Blue, a pause
 menu, a cleaner HUD, a retranslated script, smoother scenery and a few new secrets.
 
-It's an update to the **home (AES) experience** - that's the version it's made and tested for. (The build also writes
-an arcade (MVS) set with the gameplay changes, but it isn't a supported way to play.)
+It's an update to the **home console (AES) experience** - that's the version it's made and tested for. Started in
+arcade (MVS) mode, it shows a message asking for AES mode instead of running.
 
-**Status: beta.** Feedback welcome, please submit via the Issues tab of this repo.
+**Status: Beta 1.** Get it from the [itch.io page](ITCH_URL). Feedback welcome: open an issue here, or leave a
+comment on the itch.io page.
 
 ## What's changed
 
@@ -18,7 +19,7 @@ an arcade (MVS) set with the gameplay changes, but it isn't a supported way to p
 - Shrunk (mini) Blue can run while holding A.
 
 **Controls and pause**
-- Pressing Start opens the in-game pause menu: RESUME, RESTART LEVEL, QUIT TO TITLE. Select hides it for a clean pause screen.
+- Start opens the in-game pause menu: RESUME, RESTART LEVEL, QUIT TO TITLE. Select hides it for a clean pause screen.
 - D switches between the weapons you've collected.
 
 **Weapons**
@@ -28,12 +29,16 @@ an arcade (MVS) set with the gameplay changes, but it isn't a supported way to p
 - Points pop up for enemies killed while invincible, and for collecting 1UPs and snacks.
 
 **Screens and HUD**
-- Boots straight to the title; a title menu with NEW GAME and OPTIONS.
-- A redesigned HUD during gameplay is more organized and minimal so you can focus on the game.
+- Boots straight to the title; a title menu with NEW GAME and OPTIONS (level select, difficulty, a sound test with
+  named tracks).
+- A redesigned HUD during gameplay is more organized and minimal so you can focus on the game, and stays inside a
+  real TV's picture.
 - Screen transitions have been cleaned to not show brief graphic cycling, and iris transitions added to start of level.
+- In two-player games, the CONTINUE? prompt sits cleanly over the HUD.
 
 **Text**
-- The script retranslated with the Japanese as a guide, typos fixed - fan favorites like LEAF DUMP kept.
+- The script retranslated with the Japanese as a guide, typos fixed - fan favorites like LEAF DUMP kept; NPCs'
+  personalities restored, item descriptions fixed.
 
 **Rules and timers**
 - No countdowns in the shop, the houses, the card game or the lottery.
@@ -45,12 +50,21 @@ an arcade (MVS) set with the gameplay changes, but it isn't a supported way to p
 **Levels**
 - Smoother wheels, conveyors and elevators; a faster zipline; drowning and lava shown in front of the water line;
   the goal's bells rock and sparkle.
+- Water reflections (the sunken Ferris wheels too); drifting clouds and a PLUS banner on the title; baddies watching
+  the final fight from the balcony.
 - A few new secrets.
 
 ## Playing it
 
-You need the MAME ROM set **bjourney** (Blue's Journey / Raguy) and the patch files. The patches change these
-files of the set; check yours match before patching:
+You need your own copy of the MAME ROM set **bjourney** (Blue's Journey / Raguy). No game data is included here.
+
+**The easy way:** the patcher on the [itch.io page](ITCH_URL) runs in your browser (your files are never uploaded).
+Drop in `bjourney.zip` or a Darksoft-style `bjourney` folder, pick RetroArch, MAME, BackBit Platinum, MiSTer or
+Analogue Pocket, and download a zip laid out for that system, with a README of where it goes and which settings to
+use.
+
+**By hand:** the xdelta download (on the itch.io page) has a patch per file, the original files' checksums and the
+same per-system steps. The patches change these files of the set; check yours match before patching:
 
 | File | Size | CRC32 | SHA-1 |
 |---|---|---|---|
@@ -62,13 +76,11 @@ files of the set; check yours match before patching:
 | 022-c3.c3 | 524288 | 66e69753 | 974b823fc62236fbc23e727f25b61a805a707a9e |
 | 022-c4.c4 | 524288 | 71bfd48a | 47288be69e6992d09ebef108b4de9ffab6293dc8 |
 
-1. Unzip `bjourney.zip` into a folder.
-2. Apply each patch file to the ROM file it's named after (with an xdelta patcher, e.g. Delta Patcher or `xdelta3`).
-3. Zip the files back up as `bjourney.zip` and play it as the Neo Geo **AES** (home console) - e.g. in MAME,
-   `mame aes -cart bjourney`, or set your emulator's Neo Geo BIOS to AES / home.
+Play it as the Neo Geo **AES** (home console): in MAME, `mame aes -cart bjourney`; elsewhere, set the emulator's or
+cart's Neo Geo mode / BIOS to AES.
 
-**Tested on:** MAME on macOS (where it was developed), and RetroArch on Android (Retroid Pocket Nova). Real hardware
-testing on a CRT is next.
+**Tested on:** a real Neo Geo on a CRT (BackBit Platinum), RetroArch FinalBurn Neo on a Retroid Pocket, the Analogue
+Pocket, and MAME on macOS. MiSTer should work but is untested - reports welcome.
 
 ## Building from source
 
@@ -82,7 +94,8 @@ You need Python 3, [ngdevkit](https://github.com/dciabrin/ngdevkit)'s `m68k-neog
 - `patches/` - one file per change, applied in name order; each starts with what it does and how (the game's
   addresses, what was found). `patches/pins.json` keeps each patch's code at a fixed address.
 - `tools/hackbuild.py` - the build. `tools/regress.py` plays every test clip and save headless and compares the
-  screens with the last accepted run (`tests/clips.txt`).
+  screens with the last accepted run (`tests/clips.txt`). `tools/release.py` makes the release files: the web
+  patcher (`tools/web_patcher/`), the xdelta patches and each system's package.
 - `art/` - redrawn graphics the patches read. `docs/` - notes on the game's internals.
 
 `TODO.md` is the working list: what's done, what's next, and what was tried and dropped.
