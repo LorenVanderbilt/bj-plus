@@ -8,7 +8,7 @@ menu, a cleaner HUD, a retranslated script, smoother scenery and a few new secre
 It's an update to the **home console (AES) experience** - that's the version it's made and tested for. Started in
 arcade (MVS) mode, it shows a message asking for AES mode instead of running.
 
-**Status: Beta 1.** Get it from the [itch.io page](ITCH_URL). Feedback welcome: open an issue here, or leave a
+**Status: Beta 1.** Get it from the [itch.io page](https://powerwindows.itch.io/blues-journey-plus). Feedback welcome: open an issue here, or leave a
 comment on the itch.io page.
 
 ## What's changed
@@ -58,7 +58,7 @@ comment on the itch.io page.
 
 You need your own copy of the MAME ROM set **bjourney** (Blue's Journey / Raguy). No game data is included here.
 
-**The easy way:** the patcher on the [itch.io page](ITCH_URL) runs in your browser (your files are never uploaded).
+**The easy way:** the patcher on the [itch.io page](https://powerwindows.itch.io/blues-journey-plus) runs in your browser (your files are never uploaded).
 Drop in `bjourney.zip` or a Darksoft-style `bjourney` folder, pick RetroArch, MAME, BackBit Platinum, MiSTer or
 Analogue Pocket, and download a zip laid out for that system, with a README of where it goes and which settings to
 use.
