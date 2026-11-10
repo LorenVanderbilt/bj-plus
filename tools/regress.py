@@ -102,6 +102,9 @@ def play(name, save, clip, now):
         problems.append("faulted (%s frames in the exception handlers)" % fields["faults"].strip())
     if int(fields["stuck"]):
         problems.append("stuck at 0x" + fields["last_pc"].strip())
+    if int(fields.get("iris_holes", 0)):
+        problems.append("holes in the iris's black cover (%s frames, from frame %s)"
+                        % (fields["iris_holes"].strip(), fields["iris_first"].strip()))
     if int(fields["bios"]) > (150 if save == BOOT else 30):     # (from power-on: the BIOS's start-up, ~95 frames)
         problems.append("in the BIOS for %s frames (a reset?)" % fields["bios"].strip())
     for i, f in enumerate(fields["snaps"].split()):
