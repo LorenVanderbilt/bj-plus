@@ -98,8 +98,6 @@ You need Python 3, [ngdevkit](https://github.com/dciabrin/ngdevkit)'s `m68k-neog
   patcher (`tools/web_patcher/`), the xdelta patches and each system's package.
 - `art/` - redrawn graphics the patches read. `docs/` - notes on the game's internals.
 
-`TODO.md` is the working list: what's done, what's next, and what was tried and dropped.
-
 ## Credits
 
 Blue's Journey Plus by Loren Vanderbilt III. Blue's Journey © 1990 Alpha Denshi / SNK - no game data is included;

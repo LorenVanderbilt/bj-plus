@@ -25,3 +25,5 @@ art/**/ref_*.png
 art/**/*_reference.png
 art/**/reference_scene.png
 art/gameover_smog/*.gif
+# The working to-do list - kept local
+TODO.md
