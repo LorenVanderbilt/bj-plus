@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
-"""Make the release files from the last build: xdelta patches, and ready-to-copy packages for each setup.
+"""Make the release files from the last build: the web patcher, xdelta patches, and ready-to-copy packages.
 
-    python3 tools/release.py [--name bjplus-beta1]
+    python3 tools/release.py [--name bjplus-beta1] [--version "Beta 1"]
 
 Run tools/hackbuild.py first. Everything goes in dist/<name>/ (git-ignored):
 
+    patcher/              the web patcher (tools/web_patcher/ plus this release's patchdata.js): a player drops in
+                          their own bjourney.zip (or Darksoft-style folder), picks a system and downloads a ready
+                          package with its README. Patching happens in their browser; nothing is uploaded.
+    <name>_itch_html.zip  patcher/ zipped for itch.io's "HTML" upload (index.html at its root)
     <name>_xdelta.zip     patches for the MAME set's files (022-p1.p1.xdelta ...), and for a Darksoft-style set's
-                          (prom.xdelta ...), with how to apply them. No game data: this is the one to share.
-    private/              ready-patched files, for testing on your own devices only - they hold game data:
-        fbneo/            RetroArch Final Burn Neo (AES): bjplus.zip with its RomData file bjplus.dat
-        mame_aes/         MAME: bjourney.zip and neogeo.xml (the files' sizes and checksums), for
-                          `mame aes -hash mame_aes -rompath "mame_aes;roms" -cart bjourney`
-        mister_pocket/    MiSTer and Analogue Pocket: a Darksoft-style bjourney/ folder
-        backbit/          BackBit Platinum MVS: a folder of the game's files, the sound ROMs named as the cart wants
+                          (prom.xdelta ...), with how to apply them by hand. No game data: shareable.
+    private/<system>/     each package the patcher makes, ready-patched, for testing on your own devices only -
+                          they hold game data. The same layout and README the patcher's download has.
+
+The packages are defined once, in PACKAGES: release.py builds private/ from that list and writes the same list into
+patchdata.js for the patcher, so the two can't drift apart.
 
 The Darksoft layout was checked against the published Darksoft checksums for the original game: prom, srom and
 m1rom are the MAME files as they are, crom0 is each C ROM pair interleaved a word at a time (c1 / c2, then c3 / c4),
@@ -24,7 +27,9 @@ Final Burn Neo reads each file at the size its game list gives (c3 / c4 512 KB),
 src/burner/romdata.cpp) declares the files' real sizes: bjplus.zip next to bjplus.dat runs as bjourney with them.
 """
 import argparse
+import base64
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -38,6 +43,7 @@ BUILT = os.path.join(ROOT, "build", "aes", "bjourney.zip")
 BUILT_LIST = os.path.join(ROOT, "build", "aes", "neogeo.xml")
                                     # MAME's software list entry for the built files: its own list has c3 / c4 at
                                     # the original 512 KB and refuses the grown ones
+WEB_PATCHER = os.path.join(ROOT, "tools", "web_patcher")
 GAME_FILES = ["022-p1.p1", "022-s1.s1", "022-m1.m1", "022-v11.v11", "022-v22.v22",
               "022-c1.c1", "022-c2.c2", "022-c3.c3", "022-c4.c4"]
 ORIGINAL_SHA1 = {   # the files the patches apply to, as listed in README.md
@@ -70,64 +76,171 @@ FBNEO_TYPES = {"022-p1.p1": "1, BRF_ESS, BRF_PRG", "022-s1.s1": "2, BRF_GRA", "0
                                     # the RetroArch core's RomData parser (src/burner/libretro/romdata.cpp) has no
                                     # [section] defaults and drops a line without a type - with none it ran as an
                                     # unknown "bjplus" (the user's Retroid, 2026-11-09)
+POCKET_FOLDER = "bjplus"            # in Assets/ng/common/: its own name, so the original bjourney folder stays
+POCKET_JSON = {                     # Mazamars312's Neo Geo core: a copy of its Blue's Journey instance file (from
+    "instance": {                   # the core's dist/Assets/ng/Mazamars312.NeoGeo/) pointed at POCKET_FOLDER. The
+        "magic": "APF_VER_1",       # memory writes set up the sound ROMs (PCM, V2OFFSET, V2MASK, C1WAIT in its
+        "variant_select": {"id": 777, "select": False},     # neogeojsonmaker.py), not the sprite ROM's size
+        "data_path": POCKET_FOLDER,
+        "data_slots": [{"id": 3, "filename": "srom"}, {"id": 4, "filename": "prom"}, {"id": 5, "filename": "crom0"},
+                       {"id": 6, "filename": "m1rom"}, {"id": 7, "filename": "vroma0"}],
+        "memory_writes": [{"address": "0xF000030c", "data": "0xFFFFFFFF"},
+                          {"address": "0xF0000310", "data": "0x00200000"},
+                          {"address": "0xF0000314", "data": "0x000FFFFF"},
+                          {"address": "0xF0000400", "data": "0x00000001"}],
+    }
+}
+MERGE_GAP = 32                      # patch runs closer than this are stored as one
 
-XDELTA_README = """Blue's Journey Plus - patches
 
-You need the MAME ROM set bjourney (Blue's Journey / Raguy). Check your files match the checksums in
-CHECKSUMS.txt before patching.
+def readme(system, version, contents, steps, trouble, private=False):
+    """A package's README.txt: what it is, what's in it, where it goes, what to do if it doesn't work."""
+    rule = "=" * 70
+    lines = ["Blue's Journey Plus - %s - %s" % (version, system), rule, "",
+             "Blue's Journey Plus is a fan update of Blue's Journey (Alpha Denshi, 1990) for the Neo Geo home",
+             "console (AES): a bigger, redrawn Blue, a new HUD, a pause menu, a retranslated script and many fixes.",
+             "",
+             ("These files were patched for testing on your own devices. They contain the game's data: don't share"
+              " them." if private else
+              "This package was made from your own copy of the game, in your browser. It contains the game's data:"
+              " please don't share it - point people to the patcher instead."), "",
+             "WHAT'S IN IT", ""]
+    lines += ["  %s" % c for c in contents]
+    lines += ["", "HOW TO PLAY IT", ""]
+    for i, step in enumerate(steps):                    # (a step's later lines: a command, a note, under it)
+        first, *more = step.split("\n")
+        lines += ["  %d. %s" % (i + 1, first)] + ["     " + m for m in more]
+    lines += ["", "IF SOMETHING'S WRONG", ""]
+    lines += ["  - %s" % t for t in trouble]
+    lines += ["", "Found a problem or a glitch? Please report it on the Blue's Journey Plus page, with where it"
+              " happened and a screenshot if you can.", "",
+              "Blue's Journey (c) 1990 Alpha Denshi / SNK. Blue's Journey Plus is an unofficial fan project by"
+              " Loren Vanderbilt III, not affiliated with or endorsed by them.", ""]
+    return "\n".join(_wrap(l) for l in lines)
 
-MAME set (MAME, RetroArch, most emulators)
-  1. Unzip bjourney.zip into a folder.
-  2. Apply each file in mame/ to the ROM file it's named after, with an xdelta patcher (Delta Patcher, or
-     xdelta3 -d -s 022-p1.p1 022-p1.p1.xdelta 022-p1.p1.new and then replace the original with the .new file).
-  3. Zip the files back up as bjourney.zip and play it as the Neo Geo AES (home console).
-  MAME: its own list of Neo Geo carts expects the original file sizes and refuses the patched set. Put the patched
-  bjourney.zip in a folder of its own with mame/neogeo.xml from this zip, and run (with the folder's path):
-      mame aes -hash bjplus -rompath "bjplus;roms" -cart bjourney
-  (roms being where your neogeo.zip / aes.zip BIOS files are).
 
-RetroArch, Final Burn Neo core
-  Patch the MAME set's files as above, but zip them as bjplus.zip instead, and put it in your ROMs folder with
-  fbneo/bjplus.dat from this zip next to it (and neogeo.zip). Load bjplus.zip, with the core's Neo Geo mode set
-  to AES. (FBNeo's "patched romsets" folder doesn't work for this hack: it cuts the bigger graphics files short.)
+def _wrap(line, width=100):
+    """Hard-wrap one README line, keeping its indent on the continuation lines."""
+    if len(line) <= width:
+        return line
+    body = line.lstrip()
+    indent = " " * (len(line) - len(body))
+    lead = indent + ("   " if body[:2] in ("- ",) or body[:1].isdigit() else "")
+    out, cur = [], indent
+    for word in body.split(" "):
+        if len(cur) + len(word) + 1 > width and cur.strip():
+            out.append(cur.rstrip())
+            cur = lead
+        cur += word + " "
+    out.append(cur.rstrip())
+    return "\n".join(out)
 
-Darksoft-style set (MiSTer, Analogue Pocket)
-  If you have the game as a Darksoft-style folder (prom, srom, m1rom, crom0, vroma0, fpga), apply the files in
-  darksoft/ the same way. vroma0 and fpga don't change.
 
-BackBit Platinum MVS
-  Patch the MAME set's files as above, then rename 022-v11.v11 to 022-v1.v1 and 022-v22.v22 to 022-v2.v2 (with
-  MAME's names the cart drops a sound channel). Put the game's files (no zip, no BIOS files) in a folder of their
-  own inside NeoGeo/ on the card, and set the cart's Arcade Mode to AES.
-"""
+def packages(version, private=False):
+    """Every system's package: {id, label, note, download, entries: [[path, kind, arg]], next: [steps]}.
+    kind "file": a MAME file (by its name); "darksoft": a Darksoft-style file (prom, crom0 ...); "zip": a zip of
+    the MAME files named in arg; "text": arg itself; "list": MAME's software list entry; "dat": the FBNeo RomData file."""
+    def pkg(id_, label, note, download, entries, system, contents, steps, trouble):
+        entries = entries + [["README.txt", "text", readme(system, version, contents, steps, trouble, private)]]
+        return {"id": id_, "label": label, "note": note, "download": download, "entries": entries, "next": steps}
 
-PRIVATE_README = """Ready-patched files for testing on your own devices. They contain game data: don't share them.
-
-fbneo/ - RetroArch, Final Burn Neo core
-  Copy bjplus.zip and bjplus.dat into your ROMs folder, side by side (neogeo.zip there too), and load
-  bjplus.zip. In the core options set the Neo Geo mode to AES. Remove an old fbneo/patched/bjourney.zip from the
-  system folder if there is one.
-
-mame_aes/ - MAME
-  Keep the mame_aes folder as it is (bjourney.zip with neogeo.xml - MAME refuses the bigger graphics files without
-  it) and run, from the folder holding it, with roms being where your neogeo.zip / aes.zip BIOS files are:
-      mame aes -hash mame_aes -rompath "mame_aes;roms" -cart bjourney
-
-backbit/ - BackBit Platinum MVS
-  Copy the "Blues Journey Plus" folder into NeoGeo/ on the card (any genre folder inside it is fine) and set the
-  cart's Arcade Mode to AES (D in its menu). Leave the Menu Hotkey on: with it off the cart crashes on Start at the
-  title, the unpatched game too.
-
-mister_pocket/ - MiSTer and Analogue Pocket
-  MiSTer: copy the bjourney folder into games/NeoGeo/ (the core's Darksoft romsets.xml lists bjourney) and
-  pick AES in the core's menu.
-  Analogue Pocket (Mazamars312's Neo Geo core): copy the bjourney folder into assets/ng/common/, then choose
-  AES under Core Settings.
-"""
+    dark = ["prom", "srom", "m1rom", "crom0", "vroma0", "fpga"]
+    return [
+        pkg("retroarch", "RetroArch", "FinalBurn Neo core: Android, PC, Mac, handhelds",
+            "BluesJourneyPlus-RetroArch.zip",
+            [["bjplus.zip", "zip", GAME_FILES], ["bjplus.dat", "dat", None]],
+            "RetroArch (FinalBurn Neo)",
+            ["bjplus.zip  the patched game",
+             "bjplus.dat  tells FinalBurn Neo the game's file sizes (its graphics files are bigger than the",
+             "            original's) - keep it next to bjplus.zip",
+             "README.txt  this file"],
+            ["Copy bjplus.zip and bjplus.dat into the folder with your other Neo Geo games, side by side. The Neo Geo"
+             " BIOS, neogeo.zip, needs to be in that folder or in RetroArch's system folder.",
+             "In RetroArch, choose Load Content, pick bjplus.zip and the core \"Arcade (FinalBurn Neo)\".",
+             "Open Quick Menu > Core Options and set the Neo-Geo mode to an AES (home console) setting, such as"
+             " \"AES Asia\". Then Quick Menu > Restart."],
+            ["\"Romset is unknown\": bjplus.dat isn't in the same folder as bjplus.zip, or the FinalBurn Neo core is"
+             " older than mid-2024. Update it with Online Updater > Update Installed Cores.",
+             "INSERT COIN on the title, and no NEW GAME / OPTIONS menu: the core is in arcade (MVS) mode. Set the"
+             " Neo-Geo mode to AES and restart.",
+             "Use FinalBurn Neo, not RetroArch's MAME cores: those only run the arcade version, without the newest"
+             " graphics. FinalBurn Neo's \"patched romsets\" folder doesn't work for this game either.",
+             "Tested on a Retroid Pocket with RetroArch 1.22 and FinalBurn Neo 1.0.0.03."]),
+        pkg("mame", "MAME", "On a computer: Windows, Mac, Linux",
+            "BluesJourneyPlus-MAME.zip",
+            [["bjplus/bjourney.zip", "zip", GAME_FILES], ["bjplus/neogeo.xml", "list", None]],
+            "MAME",
+            ["bjplus/bjourney.zip  the patched game",
+             "bjplus/neogeo.xml    MAME's list entry for it: the game's graphics files are bigger than the",
+             "                     original's, and MAME refuses them without this",
+             "README.txt           this file"],
+            ["Put the bjplus folder somewhere handy, for example next to your MAME roms folder.",
+             "Open a terminal (Command Prompt on Windows) in the folder that holds bjplus, and run MAME as the Neo"
+             " Geo home console, giving the path of your roms folder (the one with your Neo Geo BIOS files: neogeo.zip, and"
+             " aes.zip for the home console):\n"
+             "  mame aes -hash bjplus -rompath \"bjplus;C:\\path\\to\\your\\roms\" -cart bjourney\n"
+             "On a Mac or Linux the path looks like \"bjplus;/Users/you/mame/roms\"."],
+            ["\"WRONG LENGTH\" or \"not found\": MAME isn't reading bjplus/neogeo.xml. Check -hash points at the"
+             " bjplus folder.",
+             "Don't run it with \"mame bjourney\": that's the arcade machine, which loads only part of the graphics"
+             " and has no title menu.",
+             "Tested with MAME 0.289."]),
+        pkg("backbit", "BackBit Platinum", "A real Neo Geo, with the BackBit flash cart",
+            "BluesJourneyPlus-BackBit.zip",
+            [["%s/%s" % (BACKBIT_FOLDER, BACKBIT_NAMES.get(n, n)), "file", n] for n in GAME_FILES],
+            "BackBit Platinum MVS",
+            ["%s/  the game's files, ready for the cart. The two sound files are named" % BACKBIT_FOLDER,
+             "    022-v1.v1 and 022-v2.v2, the names the cart's developer gives for this game (with MAME's",
+             "    names the music crackles)",
+             "README.txt  this file"],
+            ["Copy the \"%s\" folder into the NeoGeo folder on the cart's SD card. Putting it inside a genre"
+             " folder is fine." % BACKBIT_FOLDER,
+             "In the cart's menu, set Arcade Mode to AES.",
+             "Choose %s from the cart's menu." % BACKBIT_FOLDER],
+            ["Keep the cart's Menu Hotkey turned on: with it off, the cart can crash when Start is pressed on the"
+             " title screen (the original game does this too).",
+             "Copying from a Mac adds hidden \"._\" files the cart can pick up by mistake. Eject the card properly,"
+             " or run dot_clean on the folder first.",
+             "Tested on a BackBit Platinum in a Neo Geo, on a CRT TV."]),
+        pkg("mister", "MiSTer", "The NeoGeo core, Darksoft-style folder",
+            "BluesJourneyPlus-MiSTer.zip",
+            [["bjourney/%s" % n, "darksoft", n] for n in dark],
+            "MiSTer (NeoGeo core)",
+            ["bjourney/   the patched game in the Darksoft-style layout the NeoGeo core reads",
+             "README.txt  this file"],
+            ["If you already have Blue's Journey in games/NeoGeo/bjourney, move it somewhere else first: this"
+             " folder takes its place.",
+             "Copy the bjourney folder into games/NeoGeo/ on the MiSTer's SD card.",
+             "Load it in the NeoGeo core and set the system type to AES in the core's menu."],
+            ["Not tested on a MiSTer yet: it should work (the core reads the bigger graphics file whole), but"
+             " please report how it goes."]),
+        pkg("pocket", "Analogue Pocket", "Mazamars312's Neo Geo core",
+            "BluesJourneyPlus-AnaloguePocket.zip",
+            [["Assets/ng/common/%s/%s" % (POCKET_FOLDER, n), "darksoft", n] for n in dark if n != "fpga"]
+            + [["Assets/ng/Mazamars312.NeoGeo/Blue's Journey Plus.json", "text",
+                json.dumps(POCKET_JSON, indent=4) + "\n"]],
+            "Analogue Pocket (Mazamars312's Neo Geo core)",
+            ["Assets/ng/common/%s/  the patched game (Darksoft-style files)" % POCKET_FOLDER,
+             "Assets/ng/Mazamars312.NeoGeo/Blue's Journey Plus.json  tells the core where the game is",
+             "README.txt  this file",
+             "Your original Blue's Journey (Assets/ng/common/bjourney) is left as it is."],
+            ["Set up Mazamars312's Neo Geo core first if you haven't: its BIOS files go in Assets/ng/common/.",
+             "Copy the Assets folder onto the root of the Pocket's SD card. It merges with the Assets folder"
+             " already there.",
+             "On the Pocket, open the Neo Geo core and choose Blue's Journey Plus.",
+             "Press the Home button, then Core Settings > MVS/AES, and choose AES. The core restarts."],
+            ["The game doesn't appear: check the .json file is in Assets/ng/Mazamars312.NeoGeo/ and the game's"
+             " files in Assets/ng/common/%s/." % POCKET_FOLDER,
+             "INSERT COIN on the title: the core is in MVS mode. Set MVS/AES to AES under Core Settings."]),
+    ]
 
 
 def sha1(data):
     return hashlib.sha1(data).hexdigest()
+
+
+def crc(data):
+    return "%08x" % (zlib.crc32(data) & 0xFFFFFFFF)
 
 
 def darksoft(files):
@@ -161,6 +274,14 @@ def write_zip(path, files):
             z.writestr(name, data)
 
 
+def zip_bytes(files):
+    path = os.path.join(ROOT, "dist", ".zip_tmp")
+    write_zip(path, files)
+    data = open(path, "rb").read()
+    os.remove(path)
+    return data
+
+
 def fbneo_dat(files):
     """FBNeo's RomData file for the built files: run as bjourney, from bjplus.zip, at the files' own sizes."""
     lines = ["// Blue's Journey Plus: Final Burn Neo RomData (load %s.zip, this file next to it)" % FBNEO_NAME,
@@ -171,9 +292,87 @@ def fbneo_dat(files):
     return "\n".join(lines) + "\n"
 
 
+def runs(old, new):
+    """Where new differs from old (or runs past its end), as [offset, length] runs merged across small gaps."""
+    def same(a, b):
+        return b <= len(old) and old[a:b] == new[a:b]
+    out, i, n, step = [], 0, len(new), 64
+    while i < n:
+        j = min(i + step, n)
+        if same(i, j):
+            i = j
+            continue
+        s = i
+        while s < len(old) and old[s] == new[s]:
+            s += 1
+        e = j
+        while e < n and not same(e, min(e + step, n)):
+            e = min(e + step, n)
+        while e > s and e <= len(old) and old[e - 1] == new[e - 1]:
+            e -= 1
+        if out and s - (out[-1][0] + out[-1][1]) < MERGE_GAP:
+            out[-1][1] = e - out[-1][0]
+        else:
+            out.append([s, e - s])
+        i = max(e, j)
+    return out
+
+
+def patch_data(original, built, version, packages_list):
+    """patchdata.js for the web patcher: the original files' checksums (MAME and Darksoft names), each patched
+    file's runs (their bytes deflated together, from the file's "at" in that blob), the texts the packages need,
+    and the packages."""
+    blob, files = bytearray(), {}
+    for name in GAME_FILES:
+        new, rs = built[name], runs(original[name], built[name])
+        files[name] = {"size": len(new), "crc32": crc(new), "runs": rs, "at": len(blob)}
+        for off, length in rs:
+            blob += new[off:off + length]
+        back = bytearray(original[name][:len(new)].ljust(len(new), b"\0"))     # (rebuilt the patcher's way)
+        at = files[name]["at"]
+        for off, length in rs:
+            back[off:off + length] = blob[at:at + length]
+            at += length
+        assert bytes(back) == new, "runs of %s don't rebuild it" % name
+    comp = zlib.compressobj(9, zlib.DEFLATED, -15)
+    packed = comp.compress(bytes(blob)) + comp.flush()
+    data = {
+        "version": version,
+        "order": GAME_FILES,
+        "source": {n: {"size": len(original[n]), "crc32": crc(original[n])} for n in GAME_FILES},
+        "darksource": {n: {"size": len(d), "crc32": crc(d)} for n, d in darksoft(original).items()},
+        "vrombOffset": VROMB_OFFSET,
+        "target": files,
+        "blobSize": len(blob),
+        "texts": {"dat": fbneo_dat(built), "list": open(BUILT_LIST).read()},
+        "packages": packages_list,
+        "blob": base64.b64encode(packed).decode(),
+    }
+    return ("// Generated by tools/release.py for %s - don't edit.\nvar BJPLUS = %s;\n"
+            "if (typeof module !== \"undefined\") module.exports = BJPLUS;\n" % (version, json.dumps(data)))
+
+
+def build_package(pkg, built, dark_built, texts):
+    """The files a package holds: {path: bytes} (the same thing the web patcher builds)."""
+    out = {}
+    for path, kind, arg in pkg["entries"]:
+        if kind == "file":
+            out[path] = built[arg]
+        elif kind == "darksoft":
+            out[path] = dark_built[arg]
+        elif kind == "zip":
+            out[path] = zip_bytes({n: built[n] for n in arg})
+        elif kind in ("dat", "list"):
+            out[path] = texts[kind].encode()
+        else:
+            out[path] = arg.encode()
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--name", default="bjplus-beta1")
+    ap.add_argument("--version", default="Beta 1")
     args = ap.parse_args()
     if not shutil.which("xdelta3"):
         sys.exit("xdelta3 not found (brew install xdelta)")
@@ -185,6 +384,7 @@ def main():
     dark_original, dark_built = darksoft(original), darksoft(built)
     for name, want in DARKSOFT_SHA1.items():
         assert sha1(dark_original[name]) == want, "Darksoft %s doesn't match its checksum" % name
+    texts = {"dat": fbneo_dat(built), "list": open(BUILT_LIST).read()}
 
     out = os.path.join(ROOT, "dist", args.name)
     shutil.rmtree(out, ignore_errors=True)
@@ -202,34 +402,65 @@ def main():
                 path = os.path.join(work, "patch")
                 xdelta(old, new, path, work)
                 patches["%s/%s.xdelta" % (folder, name)] = open(path, "rb").read()
-    patches["fbneo/%s.dat" % FBNEO_NAME] = fbneo_dat(built)
-    patches["mame/neogeo.xml"] = open(BUILT_LIST).read()
-    patches["README.txt"] = XDELTA_README
+    patches["fbneo/%s.dat" % FBNEO_NAME] = texts["dat"]
+    patches["mame/neogeo.xml"] = texts["list"]
+    patches["README.txt"] = XDELTA_README % {"version": args.version}
     patches["CHECKSUMS.txt"] = "\n".join(checksums) + "\n"
     write_zip(os.path.join(out, "%s_xdelta.zip" % args.name), patches)
 
-    private = os.path.join(out, "private")
-    os.makedirs(os.path.join(private, "fbneo"))
-    write_zip(os.path.join(private, "fbneo", FBNEO_NAME + ".zip"), built)
-    open(os.path.join(private, "fbneo", FBNEO_NAME + ".dat"), "w").write(fbneo_dat(built))
-    os.makedirs(os.path.join(private, "mame_aes"))
-    write_zip(os.path.join(private, "mame_aes", "bjourney.zip"), built)
-    shutil.copy(BUILT_LIST, os.path.join(private, "mame_aes"))
-    folder = os.path.join(private, "mister_pocket", "bjourney")
-    os.makedirs(folder)
-    for name, data in dark_built.items():
-        open(os.path.join(folder, name), "wb").write(data)
-    folder = os.path.join(private, "backbit", BACKBIT_FOLDER)
-    os.makedirs(folder)
-    for name in GAME_FILES:
-        open(os.path.join(folder, BACKBIT_NAMES.get(name, name)), "wb").write(built[name])
-    open(os.path.join(private, "README.txt"), "w").write(PRIVATE_README)
+    for pkg in packages(args.version, private=True):       # private/<system>/: unpacked, ready to copy
+        for path, data in build_package(pkg, built, dark_built, texts).items():
+            dest = os.path.join(out, "private", pkg["id"], path)
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            open(dest, "wb").write(data)
+
+    web = os.path.join(out, "patcher")
+    shutil.copytree(WEB_PATCHER, web)
+    open(os.path.join(web, "patchdata.js"), "w").write(patch_data(original, built, args.version, packages(args.version)))
+    with zipfile.ZipFile(os.path.join(out, "%s_itch_html.zip" % args.name), "w", zipfile.ZIP_DEFLATED) as z:
+        for n in sorted(os.listdir(web)):
+            z.write(os.path.join(web, n), n)
     shutil.rmtree(work)
 
     for path, _, names in sorted(os.walk(out)):
         for n in sorted(names):
             p = os.path.join(path, n)
             print("%9d  %s" % (os.path.getsize(p), os.path.relpath(p, ROOT)))
+
+
+XDELTA_README = """Blue's Journey Plus - %(version)s - patches
+======================================================================
+
+The easy way: use the Blue's Journey Plus patcher on its page. Drop in your bjourney.zip, pick your system and
+download a ready package. These patches are for doing it by hand.
+
+You need the MAME ROM set bjourney (Blue's Journey / Raguy). Check your files match the checksums in
+CHECKSUMS.txt before patching.
+
+MAME set (MAME, RetroArch, most emulators)
+  1. Unzip bjourney.zip into a folder.
+  2. Apply each file in mame/ to the ROM file it's named after, with an xdelta patcher (Delta Patcher, or
+     xdelta3 -d -s 022-p1.p1 022-p1.p1.xdelta 022-p1.p1.new and then replace the original with the .new file).
+  3. Zip the files back up as bjourney.zip and play it as the Neo Geo AES (home console).
+  MAME: its own list of Neo Geo carts expects the original file sizes and refuses the patched set. Put the patched
+  bjourney.zip in a folder of its own with mame/neogeo.xml from this zip, and run (with the folder's path):
+      mame aes -hash bjplus -rompath "bjplus;roms" -cart bjourney
+  (roms being where your neogeo.zip / aes.zip BIOS files are).
+
+RetroArch, Final Burn Neo core
+  Patch the MAME set's files as above, but zip them as bjplus.zip instead, and put it in your ROMs folder with
+  fbneo/bjplus.dat from this zip next to it (and neogeo.zip). Load bjplus.zip, with the core's Neo Geo mode set
+  to AES. (FBNeo's "patched romsets" folder doesn't work for this hack: it cuts the bigger graphics files short.)
+
+Darksoft-style set (MiSTer, Analogue Pocket)
+  If you have the game as a Darksoft-style folder (prom, srom, m1rom, crom0, vroma0, fpga), apply the files in
+  darksoft/ the same way. vroma0 and fpga don't change.
+
+BackBit Platinum MVS
+  Patch the MAME set's files as above, then rename 022-v11.v11 to 022-v1.v1 and 022-v22.v22 to 022-v2.v2 (with
+  MAME's names the music crackles). Put the game's files (no zip, no BIOS files) in a folder of their own inside
+  NeoGeo/ on the card, and set the cart's Arcade Mode to AES.
+"""
 
 
 if __name__ == "__main__":

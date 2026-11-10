@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blue's Journey Plus Patcher</title>
+<style>
+/* One column of three steps, each framed like the game's gold-edged text box. Single dark look, like the game's
+   night-sky story screens. */
+:root {
+  --night: #10153a;
+  --box: #1b2466;
+  --box-edge: #2c3a92;
+  --gold: #f2c230;
+  --gold-deep: #b8861a;
+  --text: #eef1ff;
+  --muted: #aab3e3;
+  --good: #6fd36a;
+  --bad: #ff8a8a;
+  --sky: #6cc4ff;
+  --display: "Trebuchet MS", "Fredoka", system-ui, sans-serif;
+  --body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--night); }
+body { margin: 0; background: var(--night); color: var(--text); font: 16px/1.55 var(--body); }
+.wrap { max-width: 720px; margin: 0 auto; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 40px max(16px, env(safe-area-inset-left, 0px));
+  display: grid; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+h1 { margin: 0; font: 700 1.5rem/1.2 var(--display); }
+h1 span { color: #ff7fb8; }
+.version { color: var(--muted); font-size: .9rem; }
+.newtab { font-size: .85rem; color: var(--sky); }
+.step { background: var(--box); border: 3px solid var(--gold); box-shadow: inset 0 0 0 2px var(--gold-deep);
+  border-radius: 6px; padding: 16px 18px; display: grid; gap: 12px; }
+.step[aria-disabled="true"] { opacity: .45; }
+.step h2 { margin: 0; font: 700 1.1rem/1.2 var(--display); color: var(--gold); display: flex; gap: 10px; align-items: baseline; }
+.step h2 b { font: 700 .75rem/1 var(--mono); color: var(--night); background: var(--gold); border-radius: 4px; padding: 3px 6px; }
+p { margin: 0; }
+.small { font-size: .88rem; color: var(--muted); }
+.drop { display: grid; place-items: center; gap: 6px; text-align: center; padding: 22px 12px; border: 2px dashed var(--box-edge);
+  border-radius: 6px; cursor: pointer; background: rgba(0, 0, 0, .15); }
+.drop.over { border-color: var(--gold); background: rgba(242, 194, 48, .08); }
+.drop strong { font-size: 1.05rem; }
+.picks { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+button, .button { font: 600 .95rem/1 var(--body); color: var(--night); background: var(--gold); border: 0; border-radius: 6px;
+  padding: 10px 14px; cursor: pointer; }
+button.quiet, .button.quiet { background: transparent; color: var(--text); border: 2px solid var(--box-edge); }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, .button:focus-within, a:focus-visible, input:focus-visible + .sys { outline: 3px solid var(--sky); outline-offset: 2px; }
+input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.files { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 12px;
+  font: .85rem/1.5 var(--mono); }
+.files li { display: flex; gap: 8px; align-items: baseline; }
+.files .mark { width: 1.2em; text-align: center; flex: none; }
+.files .ok { color: var(--good); }
+.files .missing, .files .other { color: var(--bad); }
+.message { padding: 10px 12px; border-radius: 6px; background: rgba(0, 0, 0, .25); }
+.message.good { border-left: 4px solid var(--good); }
+.message.bad { border-left: 4px solid var(--bad); }
+.systems { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.systems label { position: relative; }
+.systems input { position: absolute; opacity: 0; }
+.sys { display: grid; gap: 2px; padding: 10px 12px; border: 2px solid var(--box-edge); border-radius: 6px; cursor: pointer; height: 100%; }
+.sys strong { font-size: 1rem; }
+.sys span { font-size: .82rem; color: var(--muted); }
+.systems input:checked + .sys { border-color: var(--gold); background: rgba(242, 194, 48, .1); }
+.systems input:disabled + .sys { cursor: default; }
+.next { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
+.next code { display: block; margin-top: 4px; padding: 8px 10px; background: #0b0f2b; color: #ffe08a; border-radius: 4px;
+  font: .82rem/1.4 var(--mono); white-space: pre; overflow-x: auto; }
+.progress { font-size: .9rem; color: var(--muted); min-height: 1.4em; }
+footer { font-size: .8rem; color: var(--muted); display: grid; gap: 4px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Blue's Journey <span>Plus</span> patcher</h1>
+    <span class="version" id="version"></span>
+    <a class="newtab" id="newtab" href="#" target="_blank" rel="noopener" hidden>Open in its own tab</a>
+  </header>
+
+  <section class="step" id="step1" aria-labelledby="h1">
+    <h2 id="h1"><b>1</b> Your copy of Blue's Journey</h2>
+    <p>Drop in the MAME set <strong>bjourney.zip</strong>, or the files of a Darksoft-style <strong>bjourney</strong> folder
+      (MiSTer, Analogue Pocket). Everything happens on this page: your files are never uploaded.</p>
+    <div class="drop" id="drop">
+      <strong>Drop bjourney.zip here</strong>
+      <span class="small">or</span>
+      <div class="picks">
+        <label class="button" for="pickfiles">Choose the zip or files</label>
+        <label class="button quiet" for="pickfolder">Choose a folder</label>
+      </div>
+      <input type="file" id="pickfiles" multiple accept=".zip,application/zip,*/*">
+      <input type="file" id="pickfolder" webkitdirectory multiple>
+    </div>
+    <div class="message" id="message" hidden></div>
+    <ul class="files" id="files" hidden></ul>
+  </section>
+
+  <section class="step" id="step2" aria-labelledby="h2" aria-disabled="true">
+    <h2 id="h2"><b>2</b> What will you play it on?</h2>
+    <div class="systems" id="systems" role="radiogroup" aria-labelledby="h2"></div>
+  </section>
+
+  <section class="step" id="step3" aria-labelledby="h3" aria-disabled="true">
+    <h2 id="h3"><b>3</b> Download and play</h2>
+    <div><button id="download" disabled>Download</button></div>
+    <p class="progress" id="progress" role="status"></p>
+    <div id="nextbox" hidden>
+      <p><strong>Then:</strong></p>
+      <ol class="next" id="next"></ol>
+      <p class="small">The download has these steps in its README.txt too, with what to try if something's wrong.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>The download is made from your own copy of the game, so it holds the game's data: please share this page,
+      not the download.</p>
+    <p>Blue's Journey © 1990 Alpha Denshi / SNK. Blue's Journey Plus is an unofficial fan project by Loren Vanderbilt III.</p>
+  </footer>
+</div>
+
+<script src="patchdata.js"></script>
+<script src="patcher.js"></script>
+<script>
+(function () {
+  "use strict";
+  var D = window.BJPLUS, P = window.BJPatcher, source = null, built = null, chosen = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  $("version").textContent = D.version;
+  if (window.top !== window.self) { $("newtab").hidden = false; $("newtab").href = location.href; }
+
+  // Step 1: the player's files
+  function readFile(file) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve({ name: file.webkitRelativePath || file.name, data: new Uint8Array(r.result) }); };
+      r.onerror = function () { reject(new Error("Couldn't read " + file.name + ".")); };
+      r.readAsArrayBuffer(file);
+    });
+  }
+  function say(text, good) {
+    var m = $("message");
+    m.hidden = false;
+    m.className = "message " + (good ? "good" : "bad");
+    m.textContent = text;
+  }
+  function showFiles(status) {
+    var ul = $("files");
+    ul.hidden = false;
+    ul.innerHTML = "";
+    status.forEach(function (s) {
+      var li = document.createElement("li"), mark = document.createElement("span"), name = document.createElement("span");
+      mark.className = "mark " + s.state;
+      mark.textContent = s.state === "ok" ? "✓" : "✗";
+      mark.setAttribute("aria-label", s.state === "ok" ? "found" : s.state === "other" ? "different version" : "missing");
+      name.textContent = s.name + (s.state === "other" ? " (different version)" : "");
+      li.appendChild(mark);
+      li.appendChild(name);
+      ul.appendChild(li);
+    });
+  }
+  async function take(fileList) {
+    var files = Array.prototype.slice.call(fileList);
+    if (!files.length) return;
+    source = built = null;
+    $("progress").textContent = "";
+    setReady();
+    say("Reading " + (files.length === 1 ? files[0].name : files.length + " files") + "…", true);
+    try {
+      var given = await Promise.all(files.filter(function (f) { return f.size < 64 * 1024 * 1024; }).map(readFile));
+      var id = await P.identify(D, given);
+      showFiles(id.status);
+      if (id.ok) {
+        source = id.files;
+        say("That's the right game" + (id.darksoft ? " (a Darksoft-style folder)" : "") + ". Now choose your system.", true);
+      } else if (id.status.every(function (s) { return s.state === "missing"; })) {
+        say("None of Blue's Journey's files are in there. Drop in the MAME set bjourney.zip, or the files of a" +
+            " Darksoft-style bjourney folder.", false);
+      } else if (id.status.some(function (s) { return s.state === "other"; })) {
+        say("Some files are from a different version of the game. This patch needs the MAME set \"bjourney\"" +
+            " (Blue's Journey / Raguy, ALM-001 ~ ALH-001). The files marked ✗ below don't match it.", false);
+      } else {
+        say("Some of the game's files are missing (marked ✗ below). Drop them in together with the rest.", false);
+      }
+    } catch (e) {
+      say(e.message, false);
+    }
+    setReady();
+  }
+  var drop = $("drop");
+  ["dragenter", "dragover"].forEach(function (t) {
+    drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add("over"); });
+  });
+  ["dragleave", "drop"].forEach(function (t) {
+    drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.remove("over"); });
+  });
+  drop.addEventListener("drop", function (e) { take(e.dataTransfer.files); });
+  // A file dropped anywhere else would make the browser open it in place of this page.
+  window.addEventListener("dragover", function (e) { e.preventDefault(); });
+  window.addEventListener("drop", function (e) {
+    e.preventDefault();
+    if (!drop.contains(e.target)) take(e.dataTransfer.files);
+  });
+  $("pickfiles").addEventListener("change", function (e) { take(e.target.files); e.target.value = ""; });
+  $("pickfolder").addEventListener("change", function (e) { take(e.target.files); e.target.value = ""; });
+
+  // Step 2: the systems, from the packages release.py wrote
+  D.packages.forEach(function (pkg, i) {
+    var label = document.createElement("label"), input = document.createElement("input"), box = document.createElement("span");
+    input.type = "radio";
+    input.name = "system";
+    input.id = "sys-" + pkg.id;
+    input.value = String(i);
+    input.disabled = true;
+    input.addEventListener("change", function () { chosen = pkg; remember("system", pkg.id); setReady(); });
+    box.className = "sys";
+    box.innerHTML = "<strong></strong><span></span>";
+    box.firstChild.textContent = pkg.label;
+    box.lastChild.textContent = pkg.note;
+    label.appendChild(input);
+    label.appendChild(box);
+    $("systems").appendChild(label);
+  });
+
+  // The chosen system and the last download are kept, so a reload still shows what to do next.
+  function remember(key, value) {
+    try { localStorage.setItem("bjplus-" + key, value); } catch (e) {}
+  }
+  function recall(key) {
+    try { return localStorage.getItem("bjplus-" + key); } catch (e) { return null; }
+  }
+  D.packages.forEach(function (pkg) {
+    if (pkg.id === recall("system")) { chosen = pkg; $("sys-" + pkg.id).checked = true; }
+  });
+  if (chosen && recall("done") === chosen.download) {
+    $("progress").textContent = "Downloaded " + chosen.download + " earlier. To make it again, drop in your copy of" +
+      " the game above.";
+  }
+
+  // Step 3: build the package and hand it over
+  function setReady() {
+    var haveSource = !!source;
+    $("step2").setAttribute("aria-disabled", haveSource ? "false" : "true");
+    document.querySelectorAll("#systems input").forEach(function (i) { i.disabled = !haveSource; });
+    var go = haveSource && !!chosen;
+    $("step3").setAttribute("aria-disabled", go ? "false" : "true");
+    $("download").disabled = !go;
+    $("download").textContent = go ? "Download " + chosen.download : "Download";
+    $("nextbox").hidden = !chosen;
+    if (chosen) showNext(chosen.next);
+  }
+  function showNext(steps) {
+    var ol = $("next");
+    ol.innerHTML = "";
+    steps.forEach(function (step) {
+      var li = document.createElement("li"), lines = step.split("\n");
+      li.appendChild(document.createTextNode(lines[0]));
+      lines.slice(1).forEach(function (line) {
+        if (/^ {2}/.test(line)) {
+          var code = document.createElement("code");
+          code.textContent = line.trim();
+          li.appendChild(code);
+        } else {
+          li.appendChild(document.createElement("br"));
+          li.appendChild(document.createTextNode(line));
+        }
+      });
+      ol.appendChild(li);
+    });
+  }
+  function save(name, data) {
+    var url = URL.createObjectURL(new Blob([data], { type: "application/zip" }));
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+  }
+  $("download").addEventListener("click", async function () {
+    var button = this, pkg = chosen;
+    button.disabled = true;
+    try {
+      if (!built) {
+        $("progress").textContent = "Patching…";
+        built = await P.patch(D, source);
+      }
+      $("progress").textContent = "Packing " + pkg.download + "…";
+      var zip = await P.buildPackage(D, pkg, built);
+      save(pkg.download, zip);
+      remember("done", pkg.download);
+      $("progress").textContent = "Done: " + pkg.download + " (" + (zip.length / 1048576).toFixed(1) + " MB)." +
+        (window.top !== window.self ? " If nothing downloaded, use \"Open in its own tab\" above." : "");
+    } catch (e) {
+      $("progress").textContent = e.message;
+    }
+    button.disabled = false;
+  });
+
+  if (typeof CompressionStream === "undefined") {
+    say("This browser is too old for the patcher. Please use a current Chrome, Edge, Firefox or Safari.", false);
+    $("pickfiles").disabled = $("pickfolder").disabled = true;
+  }
+  setReady();
+})();
+</script>
+</body>
+</html>
