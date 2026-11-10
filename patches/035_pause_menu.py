@@ -19,6 +19,10 @@ DESCRIPTION = "The pause has a menu: RESUME / RESTART LEVEL / QUIT TO TITLE (Up 
 # which is empty during play. The bubble's black and golds (BUBBLE_COLOURS) are written in while the menu is up and
 # the palette is restored after.
 #
+# Under the menu, after a blank row, is the build's NOTE ("BETA 1" for the beta - beta-mark puts the same on the title),
+# centred under PAUSE, so a copy passed around shows which build it is; the box is a row taller for it. NOTE = ""
+# leaves it out (and the box at 6 rows).
+#
 # Select (player 1's, 0x10FDAC bit 1, unused in play since pause-start) hides PAUSE, the menu and the box for a clean
 # pause screen, and shows them again. Up, Down and A do nothing while they're hidden.
 PAUSE_SITE = 0x11ACC        # bsr.w 0x1541A ; jsr 0xE856 ...
@@ -34,7 +38,9 @@ PAUSE_WAS = 0x722C
 PAUSE_AT = 0x7000 + 18 * 32 + 12   # column 18 (was 17), row 12: centred over the menu
 MENU_ADDR = 0x7000 + 13 * 32 + 15   # column 13, row 15
 ITEMS = ["RESUME", "RESTART LEVEL", "QUIT TO TITLE"]
+NOTE = "BETA 1"
 WIDTH = 16
+NOTE_COL = 18 - 13             # NOTE's column in its line: PAUSE's (column 18)
 CURSOR = 0x10E816           # spare RAM: cursor (byte), last frame's buttons (byte), font base (word),
 PREV = 0x10E817             # hidden (byte), last frame's Select (byte), saved palette (16 words)
 BASE = 0x10E818
@@ -44,7 +50,7 @@ PALETTE_SAVE = 0x10E830
 P1_NOW = 0x10FD96
 BUTTONS = 0x10FDAC          # bit 1 = player 1's Select
 BUBBLE_TILES = (0x58D9, 0x58D7, 0x58DA, 0x58D6)   # from frame 0x345C: corner, left side, top, fill
-SLOT, COLS, ROWS = 300, 10, 6
+SLOT, COLS, ROWS = 300, 10, 7 if NOTE else 6
 X, Y = 86, 64               # screen pixels; the outline is 6 px in from the tiles' left and 8 down from their top
 PALETTE = 0x7E
 BUBBLE_COLOURS = {3: 0x7FD4, 4: 0x4FB1, 15: 0x0000}   # the bubble's light gold, gold and black
@@ -71,7 +77,8 @@ def apply(rom):
     for at in PAUSE_ADDRS:
         rom.write(at, PAUSE_AT.to_bytes(2, "big"), expect=PAUSE_WAS.to_bytes(2, "big"),
                   why="pause: PAUSE centred over the menu")
-    lines = "".join("    .ascii \"%s\"\n    .byte 0\n" % ("  " + t).ljust(WIDTH) for t in ITEMS)
+    texts = [("  " + t).ljust(WIDTH) for t in ITEMS] + ([(" " * NOTE_COL + NOTE).ljust(WIDTH)] if NOTE else [])
+    lines = "".join("    .ascii \"%s\"\n    .byte 0\n" % t for t in texts)
     colours = [BUBBLE_COLOURS.get(i, 0) for i in range(16)]
     code = rom.place_code(r"""
     jsr 0x%(enter)X
@@ -174,7 +181,7 @@ close:
     dbf %%d0,0b
     rts
 
-| draw the three lines, with the cursor (>) on the selected one
+| draw the lines (the three items and NOTE), with the cursor (>) on the selected one
 draw:
     movem.l %%d0-%%d3/%%a0,-(%%sp)
     lea items(%%pc),%%a0
@@ -201,16 +208,16 @@ draw:
     move.w (%%sp)+,%%sr
     addq.w #2,%%d1                     | two rows down
     addq.w #1,%%d3
-    cmp.w #3,%%d3
+    cmp.w #%(nlines)d,%%d3
     bcs 10b
     movem.l (%%sp)+,%%d0-%%d3/%%a0
     rts
 
-| blank the three lines
+| blank the lines
 erase:
     movem.l %%d0-%%d3,-(%%sp)
     move.w #0x%(addr)X,%%d1
-    moveq #2,%%d3
+    moveq #%(nlines)d-1,%%d3
 20: move.w %%sr,-(%%sp)
     or.w #0x0700,%%sr
     move.w #32,0x3C0004
@@ -301,7 +308,7 @@ tiles:
        "palram": 0x400000 + PALETTE * 32, "pause_at": PAUSE_AT,
        "p1": P1_NOW, "wait": WAIT_FRAME, "start": start_check, "mode": MODE, "toggle": ATTRACT_TOGGLE,
        "resume_at": RESUME_AT, "forget": "".join("    clr.l 0x%X\n" % a for a in RESTART_POINTS),
-       "addr": MENU_ADDR, "w1": WIDTH - 1, "lines": lines,
+       "addr": MENU_ADDR, "w1": WIDTH - 1, "lines": lines, "nlines": len(texts),
        "slot": SLOT, "cols": COLS, "rows": ROWS, "scb3": (496 - Y) << 7 | ROWS, "scb4": X << 7,
        "colours": ",".join("0x%04X" % c for c in colours),
        "tiles": ",".join("0x%04X" % w for w in bubble_words())},
