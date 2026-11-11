@@ -168,14 +168,18 @@ VINE_PX = 12
 # caught it - the game doesn't line him up, and the small art's hand is near its middle; the big art's hand is
 # further out, so he could hang a hand's width from the cord. While the ropes are there their routine (ROPE_IDLE,
 # every frame, each rope not pulled) sets ROPE_HELD, cleared whenever a hero is drawn not hanging; a hero hanging
-# meanwhile, facing right, is drawn so his hand is on the nearest rope (ROPE_CODES: idle, being pulled, pulled)
-# within ROPE_NEAR_PX (with the nudges above his hand is ROPE_HAND_PX right of the rope's x: measured from
-# sta/aes/lotto_ocarina_afford.sta). Facing left, as it is (not seen in play).
+# meanwhile is drawn so his hand is on the nearest rope (ROPE_CODES: idle, being pulled, pulled) within ROPE_NEAR_PX
+# (with the nudges above his hand is ROPE_HAND_PX right of the rope's x: measured from
+# sta/aes/lotto_ocarina_afford.sta; facing left ROPE_HAND_PX_FACING_LEFT, measured from the user's rope_float clip,
+# 2026-11-11 - his hand was ~4px off the cord). One routine finds the rope (rope_routine), called from each hook; the
+# rope being pulled comes first (the game can give him a rope further than another), else the nearest.
 ROPE_IDLE = 0x299EC          # tst.b 0x78CB(a6) ; bne.w 0x29A44
 ROPE_CODES = [0x299EC, 0x29A46, 0x29A6A, 0x29AA8]
+ROPE_PULLING = [0x29A46, 0x29A6A]   # being pulled, pulled: the rope a hanging hero has (preferred to the nearest)
 ROPE_HELD = 0x10E820
 OBJECTS = 96
 ROPE_NEAR_PX, ROPE_HAND_PX = 32, 10
+ROPE_HAND_PX_FACING_LEFT = 7
 
 DRAW_X_ZOOMED = 0xA604    # subi.w #0x4000,d5 ; move.w #256,d6
 DRAW_X_PLAIN = 0xA6AA     # subi.w #0x4000,d6 ; move.w d6,(a2)
@@ -222,52 +226,72 @@ hero%(tag)s:
 
 
 _vine_labels = [0]
+_rope_code = [None]
+
+
+def rope_routine():
+    """68000 source: d1.w = how far the nearest lottery rope's cord is from the hero (a0) in x, Z clear - or Z set
+    if there are no ropes or none within ROPE_NEAR_PX. Called by x_shift for a hero hanging (one copy, not one per
+    hook)."""
+    codes = "".join("""
+    cmp.l #0x%X,%%d1
+    beq %s""" % (c, "5f" if c in ROPE_PULLING else "2f") for c in ROPE_CODES)
+    return """
+    moveq #0,%%d1
+    tst.w 0x%(held)X                      | lottery ropes in the room?
+    beq 9f
+    movem.l %%d0/%%d2-%%d4/%%a1,-(%%sp)
+    lea 0x104000,%%a1                     | the nearest rope object: its x offset in d3
+    moveq #%(last)d,%%d0
+    move.w #0x7FFF,%%d2
+    moveq #0,%%d3
+1:  move.l 4(%%a1),%%d1%(codes)s
+    bra 4f
+5:  bsr 6f                              | the rope being pulled: his, if he's near it (the game may give him
+    cmp.w #%(near)d,%%d4                  | one further than another - 20px against 12, the user's rope_float2)
+    bhi 4f
+    moveq #0,%%d4
+    bra 3f
+2:  bsr 6f
+3:  cmp.w %%d2,%%d4
+    bcc 4f
+    move.w %%d4,%%d2
+    move.w %%d1,%%d3
+4:  lea 0x80(%%a1),%%a1
+    dbf %%d0,1b
+    moveq #0,%%d1
+    cmp.w #%(near)d,%%d2                  | near enough: on the rope
+    bhi 8f
+    move.w %%d3,%%d1
+    movem.l (%%sp)+,%%d0/%%d2-%%d4/%%a1
+    andi.b #0xFB,%%ccr
+    rts
+8:  movem.l (%%sp)+,%%d0/%%d2-%%d4/%%a1
+    ori.b #0x04,%%ccr
+9:  rts
+6:  move.w 2(%%a1),%%d1                   | d1 = the rope's x offset, d4 = its distance
+    sub.w 2(%%a0),%%d1
+    move.w %%d1,%%d4
+    bpl 7f
+    neg.w %%d4
+7:  rts
+""" % {"held": ROPE_HELD, "last": OBJECTS - 1, "codes": codes, "near": ROPE_NEAR_PX * 128}
 
 
 def x_shift(dreg, px=None, facing_left=False):
     """Nudge the big art left (plus the vine-climbing correction while on a vine; mirrored facing left)."""
     _vine_labels[0] += 1
     v = {"n": _vine_labels[0], "d": dreg, "op": "add" if facing_left else "sub", "side": _side_table[0],
-         "left": (HERO_LEFT_PX if px is None else px) * 128, "vine": VINE_PX * 128, "held": ROPE_HELD,
-         "last": OBJECTS - 1, "near": ROPE_NEAR_PX * 128, "hand": ROPE_HAND_PX * 128}
+         "left": (HERO_LEFT_PX if px is None else px) * 128, "vine": VINE_PX * 128, "held": ROPE_HELD, "hand": (ROPE_HAND_PX_FACING_LEFT if facing_left else ROPE_HAND_PX) * 128, "rope": _rope_code[0]}
     vine = """
     %(op)s.w #%(vine)d,%%%(d)s""" % v
-    if not facing_left:                      # hanging on a lottery rope: his big hand drawn on its cord
-        v["codes"] = "".join("""
-    cmp.l #0x%X,%%d1
-    beq rope_found%d""" % (c, v["n"]) for c in ROPE_CODES)
-        vine += """
-    tst.w 0x%(held)X                      | lottery ropes in the room?
-    beq rope_none%(n)d
-    movem.l %%d0-%%d4/%%a1,-(%%sp)
-    lea 0x104000,%%a1                     | the nearest rope object: its x offset in d3
-    moveq #%(last)d,%%d0
-    move.w #0x7FFF,%%d2
-    moveq #0,%%d3
-rope_loop%(n)d:
-    move.l 4(%%a1),%%d1%(codes)s
-    bra rope_next%(n)d
-rope_found%(n)d:
-    move.w 2(%%a1),%%d1
-    sub.w 2(%%a0),%%d1
-    move.w %%d1,%%d4
-    bpl rope_abs%(n)d
-    neg.w %%d4
-rope_abs%(n)d:
-    cmp.w %%d2,%%d4
-    bcc rope_next%(n)d
-    move.w %%d4,%%d2
-    move.w %%d1,%%d3
-rope_next%(n)d:
-    lea 0x80(%%a1),%%a1
-    dbf %%d0,rope_loop%(n)d
-    cmp.w #%(near)d,%%d2                  | near enough: on the rope - his hand on its cord
-    bhi rope_far%(n)d
-    add.w %%d3,%%%(d)s
+    vine += """
+    move.l %%d1,-(%%sp)                   | hanging on a lottery rope: his big hand drawn on its cord
+    jsr 0x%(rope)X
+    beq 7f
+    add.w %%d1,%%%(d)s
     sub.w #%(hand)d,%%%(d)s
-rope_far%(n)d:
-    movem.l (%%sp)+,%%d0-%%d4/%%a1
-rope_none%(n)d:""" % v
+7:  move.l (%%sp)+,%%d1""" % v
     v["vine_code"] = vine
     v["states"] = "".join("""
     cmp.b #%d,104(%%a0)
@@ -1063,6 +1087,7 @@ DATA
     _side_table[0] = rom.place_code(
         "    .word %s\n" % ",".join(str(SIDE_PX.get(n, 0) * 128) for n in range(STATES)),
         why="hero big art: how far sideways to draw it, per hero state")
+    _rope_code[0] = rom.place_code(rope_routine(), why="hero big art: the lottery rope a hanging hero holds")
     _up_table[0] = rom.place_code(
         "    .word %s\n" % ",".join(str(UP_PX.get(n, HERO_UP_PX) * 128) for n in range(STATES)),
         why="hero big art: how far up to draw it, per hero state")
