@@ -194,6 +194,42 @@ part:
 """ % {"ram": DIM_RAM, "stage0": DIM_STAGES[0], "stage1": DIM_STAGES[1], "pals": quarter_pals, "half": dim.HALF,
        "tick": tick, "bytes": quarter_bytes, "pal": 0x400000 + dim.FIRST_PAL * 32, "loop_end": dim.FRAME_LOOP_END,
        "loop_top": dim.FRAME_LOOP_TOP}, why="ROUND CLEAR's dim: two quarters a frame, copied in at the vblank")
+    # round-clear-dim's palettes saved to its BUF here, a quarter a vblank, and then its dim started (ACTIVE: its
+    # ticks wait for it). round-clear-dim read them where a ROUND CLEAR routine starts, on
+    # the picture's lines, and palette RAM read while a line is drawn flashed snow on real hardware (2026-11-11).
+    # The block above keeps its size (saves made in the vblank wait hold addresses in it): its first
+    # move.l #stage0,<ram+8> becomes a jsr to this, which does the move too.
+    save = rom.place_code("""
+    tst.b 0x%(saving)X
+    beq 9f
+    movem.l %%d1-%%d7/%%a0-%%a3,-(%%sp)
+    moveq #%(parts)d,%%d1
+    sub.b 0x%(saving)X,%%d1             | the part: 0 first
+    mulu #%(save_bytes)d,%%d1
+    lea 0x%(pal)X,%%a0
+    lea 0x%(buf)X,%%a1
+    adda.l %%d1,%%a0
+    adda.l %%d1,%%a1
+    move.w #%(save_blocks)d-1,%%d1
+3:  movem.l (%%a0)+,%%d2-%%d7/%%a2-%%a3
+    movem.l %%d2-%%d7/%%a2-%%a3,(%%a1)
+    lea 32(%%a1),%%a1
+    dbf %%d1,3b
+    subq.b #1,0x%(saving)X
+    bne 4f
+    st 0x%(active)X                     | all saved: the dim starts
+4:  movem.l (%%sp)+,%%d1-%%d7/%%a0-%%a3
+9:  move.l #0x%(stage0)X,0x%(ram)X+8
+    rts
+""" % {"saving": dim.SAVING, "pal": 0x400000 + dim.FIRST_PAL * 32, "buf": dim.BUF, "stage0": DIM_STAGES[0],
+       "ram": DIM_RAM, "save_bytes": dim.PALS * 32 // dim.SAVE_PARTS, "save_blocks": dim.PALS // dim.SAVE_PARTS,
+       "parts": dim.SAVE_PARTS, "active": dim.ACTIVE},
+        why="ROUND CLEAR's dim: the palettes saved in the vblank first")
+    move = bytes.fromhex("23FC") + DIM_STAGES[0].to_bytes(4, "big") + (DIM_RAM + 8).to_bytes(4, "big")
+    k = rom.data.find(move, code)
+    assert 0 <= k - code < 0x40, "palette-timing: the dim's first stage move not found"
+    rom.write(k, bytes.fromhex("4EB9") + save.to_bytes(4, "big") + bytes.fromhex("4E714E71"), expect=move,
+              why="ROUND CLEAR's dim: the palettes saved first")
     into = rom.data.find(bytes.fromhex("4EF9") + head.to_bytes(4, "big"), CODE_START)
     assert into >= 0 and rom.data.find(bytes.fromhex("4EF9") + head.to_bytes(4, "big"), into + 1) < 0, \
         "palette-timing: the vblank wait loop's jump to round-clear-dim not found once"

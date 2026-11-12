@@ -1,4 +1,5 @@
--- Run by tools/palette_timing.py: logs every palette RAM write (0x400000-0x401FFF) by its writer's PC, with how
+-- Run by tools/palette_timing.py: logs every palette RAM write and read (0x400000-0x401FFF; reads too, since a read
+-- while a line is drawn also disturbs the picture - round-clear-dim's save flashed snow, 2026-11-11) by its PC, with how
 -- many there were, how many landed on the picture's lines (16-239) and the first and last TV line seen. Negative
 -- lines are in the vblank. MAME 0.289's screen has no vpos(), so the line comes from the time to the next vblank.
 local cpu = manager.machine.devices[":maincpu"]
@@ -10,7 +11,7 @@ local function line()
   return math.floor(240 - scr:time_until_vblank_start():as_double() / scr.scan_period)
 end
 
-local function write(offset)
+local function access(offset)
   local pc, l = cpu.state["PC"].value, line()
   local s = stats[pc]
   if not s then
@@ -26,7 +27,10 @@ end
 -- Loading a save remaps the memory, which drops a tap made before it: the tap goes in on the second frame.
 SUB = emu.add_machine_frame_notifier(function()
   frames = frames + 1
-  if frames == 2 then TAP = mem:install_write_tap(0x400000, 0x401FFF, "palette_timing", write) end
+  if frames == 2 then
+    TAP = mem:install_write_tap(0x400000, 0x401FFF, "palette_timing", access)
+    RTAP = mem:install_read_tap(0x400000, 0x401FFF, "palette_timing_r", access)
+  end
 end)
 
 STOP = emu.add_machine_stop_notifier(function()

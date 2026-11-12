@@ -93,7 +93,7 @@ STRINGS = [
     # (BUT... - was BUT......: text-pause, its dots one at a time)
     (0x34DCA, ["THEN THE DARUMA TRIBE", "INVADED,"]),
     (0x34E6E, ["AND THEIR POLLUTION GETS", "WORSE EVERY DAY."]),
-    (0x35710, ["THIS IS BLUE,", "A MASTER OF THE", "LEAF DUMP."]),      # LEAF DUMP kept: a fan favourite
+    (0x35710, ["THIS IS BLUE,", "MASTER OF THE", "LEAF DUMP."]),        # LEAF DUMP kept: a fan favourite
     (0x357E2, ["BLUE LOVES PRINCESS FA", "OF RAGUY'S ROYAL FAMILY."]),
     (0x358A2, ["FA FELL ILL FROM THE POLLUTION."]),
     (0x3595E, ["BLUE, DRIVE OUT THE DARUMA", "AND BRING RAGUY BACK TO LIFE!"], 33),

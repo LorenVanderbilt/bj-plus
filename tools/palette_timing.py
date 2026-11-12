@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Find colour writes made while the picture is drawn: replay the recorded tests and list who writes palette RAM on
-the picture's lines.
+"""Find colour writes (and reads) made while the picture is drawn: replay the recorded tests and list who touches
+palette RAM on the picture's lines.
 
     python3 tools/palette_timing.py                 build, then replay every test in tests/clips.txt
     python3 tools/palette_timing.py round_clear     just those tests

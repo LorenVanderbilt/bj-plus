@@ -27,6 +27,8 @@ DESCRIPTION = "Travel agent's ride: the grid glides, and a diagonal chain of col
 #     which it then makes) lights one diagonal, moving it on one each step, with the TRAIL behind it dimmer. The
 #     colour comes from COLOURS, the next one each step. With cycles = whole line spacings moved so far, each slot's
 #     place behind the chain is (chain - diagonal - cycles) mod N, which makes it lit (0), trail, or dark.
+#     Working them out takes ~100 lines, so they go to BUFFER, and ride-grid-vblank copies them into palette RAM in
+#     the next vblank (written while the picture was drawn, they streaked on real hardware - 2026-11-11).
 # These tiles are used only by the ride.
 MAP_TABLE = 0xABC12
 BACK_BLOCKS, FRONT_BLOCKS = (7, 8), (9, 10)
@@ -53,8 +55,12 @@ TRAIL = [1.0, 0.55, 0.25]                              # the lit diagonal, then 
 RIDE_ON = 0x1078AE                                     # set while the ride runs; its loop tests it
 RIDE_CALL = 0x2788A                                    # jsr 0x2790E (the ride's objects) in its loop
 BACKDROP = 0x401FFE
-RAM = 0x10ECF0                                         # +0 on (byte), +2 step (word), +4 frames to the next step
-                                                       # (word), +6 the saved backdrop (word)
+RAM = 0x10ECF0                                         # +0 on (byte), +1 colours waiting in BUFFER (byte), +2 step
+                                                       # (word), +4 frames to the next step (word), +6 the saved
+                                                       # backdrop (word)
+BUFFER = 0x10DA00                                      # the squares' palettes as worked out, N * len(SETS) x 32
+                                                       # bytes (palette-timing's ROUND CLEAR staging, free here):
+                                                       # ride-grid-vblank copies them in in the vblank
 
 
 def neo(rgb):
@@ -170,6 +176,7 @@ def apply(rom):
     move.b #1,0x%(on)X                  | the ride starts: set the backdrop to the slanted lines' blue
     move.w 0x%(backdrop)X,0x%(saved)X
     move.w 0x%(linev_addr)X,0x%(backdrop)X
+    clr.b 0x%(pending)X
     clr.w 0x%(step)X
     clr.w 0x%(wait)X
 2:  subq.w #1,0x%(wait)X
@@ -238,7 +245,7 @@ def apply(rom):
     dbra %%d5,7b
     move.w #1,0x3C0004
     | the palettes, by set, base and slot: place = (chain - cycles) - base - the slot's term
-    lea 0x%(pal0)X,%%a0
+    lea 0x%(buffer)X,%%a0
     lea terms(%%pc),%%a1
     move.w %%d2,%%d4
     mulu #%(set_terms)d,%%d4
@@ -266,6 +273,7 @@ def apply(rom):
     bcs 12b
     lea 15(%%a1),%%a1
     dbra %%d6,11b
+    st 0x%(pending)X                    | for the next vblank
     lea %(lit_bytes)d(%%sp),%%sp
     movem.l (%%sp)+,%%d0-%%d7/%%a0-%%a4
     jmp 0x%(objects)X
@@ -278,7 +286,8 @@ terms:
 modn:
     .byte %(modn)s
     .even
-""" % {"ride_on": RIDE_ON, "on": RAM, "step": RAM + 2, "wait": RAM + 4, "saved": RAM + 6, "backdrop": BACKDROP,
+""" % {"ride_on": RIDE_ON, "on": RAM, "step": RAM + 2, "wait": RAM + 4, "saved": RAM + 6, "backdrop": BACKDROP, "pending": RAM + 1,
+       "buffer": BUFFER,
        "objects": rom.u32(RIDE_CALL + 2), "dark_addr": 0x400000 + PAL88 * 32 + DARK * 2,
        "linev_addr": 0x400000 + PAL88 * 32 + LINE_V * 2, "pal0": 0x400000 + PALETTES * 32, "n": N, "ncol": len(COLOURS),
        "n100": 100 * N, "n3": 3 * N, "step_frames_1": STEP - 1, "trail": len(TRAIL), "trail2": len(TRAIL) * 2,

@@ -1,4 +1,7 @@
 import hashlib
+import os
+
+from png_tiles import neo_to_rgb, read_indices
 
 NAME = "round-clear-dim"
 DESCRIPTION = "ROUND CLEAR: the frozen level dims to half while the stats are up, so the bonus lines are easy to read"
@@ -8,7 +11,8 @@ DESCRIPTION = "ROUND CLEAR: the frozen level dims to half while the stats are up
 # read over the bells and leaves.
 #
 # When a routine starts (at its first call, hud's, which is hooked here), every palette except the text's (TEXT_PAL)
-# is saved to BUF and eased down to DIM over STEPS steps of STEP_FRAMES frames. That happens in the game's vblank wait
+# is saved to BUF (by palette-timing, a quarter in each of the next four vblanks, which then starts the dim: read
+# while the picture was drawn, palette RAM flashed snow on real hardware - 2026-11-11) and eased down to DIM over STEPS steps of STEP_FRAMES frames. That happens in the game's vblank wait
 # (FRAME_LOOP, after tunnel-life-ball and wall-light-keep), half the palettes per frame, since a whole step is too
 # much work for one frame. The routine's return address is swapped for ours. After the goal (GOAL_RETURN) and the
 # final boss (FINAL_RETURN) the dim stays, since the next stage or the ending loads its own palettes. After any other
@@ -19,7 +23,8 @@ DESCRIPTION = "ROUND CLEAR: the frozen level dims to half while the stats are up
 # dark bit is kept. BUF is RAM that shops and NPC rooms use to store the level's objects (0x10A800-0x10CFFF), free
 # at ROUND CLEAR.
 #
-# The C of ROUND CLEAR (C_TILES) had a stray pixel sticking up from the tip of its bottom curl, fixed in C_ART.
+# The C of ROUND CLEAR (C_TILES) had a stray pixel sticking up from the tip of its bottom curl. It's drawn from C_ART,
+# a 16x16 PNG in the C's palette (C_COLOURS, fix palette 6; c_reference.png next to it is the original, kept local).
 ROUTINES = [0x54CD0, 0x54FD8]  # jsr <hud> ; nop: each ROUND CLEAR routine's first call
 GOAL_RETURN = 0x11658          # after the goal: the dim stays, the next stage loads its palettes
 FINAL_RETURN = 0x36F94         # after the final boss: the dim stays, the ending is next
@@ -38,26 +43,13 @@ TEXT_PAL = 6                   # fix palette 6, the stats' text, isn't dimmed; e
 BUF = 0x10B000                 # 256 x 32 bytes, to 0x10CFFF
 C_TILES = [0x906, 0x907, 0x916, 0x917]  # fix tiles of the C: top left, top right, bottom left, bottom right
 C_SHA = "8e6d755c"                 # the original four tiles
-C_ART = """
-....ffffff..f...
-...ff77777ff7ff.
-..f666aaaa666faf
-.f555aaafff55aaf
-.f444aaf...f4aaf
-f333aaaf....ffaf
-f222aaf.......f.
-f111aaf.........
-f222aaf.........
-f333aaf.........
-.f444af.....f.f.
-.f555aaf...f4faf
-..f666affff55aaf
-...ff66666666aaf
-....fffaaaaa7faf
-.......ffffff.f.
-"""
+C_ART = "art/round_clear/c.png"
+C_COLOURS = [0xA080, 0xFFFF, 0xEFFB, 0x9FF6, 0x8FF2, 0xAFD2, 0x9FC1, 0xBFA1, 0x8F91, 0xAF81, 0x8F71, 0xDE50, 0xFE30,
+             0xAE10, 0x8E00, 0x8000]   # fix palette 6 (index 0 clear)
 RAM = 0x10D500                 # spare RAM: ACTIVE, DIR (1 down, -1 up, 0 holding), STEP, HALF (bytes)
 ACTIVE, DIR, STEP, HALF, RET = RAM, RAM + 1, RAM + 2, RAM + 3, RAM + 4   # RET: the routine's return address (long)
+SAVING, SAVE_PARTS = RAM + 8, 4    # quarters of the palettes still to save to BUF (a byte): palette-timing saves
+                                   # one a vblank, then sets ACTIVE
 
 
 def apply(rom):
@@ -83,15 +75,20 @@ def apply(rom):
 entry:
 %(no_boss_dim)s
 0:  movem.l %%d0/%%a0-%%a1,-(%%sp)
-    lea 0x400000+%(first)d*32,%%a0
-    lea 0x%(buf)X,%%a1
-    move.w #%(longs)d-1,%%d0
-1:  move.l (%%a0)+,(%%a1)+
-    dbf %%d0,1b
+    move.b #%(save_parts)d,0x%(saving)X     | the palettes saved to BUF in the next vblanks (palette-timing)
+    nop                                 | (as long as the copy it replaced: the code after keeps its place, for
+    nop                                 | saves made with RET pointing at after)
+    nop
+    nop
+    nop
+    nop
+    nop
     move.b #1,0x%(dir)X
     clr.b 0x%(step)X
     clr.b 0x%(half)X
-    st 0x%(active)X
+    nop                                 | (ACTIVE is set once the palettes are saved: palette-timing)
+    nop
+    nop
     movem.l (%%sp)+,%%d0/%%a0-%%a1
     move.l 4(%%sp),0x%(ret)X            | its own return, which ours goes on to
     move.l #after,4(%%sp)
@@ -187,7 +184,7 @@ tables:
 %(tab_src)s
     .even
 """ % {"first": FIRST_PAL, "buf": BUF, "longs": PALS * 8, "dir": DIR, "step": STEP, "half": HALF, "active": ACTIVE,
-       "ret": RET, "hud": hud, "goal": GOAL_RETURN, "final": FINAL_RETURN, "no_boss_dim": no_boss_dim,
+       "ret": RET, "hud": hud, "saving": SAVING, "save_parts": SAVE_PARTS, "goal": GOAL_RETURN, "final": FINAL_RETURN, "no_boss_dim": no_boss_dim,
        "steps": STEPS, "half_bytes": PALS * 32 // STEP_FRAMES, "half_pals": PALS // STEP_FRAMES, "text_pal": TEXT_PAL,
        "halves": STEP_FRAMES, "loop_top": FRAME_LOOP_TOP, "loop_end": FRAME_LOOP_END,
        "table_ptrs": ",".join("tab%d_lo,tab%d_r" % (k, k) for k in range(STEPS + 1)), "tab_src": tab_src},
@@ -200,7 +197,11 @@ tables:
               why="vblank wait, each frame: ROUND CLEAR's dim")
     old = b"".join(bytes(rom.fix[t * 32:t * 32 + 32]) for t in C_TILES)
     assert hashlib.sha1(old).hexdigest()[:8] == C_SHA, "ROUND CLEAR's C: not the original tiles"
-    art = [[int(c, 16) if c != "." else 0 for c in row] for row in C_ART.split()]
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    art = read_indices(os.path.join(root, C_ART), [neo_to_rgb(c) for c in C_COLOURS])
+    assert (len(art[0]), len(art)) == (16, 16), "%s: not 16 x 16" % C_ART
     for n, t in enumerate(C_TILES):
+        if [row[n % 2 * 8:n % 2 * 8 + 8] for row in art[n // 2 * 8:n // 2 * 8 + 8]] == rom.fix_tile(t):
+            continue
         rom.replace_fix_tile(t, [row[n % 2 * 8:n % 2 * 8 + 8] for row in art[n // 2 * 8:n // 2 * 8 + 8]],
                              why="ROUND CLEAR's C: touched up")
