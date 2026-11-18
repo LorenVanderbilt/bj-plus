@@ -58,6 +58,7 @@ RAM = 0x10EB80               # +0 2 entries (object offset word, first y word), 
 # looked like player 2 burning too, and a second cover over junk sprites took a whole frame - the game ran at
 # half speed and the screen broke up.)
 LAVA1, LAVA2 = RAM + 96, RAM + 102
+BURNING = RAM + 16           # a byte: a hero burning in lava / sinking in acid this frame (worked out per group)
 APPLIED = RAM + 118           # 2 bytes, per entry: a burning hero's shift added as he was drawn (see shift_now)
 STRIPS = 0x10ED00             # 64 x 8 bytes: the front layer's strips, read once a frame for the cover (see strips)
 FULL = 0x10EF60              # up to 24 x (sprite, y, x) words, then -1: the full-height strips among them (see strips)
@@ -310,13 +311,38 @@ post:
 | the drawing loop, at the start of each group (in place of `lea 0x3C0002,a2` at 0xA3BC): d1 = its first sprite
 grp_start:
     move.w %d1,RAM+14
+    move.l %d0,-(%sp)                | (d0: the group's end, still the loop's)
+    clr.b BURNING                    | a hero burning in lava / sinking in acid (state 33 / 37) this frame? The
+    btst #0,0x6808(%a6)              | per-object hook only does its noting then (it runs for every object drawn,
+    beq 1f                           | and busy screens slowed down)
+    move.b 0x4068(%a6),%d0
+    cmp.b #33,%d0
+    beq 3f
+    cmp.b #37,%d0
+    beq 3f
+1:  btst #1,0x6808(%a6)
+    beq 2f
+    move.b 0x40E8(%a6),%d0
+    cmp.b #33,%d0
+    beq 3f
+    cmp.b #37,%d0
+    bne 2f
+3:  st BURNING
+2:  move.l (%sp)+,%d0
     lea 0x3C0002,%a2
     rts
 
 | the drawing loop, after each object (0xA3FE, in place of `move.w 656(a6),d0 ; dbf d0,0xA3D8`): d1 = the next
 | free sprite. A hero in state 33 (burning in lava) has its sprites noted: RAM+14 (where it started) to d1.
 after_obj:
-    cmp.w #0x4000,-2(%a4)            | fast path: not a hero - just note where the next object's sprites start
+    tst.b BURNING                    | fast path: nobody burning - straight on (the loop's own count, as its
+    bne 7f                           | `dbf d0,0xA3D8`)
+    move.w 656(%a6),%d0
+    subq.w #1,%d0
+    bcs 8f
+    jmp 0xA3D8
+8:  jmp 0xA406
+7:  cmp.w #0x4000,-2(%a4)            | not a hero - just note where the next object's sprites start
     beq 4f
     cmp.w #0x4080,-2(%a4)
     beq 4f
@@ -1149,6 +1175,7 @@ pass2:
         "LAVA1": "0x%X" % LAVA1,
         "APPLIED": "0x%X" % APPLIED,
         "LAVA2": "0x%X" % LAVA2,
+        "BURNING": "0x%X" % BURNING,
         "LAVA_LINE": str(LAVA_LINE),
         "FRAME": "0x%X" % FRAME,
         "BLANK_TILE": "0x%X" % rom.add_sprite_tile([[0] * 16 for _ in range(16)], why="drowning: a blank tile"),

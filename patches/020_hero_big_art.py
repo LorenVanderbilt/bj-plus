@@ -802,12 +802,12 @@ draw:
     move.w 8(%a0),%d3
     cmpa.l #HERO_END,%a0              | (quickly past for most objects: not a hero, not Red - his frames are
     bcs 15f
-    cmpa.l RED_OBJ_RAM,%a0            | player 2's copies, 0x800-0xFFF - and not carried)
+    cmp.w #0x1000,%d3                 | player 2's copies, 0x800-0xFFF, so most objects' frames rule him out
+    bcc 16f                           | before he's looked for - and not carried; this runs for every object
+    cmpa.l RED_OBJ_RAM,%a0            | drawn, and busy screens slowed down)
     beq 15f
     cmp.w #0x800,%d3
-    bcs 16f
-    cmp.w #0x1000,%d3
-    bcs 15f
+    bcc 15f
 16: cmpi.l #CARRIED_CODE_ADDR,4(%a0)
     beq 18f
     move.l (%a3,%d3.w),%a5
