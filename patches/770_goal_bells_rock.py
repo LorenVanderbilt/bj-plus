@@ -2,6 +2,7 @@ NAME = "goal-bells-rock"
 DESCRIPTION = "Goal stalk: its bells rock as it swings - each a little pendulum on its hook, swinging out as the stalk turns"
 
 import math
+import os
 
 # The goal's flower bells (see sta/aes/goal_bell.sta) hang from the stalk's segments and used to follow its swing
 # while staying upright. Each is now a small pendulum on its hook. The hook's sideways acceleration each frame (its x
@@ -67,8 +68,10 @@ CLAPPER = [".....111.....",    # the clapper as drawn, its top at its hang point
            "...1222221...",
            "....11111...."]
 CLAPPER_X = 6                  # the drawing's middle column: under the hang point
-HANG = (15, 24)                # (the upright bell's hang point, px in its frame: the clapper's top - its ball
-                               # then shows in the mouth's notch)
+CLAPPER_ART = "art/goal_bells/clapper.png"   # the clapper as painted (the user, 2026-11-22: round), a 16 x 16 tile
+                               # in CLAPPER_COLOURS, hung from its top row's column 8; CLAPPER when it isn't there
+HANG = (15, 23)                # (the upright bell's hang point, px in its frame: the clapper's top - its ball
+                               # then shows in the mouth's notch; 1 px higher for the round clapper, 2026-11-22)
 CLAPPER_PALETTE = 0x7E         # empty in play: the title's; pause-menu borrows it and puts it back
 CLAPPER_COLOURS = [(96, 56, 8), (214, 160, 40), (255, 232, 128)]   # brass: outline, body, highlight
 CLAPPER_PARAMS = (30, 10, 420) # (its pull back to hanging, damping, push - as PARAMS: a short, quick pendulum)
@@ -293,11 +296,17 @@ def apply(rom):
 
     table = lambda f: ",".join("0x%X" % x for x in tilted[f])
     from png_tiles import rgb_to_neo
-    clap_px = [[0] * 16 for _ in range(16)]
-    for y, row in enumerate(CLAPPER):
-        for x, ch in enumerate(row):
-            if ch != ".":
-                clap_px[y][x + 8 - CLAPPER_X] = int(ch)
+    clap_art = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), CLAPPER_ART)
+    if os.path.exists(clap_art):
+        from png_tiles import read_indices
+        clap_px = read_indices(clap_art, [(0, 0, 0)] + CLAPPER_COLOURS)
+        assert len(clap_px) == 16 and all(len(r) == 16 for r in clap_px), CLAPPER_ART
+    else:
+        clap_px = [[0] * 16 for _ in range(16)]
+        for y, row in enumerate(CLAPPER):
+            for x, ch in enumerate(row):
+                if ch != ".":
+                    clap_px[y][x + 8 - CLAPPER_X] = int(ch)
     clap_frame = rom.add_frame([[rom.add_sprite_tile(clap_px, why="goal bells: the clapper")]], CLAPPER_PALETTE,
                                why="goal bells: the clapper")
     def clap_table(site, f):
