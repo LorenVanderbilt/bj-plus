@@ -10,6 +10,8 @@ DESCRIPTION = "Arcade (MVS) mode: a screen saying Plus needs home console (AES) 
 # cleared and LINES printed in the S ROM font (tile 0x500 + the character, as the title's COPYRIGHT) in palette PAL
 # (title-menu's white shades) on a black backdrop; then it stays there, kicking the watchdog. Requests 0 and 1, and the
 # AES, go on to 0x9400 as before.
+ENABLED = False                 # off since 2026-11-22: Plus runs in MVS mode too (ARCADE_LIKE_HOME in the menus'
+                                # patches); True brings the message back
 USER_VECTOR = 0x122             # jmp 0x9400
 USER = 0x9400
 SYSTEM_MODE = 0x10FD82          # BIOS: 0 = home console (AES)
@@ -28,6 +30,8 @@ WATCHDOG = 0x300001
 
 
 def apply(rom):
+    if not ENABLED:
+        return
     assert rom.data[USER_VECTOR:USER_VECTOR + 6] == bytes.fromhex("4EF9") + USER.to_bytes(4, "big")
     records = ""
     for row, text in LINES:

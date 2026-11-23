@@ -28,11 +28,15 @@ PLAYER_START = 0x108DA  # tst.b 0x10F000 ; bne 0x10C8C ...  (BIOS calls this whe
 PUSH_START_FIRST = 0x5F050
 TITLE = 0x10882        # the arcade cycle's title call
 QUEUE_MUSIC = 0x152FE
+CREDIT_TITLE = 0x108C0  # the BIOS's request 3 (a credit in), after its set-up: clr.b 26624(a6) ; clr.w 0x10FDB6 -
+                        # then the title, which the original ran silent: the music stopped as a coin went in
 TITLE_BODY = 0x1AE10
 CINEMA = 0x15472
 CLEAR_TEXT = 0x15696   # blanks the text layer
 START_GAME = 0x10CE8   # runs a whole game; the caller tail-jumps here when a start button was pressed
 SYSTEM_MODE = 0x10FD82
+ARCADE_LIKE_HOME = True       # the arcade (MVS) runs the home console's flow too (the user, 2026-11-22: Plus on
+                              # MVS like the AES); False: the arcade keeps the original's
 P1_CURRENT, P2_CURRENT = 0x10FD96, 0x10FD9C   # BIOS: buttons held (bits 4-7 = A B C D)
 START_FLAGS = 0x10FDB4                        # BIOS: bit 0 / 1 = player 1 / 2 pressed Start
 START_FLAG_OF_GAME = 0x106800                 # game: non-zero ends an attract screen / starts a game
@@ -47,11 +51,17 @@ def apply(rom):
              "clear_text": CLEAR_TEXT, "push_start": PUSH_START, "push_start_first": PUSH_START_FIRST,
              "push_start_rest": PUSH_START + 6, "magic": MAGIC, "p1": P1_CURRENT, "p2": P2_CURRENT,
              "start_of_game": START_FLAG_OF_GAME, "start_flags": START_FLAGS, "player_start_rest": PLAYER_START + 6}
+    # The arcade checks, or (ARCADE_LIKE_HOME) nops of the same size: the code after them stays where it was, as saves
+    # made on the title hold a return address into cycle1
+    nops = lambda n: "    nop\n" * n
+    names["arcade_check"] = nops(4) if ARCADE_LIKE_HOME else "    tst.b 0x%X\n    bne.s arcade\n" % SYSTEM_MODE
+    names["skip_check"] = nops(7) if ARCADE_LIKE_HOME else ("    tst.b 0x%X\n    beq.s 1f\n    jsr 0x%X\n"
+                                                            % (SYSTEM_MODE, TITLE))
+    names["push_check"] = nops(7) if ARCADE_LIKE_HOME else ("    tst.b 0x%X\n    beq.s 1f\n    jmp 0x%X\n"
+                                                            % (SYSTEM_MODE, PUSH_START))
     cycle1 = rom.place_code(r"""
     clr.b 26624(%%a6)
-    tst.b 0x%(system_mode)X
-    bne.s arcade
-title:
+%(arcade_check)stitle:
     moveq #21,%%d0                      | title music, exactly what the original title call does
     jsr 0x%(queue_music)X
     clr.b 26624(%%a6)
@@ -87,19 +97,13 @@ arcade:
               expect=bytes.fromhex("422E68004EB900015472"), why="start of the first attract cycle")
 
     skip = rom.place_code(r"""
-    tst.b 0x%(system_mode)X
-    beq.s 1f                            | AES: no title here
-    jsr 0x%(title)X
-1:  rts
+%(skip_check)s1:  rts
 """ % names, why="AES: skip the title at the end of the demo cycle (arcade: unchanged)")
     rom.write(TITLE_CALL, bytes.fromhex("4EF9") + skip.to_bytes(4, "big") + bytes.fromhex("4E714E71"),
               expect=bytes.fromhex("4EB9000108826600" "06C6"), why="end of the second attract cycle")
 
     check = rom.place_code(r"""
-    tst.b 0x%(system_mode)X
-    beq.s 1f
-    jmp 0x%(push_start)X                | arcade: the original PUSH START routine
-1:  move.b #0x%(magic)X,0x%(in_cinema)X | a story scene is running
+%(push_check)s1:  move.b #0x%(magic)X,0x%(in_cinema)X | a story scene is running
     move.b 0x%(p1)X,%%d0
     or.b 0x%(p2)X,%%d0
     and.b #0xF0,%%d0                    | A B C D of either player
@@ -133,3 +137,21 @@ arcade:
 """ % names, why="BIOS PLAYER_START: in the cinema a Start press only ends the cinema")
     rom.write(PLAYER_START, bytes.fromhex("4EF9") + start.to_bytes(4, "big"),
               expect=bytes.fromhex("4A390010F000"), why="PLAYER_START entry")
+
+    if ARCADE_LIKE_HOME:
+        # The arcade: a coin in the attract (the cinema, the demo - on the title, mvs-coin-title keeps the BIOS out)
+        # starts the BIOS's request 3, whose title the original ran without music - the music stopped as the coin
+        # went in, which looked like a fault (the user, 2026-11-23). Now its title plays the title music (from the
+        # top) as the AES's does, and mvs-coin-title plays the Credit sound once the title is up (in the eyecatcher
+        # the BIOS runs request 3 twice, resetting the sound between: a sound here played twice and garbled).
+        music = rom.place_code("""
+    clr.b 26624(%%a6)                   | as at CREDIT_TITLE
+    clr.w 0x10FDB6
+    st 0x%(coin_pending)X               | a coin: mvs-coin-title plays the Credit sound on the title's first frame
+    moveq #21,%%d0                      | the title music
+    jmp 0x%(queue_music)X
+""" % dict(names, coin_pending=rom.other_patch("mvs-coin-title").COIN_PENDING),
+           why="arcade: the title after a coin plays the title music")
+        rom.write(CREDIT_TITLE, bytes.fromhex("4EB9") + music.to_bytes(4, "big") + bytes.fromhex("4E714E71"),
+                  expect=bytes.fromhex("422E68004279 0010FDB6".replace(" ", "")),
+                  why="the BIOS's request 3: the title music")

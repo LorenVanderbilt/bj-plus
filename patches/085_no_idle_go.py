@@ -10,17 +10,21 @@ CHECK_AT = 0x118CA      # cmpi.w #960,d0 ; beq.s 0x118F8
 SPAWN = 0x118F8
 SKIP = 0x11988
 SYSTEM_MODE = 0x10FD82
+ARCADE_LIKE_HOME = True       # the arcade (MVS) runs the home console's flow too (the user, 2026-11-22: Plus on
+                              # MVS like the AES); False: the arcade keeps the original's
 
 
 def apply(rom):
-    code = rom.place_code("""
+    code = rom.place_code(("""
+    jmp 0x%(skip)X                      | no GO sign, on either system
+""" if ARCADE_LIKE_HOME else """
     cmpi.w #960,%%d0
     bne.s 1f
     tst.b 0x%(system_mode)X
     beq.s 1f                            | home console: no GO sign
     jmp 0x%(spawn)X
 1:  jmp 0x%(skip)X
-""" % {"system_mode": SYSTEM_MODE, "spawn": SPAWN, "skip": SKIP},
+""") % {"system_mode": SYSTEM_MODE, "spawn": SPAWN, "skip": SKIP},
         why="idle GO sign: arcade only")
     rom.write(CHECK_AT, bytes.fromhex("4EF9") + code.to_bytes(4, "big"), expect=bytes.fromhex("0C4003C06728"),
               why="idle: the 960-frame GO sign goes through the arcade-only check")

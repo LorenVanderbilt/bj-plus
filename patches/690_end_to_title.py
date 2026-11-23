@@ -13,16 +13,16 @@ GAME_END = 0x10D18
 GAME_END_BYTES = "422E306E70FF"
 ATTRACT_TOGGLE = 0x1033CA      # bit 0 clear: the attract cycle with the title runs next
 SYSTEM_MODE = 0x10FD82         # 0 = home console
+ARCADE_LIKE_HOME = True       # the arcade (MVS) runs the home console's flow too (the user, 2026-11-22: Plus on
+                              # MVS like the AES); False: the arcade keeps the original's
 
 
 def apply(rom):
     code = rom.place_code("""
     clr.b 0x306E(%%a6)                  | replaced by the jump
-    tst.b 0x%(mode)X
-    bne 1f
-    bclr #0,0x%(toggle)X                | the title comes next
+%(check)s    bclr #0,0x%(toggle)X                | the title comes next
 1:  moveq #-1,%%d0
     rts
-""" % {"mode": SYSTEM_MODE, "toggle": ATTRACT_TOGGLE}, why="a game's end: the title next (AES)")
+""" % {"check": "" if ARCADE_LIKE_HOME else "    tst.b 0x%X\n    bne 1f\n" % SYSTEM_MODE, "toggle": ATTRACT_TOGGLE}, why="a game's end: the title next (AES)")
     rom.write(GAME_END, bytes.fromhex("4EF9") + code.to_bytes(4, "big"), expect=bytes.fromhex(GAME_END_BYTES),
               why="a game's end: back to the title")

@@ -59,4 +59,9 @@ if [ "$mode" = aes ]; then
     exec mame aes -hash $out/aes -rompath $out/aes -cart bjourney $states $bios $keys -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
 fi
 export RUN_SCRIPTS="$scripts"
+# The arcade: MAME's MV-1 board with the game as a cartridge from the build's software list - the AES set, bigger
+# sprite ROMs and all (MAME's own bjourney set, build/roms, keeps the original sizes: the added art shows blank there)
+if [ -f $out/aes/neogeo.xml ]; then
+    exec mame ng_mv1 -hash $out/aes -rompath "$out/aes;roms" -cart bjourney $states $bios $keys -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
+fi
 exec mame bjourney -rompath $out/roms $states $bios $keys -input_directory recordings -window -skip_gameinfo -nowaitvsync "$@"
