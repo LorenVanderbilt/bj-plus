@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Make the release files from the last build: the web patcher, xdelta patches, and ready-to-copy packages.
 
-    python3 tools/release.py [--name bjplus-beta1] [--version "Beta 1"]
+    python3 tools/release.py [--name bjplus-beta1] [--version "Beta 1"] [--publish]
 
 Run tools/hackbuild.py first. Everything goes in dist/<name>/ (git-ignored):
 
-    patcher/              the web patcher (tools/web_patcher/ plus this release's patchdata.js): a player drops in
+    patcher/              the web patcher for this game alone (../neogeo-patcher's page with this release's data): a player drops in
                           their own bjourney.zip (or Darksoft-style folder), picks a system and downloads a ready
                           package with its README. Patching happens in their browser; nothing is uploaded.
     <name>_itch_html.zip  patcher/ zipped for itch.io's "HTML" upload (index.html at its root)
@@ -38,12 +38,15 @@ import zipfile
 import zlib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(ROOT), "neogeo-patcher", "tools"))
+import ngpatcher    # the shared web patcher's repo, next to this one: its page, and where its data goes
+
+GAME_ID = 'bjplus'                  # the shared patcher's id for this game (games.js, ?game=)
 ORIGINAL = os.path.join(ROOT, "roms", "bjourney.zip")
 BUILT = os.path.join(ROOT, "build", "aes", "bjourney.zip")
 BUILT_LIST = os.path.join(ROOT, "build", "aes", "neogeo.xml")
                                     # MAME's software list entry for the built files: its own list has c3 / c4 at
                                     # the original 512 KB and refuses the grown ones
-WEB_PATCHER = os.path.join(ROOT, "tools", "web_patcher")
 GAME_FILES = ["022-p1.p1", "022-s1.s1", "022-m1.m1", "022-v11.v11", "022-v22.v22",
               "022-c1.c1", "022-c2.c2", "022-c3.c3", "022-c4.c4"]
 ORIGINAL_SHA1 = {   # the files the patches apply to, as listed in README.md
@@ -64,6 +67,15 @@ DARKSOFT_SHA1 = {   # Darksoft's checksums for the original game's folder
     "fpga": "bd307a3ec329e10a2cff8fb87480823da114f8f4",
 }
 VROMB_OFFSET = 0x200000
+DARK = {            # the Darksoft-style folder's files from the MAME set's (the patcher reads this too)
+    "prom": {"file": "022-p1.p1", "swap": False},
+    "srom": "022-s1.s1",
+    "m1rom": "022-m1.m1",
+    "crom": [["022-c1.c1", "022-c2.c2"], ["022-c3.c3", "022-c4.c4"]],   # each pair interleaved a word at a time
+    "vrom": [["022-v11.v11", 0], ["022-v22.v22", VROMB_OFFSET]],       # v22 (ADPCM-B) at MiSTer's vromb_offset
+    "vromSize": VROMB_OFFSET + 0x100000,
+    "fpga": "13",
+}
 BACKBIT_NAMES = {"022-v11.v11": "022-v1.v1", "022-v22.v22": "022-v2.v2"}
                                     # the cart's developer's names for Blue's Journey's sound ROMs: with MAME's, the
                                     # music is missing a channel (checked on the user's cart, 2026-11-06)
@@ -244,17 +256,23 @@ def crc(data):
 
 
 def darksoft(files):
-    """The Darksoft-style folder's files from a MAME set's: {name: bytes}."""
+    """The Darksoft-style folder's files from a MAME set's (DARK): {name: bytes}."""
     def interleave(a, b):
         return b"".join(a[i:i + 2] + b[i:i + 2] for i in range(0, len(a), 2))
-    v11 = files["022-v11.v11"]
+    p = files[DARK["prom"]["file"]]
+    if DARK["prom"]["swap"]:
+        p = p[len(p) // 2:] + p[:len(p) // 2]
+    vrom = bytearray(DARK["vromSize"])
+    for name, at in DARK["vrom"]:
+        assert at + len(files[name]) <= len(vrom), "DARK: %s runs past vromSize" % name
+        vrom[at:at + len(files[name])] = files[name]
     return {
-        "prom": files["022-p1.p1"],
-        "srom": files["022-s1.s1"],
-        "m1rom": files["022-m1.m1"],
-        "crom0": interleave(files["022-c1.c1"], files["022-c2.c2"]) + interleave(files["022-c3.c3"], files["022-c4.c4"]),
-        "vroma0": v11 + bytes(VROMB_OFFSET - len(v11)) + files["022-v22.v22"],
-        "fpga": b"13",
+        "prom": p,
+        "srom": files[DARK["srom"]],
+        "m1rom": files[DARK["m1rom"]],
+        "crom0": b"".join(interleave(files[a], files[b]) for a, b in DARK["crom"]),
+        "vroma0": bytes(vrom),
+        "fpga": DARK["fpga"].encode(),
     }
 
 
@@ -320,8 +338,8 @@ def runs(old, new):
 
 def patch_data(original, built, version, packages_list):
     """patchdata.js for the web patcher: the original files' checksums (MAME and Darksoft names), each patched
-    file's runs (their bytes deflated together, from the file's "at" in that blob), the texts the packages need,
-    and the packages."""
+    file's runs (their bytes deflated together, from the file's "at" in that blob), the Darksoft layout, the texts
+    the packages need, and the packages."""
     blob, files = bytearray(), {}
     for name in GAME_FILES:
         new, rs = built[name], runs(original[name], built[name])
@@ -341,15 +359,14 @@ def patch_data(original, built, version, packages_list):
         "order": GAME_FILES,
         "source": {n: {"size": len(original[n]), "crc32": crc(original[n])} for n in GAME_FILES},
         "darksource": {n: {"size": len(d), "crc32": crc(d)} for n, d in darksoft(original).items()},
-        "vrombOffset": VROMB_OFFSET,
+        "dark": DARK,
         "target": files,
         "blobSize": len(blob),
         "texts": {"dat": fbneo_dat(built), "list": open(BUILT_LIST).read()},
         "packages": packages_list,
         "blob": base64.b64encode(packed).decode(),
     }
-    return ("// Generated by tools/release.py for %s - don't edit.\nvar BJPLUS = %s;\n"
-            "if (typeof module !== \"undefined\") module.exports = BJPLUS;\n" % (version, json.dumps(data)))
+    return ngpatcher.patchdata_js(GAME_ID, data)
 
 
 def build_package(pkg, built, dark_built, texts):
@@ -373,6 +390,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--name", default="bjplus-beta1")
     ap.add_argument("--version", default="Beta 1")
+    ap.add_argument("--publish", action="store_true", help="also write this release's data into ../neogeo-patcher "
+                    "(games/%s/patchdata.js), the live page's - only for a release going out" % GAME_ID)
     args = ap.parse_args()
     if not shutil.which("xdelta3"):
         sys.exit("xdelta3 not found (brew install xdelta)")
@@ -415,11 +434,14 @@ def main():
             open(dest, "wb").write(data)
 
     web = os.path.join(out, "patcher")
-    shutil.copytree(WEB_PATCHER, web)
-    open(os.path.join(web, "patchdata.js"), "w").write(patch_data(original, built, args.version, packages(args.version)))
+    js = patch_data(original, built, args.version, packages(args.version))
+    ngpatcher.page_copy(GAME_ID, js, web)
     with zipfile.ZipFile(os.path.join(out, "%s_itch_html.zip" % args.name), "w", zipfile.ZIP_DEFLATED) as z:
-        for n in sorted(os.listdir(web)):
-            z.write(os.path.join(web, n), n)
+        for path, _, names in sorted(os.walk(web)):
+            for n in sorted(names):
+                z.write(os.path.join(path, n), os.path.relpath(os.path.join(path, n), web))
+    if args.publish:
+        print("published: %s" % ngpatcher.publish(GAME_ID, js))
     shutil.rmtree(work)
 
     for path, _, names in sorted(os.walk(out)):

@@ -95,7 +95,8 @@ You need Python 3, [ngdevkit](https://github.com/dciabrin/ngdevkit)'s `m68k-neog
   addresses, what was found). `patches/pins.json` keeps each patch's code at a fixed address.
 - `tools/hackbuild.py` - the build. `tools/regress.py` plays every test clip and save headless and compares the
   screens with the last accepted run (`tests/clips.txt`). `tools/release.py` makes the release files: the web
-  patcher (`tools/web_patcher/`), the xdelta patches and each system's package.
+  patcher's copy for this game (from the shared patcher, ../neogeo-patcher, next to this repo; `--publish` also
+  updates its live page), the xdelta patches and each system's package.
 - `art/` - redrawn graphics the patches read. `docs/` - notes on the game's internals.
 
 ## Credits
