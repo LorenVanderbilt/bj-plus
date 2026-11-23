@@ -35,6 +35,9 @@ DESCRIPTION = "The heroes are drawn first each frame, so their sprites are writt
 # While a hero carries an enemy (CARRYING) the rest of the front group is too, object by object, and while Red may
 # be about (hero-big-art has him noted, RED_OBJ, or an object other than the heroes took a player 2 frame in the
 # animation step within the last RED_HOLD frames: STEP_SITES) every group is - as slow as before, but only then.
+# Likewise drown-in-front's step after each object (AFTER_OBJECT): it only notes a burning hero's sprites, so the
+# game's own instructions are back there too, and `one` returns through drown-in-front's step instead (hero-big-art's
+# two uses of the loop's return address, BIG_RETURN, now name that step: its big frames are drawn only through `one`).
 GROUP_START = 0xA3BC         # jsr <drown-in-front's grp_start> - the drawing loop, starting a group (a0 = its
                              # descriptor + 8, d2 / d0 its list's first / last entry, d1 its first sprite)
 DRAW_GROUP = 0xA3AA          # the drawing loop, from a0 = a group descriptor (list's first and last entry, first
@@ -53,7 +56,10 @@ MARGIN = 16                  # sprites the objects before the heroes may grow by
 DRAW_SITE = 0xA428           # in the drawing routine: hero-big-art's jsr <its draw hook> ; nop - the game's own
 GAME_DRAW = bytes.fromhex("36280008 2A733000".replace(" ", ""))   # move.w 8(a0),d3 ; move.l (a3,d3.w),a5
 STEP_SITES = [0x43520, 0x4354E]   # the animation step: hero-big-art's jsr <its step hook> ; nop
-AFTER_OBJECT = 0xA3FE        # the loop's step after each object (drown-in-front's)
+AFTER_OBJECT = 0xA3FE        # the loop's step after each object: drown-in-front's jmp <its step> ; nop
+GAME_AFTER = bytes.fromhex("302E0290 51C8FFD4".replace(" ", ""))   # move.w 656(a6),d0 ; dbf d0,0xA3D8
+BIG_RETURN = [bytes.fromhex("0CAF0000A3FE0008"), bytes.fromhex("4EF90000A3FE")]   # in hero-big-art's draw hook:
+                                                     # cmpi.l #0xA3FE,8(sp) ; jmp 0xA3FE (its restore)
 CARRYING = [0x107004, 0x107404]   # a byte per player: carrying an enemy
 RED_OBJ = 0x10EA50           # hero-big-art: the object noted as Red (a long; 0 = none)
 DROWN_START = 0x10EB8E       # drown-in-front's RAM+14: where the object being drawn starts (its lava cover's)
@@ -71,6 +77,8 @@ def apply(rom):
     before = rom.u32(GROUP_START + 2)
     assert rom.u16(DRAW_SITE) == 0x4EB9 and rom.u16(DRAW_SITE + 6) == 0x4E71
     draw_hook = rom.u32(DRAW_SITE + 2)
+    assert rom.u16(AFTER_OBJECT) == 0x4EF9 and rom.u16(AFTER_OBJECT + 6) == 0x4E71   # jmp ; nop
+    drown_step = rom.u32(AFTER_OBJECT + 2)
     code = rom.place_code("""
     jsr 0x%(before)X
     cmpa.l #0x%(front)X+8,%%a0            | the front group: split (below)
@@ -308,13 +316,21 @@ one:
        "start": START, "end": END, "first": FIRST, "margin": MARGIN, "ceiling": CEILING, "draw": DRAW_GROUP,
        "group_end": GROUP_END, "limit": 662, "prev": 668, "end_word": 658, "count": 656,
        "flags": FLAGS, "carry1": CARRYING[0], "carry2": CARRYING[1], "red_obj": RED_OBJ, "red_seen": RED_SEEN,
-       "drown_start": DROWN_START, "one_prev": ONE_PREV, "after_object": AFTER_OBJECT, "draw_hook": draw_hook,
+       "drown_start": DROWN_START, "one_prev": ONE_PREV, "after_object": drown_step, "draw_hook": draw_hook,
        "draw_rest": DRAW_SITE + 8},
         why="the front group drawn heroes first: their sprites written in the vblank")
     rom.write(GROUP_START + 2, code.to_bytes(4, "big"), expect=before.to_bytes(4, "big"),
               why="the front group starting: the heroes drawn first")
     rom.write(DRAW_SITE, GAME_DRAW, expect=bytes(rom.data[DRAW_SITE:DRAW_SITE + 8]),
               why="drawing: the game's own instructions back (hero-big-art's hook only for the objects that need it)")
+    rom.write(AFTER_OBJECT, GAME_AFTER, expect=bytes(rom.data[AFTER_OBJECT:AFTER_OBJECT + 8]),
+              why="drawing loop: the game's own step after each object back (drown-in-front's only through `one`)")
+    for pat in BIG_RETURN:
+        at = bytes(rom.data).find(pat)
+        assert at > 0 and bytes(rom.data).find(pat, at + 1) < 0, pat.hex()
+        k = len(pat) - 6 if len(pat) == 8 else 2
+        rom.write(at + k, drown_step.to_bytes(4, "big"), expect=AFTER_OBJECT.to_bytes(4, "big"),
+                  why="hero-big-art: the loop's return it looks for / goes back to is `one`'s (drown-in-front's step)")
     step = rom.u32(STEP_SITES[0] + 2)
     watch = rom.place_code("""
 | the animation step: an object other than a hero taking a player 2 frame (0x800-0xFFF) may be Red
