@@ -8,9 +8,9 @@ Run tools/hackbuild.py first. Everything goes in dist/<name>/ (git-ignored):
     patcher/              the web patcher for this game alone (../neogeo-patcher's page with this release's data): a player drops in
                           their own bjourney.zip (or Darksoft-style folder), picks a system and downloads a ready
                           package with its README. Patching happens in their browser; nothing is uploaded.
-    <name>_itch_html.zip  patcher/ zipped for itch.io's "HTML" upload (index.html at its root)
-    <name>_xdelta.zip     patches for the MAME set's files (022-p1.p1.xdelta ...), and for a Darksoft-style set's
-                          (prom.xdelta ...), with how to apply them by hand. No game data: shareable.
+    <name>_patch_kit.zip  the download for players (ngpatcher.kit): the patcher as one offline HTML file, a README,
+                          and "patch by hand/": patches for the MAME set's files (022-p1.p1.xdelta ...) and a
+                          Darksoft-style folder's (prom.xdelta ...), with how to apply them. No game data: shareable.
     private/<system>/     each package the patcher makes, ready-patched, for testing on your own devices only -
                           they hold game data. The same layout and README the patcher's download has.
 
@@ -425,7 +425,6 @@ def main():
     patches["mame/neogeo.xml"] = texts["list"]
     patches["README.txt"] = XDELTA_README % {"version": args.version}
     patches["CHECKSUMS.txt"] = "\n".join(checksums) + "\n"
-    write_zip(os.path.join(out, "%s_xdelta.zip" % args.name), patches)
 
     for pkg in packages(args.version, private=True):       # private/<system>/: unpacked, ready to copy
         for path, data in build_package(pkg, built, dark_built, texts).items():
@@ -436,10 +435,8 @@ def main():
     web = os.path.join(out, "patcher")
     js = patch_data(original, built, args.version, packages(args.version))
     ngpatcher.page_copy(GAME_ID, js, web)
-    with zipfile.ZipFile(os.path.join(out, "%s_itch_html.zip" % args.name), "w", zipfile.ZIP_DEFLATED) as z:
-        for path, _, names in sorted(os.walk(web)):
-            for n in sorted(names):
-                z.write(os.path.join(path, n), os.path.relpath(os.path.join(path, n), web))
+    write_zip(os.path.join(out, "%s_patch_kit.zip" % args.name),
+              ngpatcher.kit(GAME_ID, js, args.version, packages(args.version), patches))
     if args.publish:
         print("published: %s" % ngpatcher.publish(GAME_ID, js))
     shutil.rmtree(work)
@@ -453,8 +450,8 @@ def main():
 XDELTA_README = """Blue's Journey Plus - %(version)s - patches
 ======================================================================
 
-The easy way: use the Blue's Journey Plus patcher on its page. Drop in your bjourney.zip, pick your system and
-download a ready package. These patches are for doing it by hand.
+The easy way: the patcher, the .html file one folder up (or online, linked in that folder's README). Drop in
+your bjourney.zip, pick your system and download a ready package. These patches are for doing it by hand.
 
 You need the MAME ROM set bjourney (Blue's Journey / Raguy). Check your files match the checksums in
 CHECKSUMS.txt before patching.
