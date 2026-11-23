@@ -295,32 +295,31 @@ cell:
     move.w 0x3C0002,%%d2
     tst.b 0x%(hidden)X
     bne 9f
+    cmp.w %%d1,%%d2                     | already showing it: nothing to write (it ran every frame)
+    beq 5f
     bsr free
-    bne 10f
-    move.w %%d0,0x3C0000
+    bne 5f
+8:  move.w %%d0,0x3C0000
     move.w %%d1,0x3C0002
 5:  rts
-10: rts
 9:  bsr free                            | hidden: blank, or a heart's - cleared
     bne 5b
-    move.w %%d0,0x3C0000
-    move.w #0x%(blank)X,0x3C0002
-    rts
-| Z set if fix word d2 is blank or in palette %(heart_pal)d
+    move.w #0x%(blank)X,%%d1
+    bra 8b
+| Z set if fix word d2 is in palette %(heart_pal)d or blank (d2 changed)
 free:
-    move.w %%d2,-(%%sp)
-    andi.w #0xFFF,%%d2
+    cmpi.w #0x%(heart_pal)X000,%%d2
+    bcs 1f
+    cmpi.w #0x%(heart_pal)XFFF,%%d2
+    bls 6f
+1:  andi.w #0xFFF,%%d2
     cmpi.w #0x020,%%d2
-    beq 6f
+    beq 7f
     cmpi.w #0x520,%%d2
-    beq 6f
+    beq 7f
     tst.w %%d2
-    beq 6f
-    move.w (%%sp),%%d2
-    lsr.w #8,%%d2
-    lsr.w #4,%%d2
-    cmpi.w #%(heart_pal)d,%%d2
-6:  movem.w (%%sp)+,%%d2                | movem: the flags stay
+7:  rts
+6:  cmp.w %%d2,%%d2
     rts
 full:
     .word %(full_tiles)s

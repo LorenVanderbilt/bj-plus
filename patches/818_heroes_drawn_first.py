@@ -1,5 +1,5 @@
 NAME = "heroes-drawn-first"
-DESCRIPTION = "The heroes are drawn first each frame, so their sprites are written before the picture starts (no tearing on busy screens)"
+DESCRIPTION = "The heroes are drawn first each frame, so their sprites are written before the picture starts (no tearing on busy screens); ordinary objects skip hero-big-art's draw hook"
 
 # The user, 2026-11-17: on a busy screen by the lava cave's goal, Blue tore for a frame at a time - a strip of him a
 # few lines tall shifted sideways - when he was high on the screen. The game writes its sprites each frame while the
@@ -26,6 +26,15 @@ DESCRIPTION = "The heroes are drawn first each frame, so their sprites are writt
 # split is made whenever a hero is drawn: switching it on and off would renumber things too. Sprites last frame used
 # that nothing uses now are cleared by the game's end-of-pass clearing: each pass's "end last frame" word is raised
 # to cover what a move of HEROES_FROM left behind.
+#
+# Slowdown (2026-11-22): hero-big-art's draw hook (DRAW_SITE, in the drawing routine) ran for every object drawn,
+# though only the heroes, an enemy a hero carries and Red need it - 3-4% of a busy frame. The game's own two
+# instructions are put back there, and the objects that need the hook are drawn through it one at a time (`one`:
+# what the loop does for an entry, returning through the loop's own after-object step, 0xA3FE, which
+# drown-in-front's lava cover and hero-big-art's big frames both use). The heroes' pass is always drawn that way.
+# While a hero carries an enemy (CARRYING) the rest of the front group is too, object by object, and while Red may
+# be about (hero-big-art has him noted, RED_OBJ, or an object other than the heroes took a player 2 frame in the
+# animation step within the last RED_HOLD frames: STEP_SITES) every group is - as slow as before, but only then.
 GROUP_START = 0xA3BC         # jsr <drown-in-front's grp_start> - the drawing loop, starting a group (a0 = its
                              # descriptor + 8, d2 / d0 its list's first / last entry, d1 its first sprite)
 DRAW_GROUP = 0xA3AA          # the drawing loop, from a0 = a group descriptor (list's first and last entry, first
@@ -41,6 +50,18 @@ OLD_FROM, HS, HE, START, END, FIRST = (RAM + 20, RAM + 22, RAM + 24,   # heroes'
                                        RAM + 26, RAM + 28, RAM + 30)   # the list's, +30 the group's first sprite
 HERO_ROOM = 12               # sprites for the heroes' run, used or not (Blue's big art: 3-6 columns)
 MARGIN = 16                  # sprites the objects before the heroes may grow by before HEROES_FROM moves
+DRAW_SITE = 0xA428           # in the drawing routine: hero-big-art's jsr <its draw hook> ; nop - the game's own
+GAME_DRAW = bytes.fromhex("36280008 2A733000".replace(" ", ""))   # move.w 8(a0),d3 ; move.l (a3,d3.w),a5
+STEP_SITES = [0x43520, 0x4354E]   # the animation step: hero-big-art's jsr <its step hook> ; nop
+AFTER_OBJECT = 0xA3FE        # the loop's step after each object (drown-in-front's)
+CARRYING = [0x107004, 0x107404]   # a byte per player: carrying an enemy
+RED_OBJ = 0x10EA50           # hero-big-art: the object noted as Red (a long; 0 = none)
+DROWN_START = 0x10EB8E       # drown-in-front's RAM+14: where the object being drawn starts (its lava cover's)
+RED_HOLD = 30                # frames after an object other than a hero took a player 2 frame
+RAM2 = 0x10D5B0              # more spare RAM: +0 a word, `one`'s end-last-frame (nothing to clear), +2 Red seen
+ONE_PREV, RED_SEEN, FLAGS = RAM2, RAM2 + 2, RAM2 + 3   # (a countdown byte), +3 this frame: bit 0 Red may be about,
+                                                       # bit 1 a hero carries an enemy (now or last frame), bit 2
+                                                       # one does now
 CEILING = 300                # the group stays below this: sprites from 300 are other code's (pause-menu's box,
                              # the goal's pieces, sold-out-stamp's stamps), which the game's own group never reached
 
@@ -48,11 +69,47 @@ CEILING = 300                # the group stays below this: sprites from 300 are 
 def apply(rom):
     assert rom.u16(GROUP_START) == 0x4EB9
     before = rom.u32(GROUP_START + 2)
+    assert rom.u16(DRAW_SITE) == 0x4EB9 and rom.u16(DRAW_SITE + 6) == 0x4E71
+    draw_hook = rom.u32(DRAW_SITE + 2)
     code = rom.place_code("""
     jsr 0x%(before)X
-    cmpa.l #0x%(front)X+8,%%a0            | the front group only (not the passes here, nor the other groups)
+    cmpa.l #0x%(front)X+8,%%a0            | the front group: split (below)
+    beq 40f
+    btst #0,0x%(flags)X                 | another group, or the before part's pass: object by object while Red may
+    bne 50f                             | be about, or (the before part) a hero carries an enemy
+    cmpa.l #0x%(before_desc)X+8,%%a0
     bne 99f
-    movem.l %%d3-%%d7/%%a1/%%a3-%%a5,-(%%sp)
+    btst #1,0x%(flags)X
+    beq 99f
+50: addq.l #4,%%sp                      | (not back into the loop)
+| entries d2 to d0, object by object from sprite d1, then the clearing up to the end-last-frame word (a0) - out of
+| the drawing routine
+51: cmp.w %%d0,%%d2
+    bhi 52f
+    movem.l %%d0/%%d2/%%a0,-(%%sp)
+    move.w %%d2,%%d4
+    bsr one
+    movem.l (%%sp)+,%%d0/%%d2/%%a0
+    addq.w #2,%%d2
+    bra 51b
+52: bra 70f
+| the front group, once a frame: this frame's flags
+40: movem.l %%d3-%%d7/%%a1/%%a3-%%a5,-(%%sp)
+    move.b 0x%(flags)X,%%d3
+    andi.b #4,%%d3
+    lsr.b #1,%%d3                       | bit 1: carried last frame (bit 2 then)
+    tst.b 0x%(carry1)X
+    bne 41f
+    tst.b 0x%(carry2)X
+    beq 43f
+41: ori.b #6,%%d3                       | carried now: bits 1 and 2
+43: tst.l 0x%(red_obj)X
+    bne 44f
+    tst.b 0x%(red_seen)X
+    beq 45f
+    subq.b #1,0x%(red_seen)X
+44: bset #0,%%d3
+45: move.b %%d3,0x%(flags)X
     lea 0x%(list)X,%%a1
     lea (%%a1,%%d2.w),%%a3              | the first hero drawn, if any (0x4000 and 0x4080 both 0x4000 without bit 7)
     move.w %%d0,%%d3
@@ -75,11 +132,13 @@ def apply(rom):
     sub.l %%a1,%%d4
     subq.w #2,%%d4
     bra 10f
-| no hero: drawn as it was, in one pass
+| no hero: drawn as it was, in one pass (object by object while Red may be about or an enemy is carried)
 3:
     move.w 0x%(front)X+8,0x%(before_desc)X+8   | (a split next frame: the before part as big as all this)
     clr.w 0x%(old_from)X
     movem.l (%%sp)+,%%d3-%%d7/%%a1/%%a3-%%a5
+    tst.b 0x%(flags)X
+    bne 50b
     rts
 | the heroes' run of the list: d3 to d7
 10: move.w %%d4,%%d3
@@ -151,15 +210,21 @@ def apply(rom):
     move.w %%d6,%%d3
 20: move.w %%d3,0x%(before_desc)X+8
     move.w %%d6,0x%(old_from)X
-| the heroes, from HEROES_FROM
-    lea 0x%(hero_desc)X,%%a0
-    move.w 0x%(hs)X,(%%a0)
-    move.w 0x%(he)X,2(%%a0)
-    move.w %%d6,4(%%a0)
+| the heroes, from HEROES_FROM, one at a time through hero-big-art's hook; then the rest of their room cleared
+    move.w %%d6,%%d1
     addi.w #%(hero_room)d,%%d6
-    move.w %%d6,6(%%a0)
-    move.w %%d6,8(%%a0)                 | (their unused sprites cleared now, in the vblank)
-    jsr 0x%(draw)X
+    move.w %%d6,0x%(limit)X(%%a6)
+    move.w %%d6,0x%(hero_desc)X+8
+    move.w 0x%(hs)X,%%d2
+24: movem.l %%d2,-(%%sp)
+    move.w %%d2,%%d4
+    bsr one
+    movem.l (%%sp)+,%%d2
+    addq.w #2,%%d2
+    cmp.w 0x%(he)X,%%d2
+    bls 24b
+    lea 0x%(hero_desc)X+8,%%a0
+    bsr 70f
 | what's before them, from the group's first sprite up to HEROES_FROM
     lea 0x%(before_desc)X,%%a0
     move.w 0x%(hs)X,%%d0
@@ -188,6 +253,8 @@ def apply(rom):
     cmp.w %%d0,%%d2
     bcc 23f
     addq.w #2,%%d2
+    tst.b 0x%(flags)X
+    bne 50b
     move.l %%a0,0x%(prev)X(%%a6)
     lea 0x3C0002,%%a2
     rts
@@ -196,6 +263,34 @@ def apply(rom):
     lea 0x3C0002,%%a2
     move.w #1,2(%%a2)
     jmp 0x%(group_end)X
+| entry d4 drawn by itself through hero-big-art's draw hook, as the loop draws an entry (d1: its first sprite, then
+| the next free one; most registers used): its after-object step (0xA3FE) ends a one-entry group whose clearing
+| finds nothing
+one:
+    lea 0x%(list)X+2,%%a4
+    adda.w %%d4,%%a4                    | (past the entry, as the loop leaves it: drown-in-front reads -2(a4))
+    move.w -2(%%a4),%%d3
+    lea (%%a6,%%d3.w),%%a0
+    move.b 0x28(%%a0),%%d2
+    beq 9f
+    move.w %%d1,0x%(drown_start)X
+    clr.w 0x%(count)X(%%a6)
+    move.l #0x%(one_prev)X,0x%(prev)X(%%a6)
+    clr.w 0x%(one_prev)X
+    lea 0x60772,%%a3
+    lea 0x3C0002,%%a2
+    move.w #1,2(%%a2)
+    pea 9f(%%pc)
+    pea 0x%(after_object)X
+    addq.b #2,%%d2
+    bcc 8f
+    bne 7f
+    jmp 0xB244
+7:  jmp 0xB0A0
+8:  moveq #0,%%d3
+    jsr 0x%(draw_hook)X
+    jmp 0x%(draw_rest)X
+9:  rts
 | is entry d4 a hero being drawn? Z set if so (d5 used)
 80: move.w (%%a1,%%d4.w),%%d5
     cmpi.w #0x%(h1)X,%%d5
@@ -211,7 +306,30 @@ def apply(rom):
 """ % {"before": before, "front": FRONT, "list": LIST, "h1": HEROES[0], "h2": HEROES[1],
        "hero_room": HERO_ROOM, "hero_desc": HERO_DESC, "before_desc": BEFORE_DESC, "old_from": OLD_FROM, "hs": HS, "he": HE,
        "start": START, "end": END, "first": FIRST, "margin": MARGIN, "ceiling": CEILING, "draw": DRAW_GROUP,
-       "group_end": GROUP_END, "limit": 662, "prev": 668, "end_word": 658},
+       "group_end": GROUP_END, "limit": 662, "prev": 668, "end_word": 658, "count": 656,
+       "flags": FLAGS, "carry1": CARRYING[0], "carry2": CARRYING[1], "red_obj": RED_OBJ, "red_seen": RED_SEEN,
+       "drown_start": DROWN_START, "one_prev": ONE_PREV, "after_object": AFTER_OBJECT, "draw_hook": draw_hook,
+       "draw_rest": DRAW_SITE + 8},
         why="the front group drawn heroes first: their sprites written in the vblank")
     rom.write(GROUP_START + 2, code.to_bytes(4, "big"), expect=before.to_bytes(4, "big"),
               why="the front group starting: the heroes drawn first")
+    rom.write(DRAW_SITE, GAME_DRAW, expect=bytes(rom.data[DRAW_SITE:DRAW_SITE + 8]),
+              why="drawing: the game's own instructions back (hero-big-art's hook only for the objects that need it)")
+    step = rom.u32(STEP_SITES[0] + 2)
+    watch = rom.place_code("""
+| the animation step: an object other than a hero taking a player 2 frame (0x800-0xFFF) may be Red
+    cmpi.w #0x800,%%d0
+    bcs 1f
+    cmpi.w #0x1000,%%d0
+    bcc 1f
+    cmpa.l #0x%(h1)X+0x100000,%%a5
+    beq 1f
+    cmpa.l #0x%(h2)X+0x100000,%%a5
+    beq 1f
+    move.b #%(hold)d,0x%(red_seen)X
+1:  jmp 0x%(step)X
+""" % {"h1": HEROES[0], "h2": HEROES[1], "hold": RED_HOLD, "red_seen": RED_SEEN, "step": step},
+        why="animation step: Red may be about (a player 2 frame on another object)")
+    for site in STEP_SITES:
+        rom.write(site + 2, watch.to_bytes(4, "big"), expect=step.to_bytes(4, "big"),
+                  why="animation step: watched for Red")

@@ -23,7 +23,7 @@ DESCRIPTION = "Title menu (AES): Start opens (CONTINUE /) NEW GAME / OPTIONS on 
 # stage into the stage bytes (0x103005 and each player's +0xF0) the way the developers' own stage select did.
 #
 # ---- The options screen: a black screen list (Up / Down, A or Start selects, B goes back)
-#   LEVEL: <stage>  - Left / Right pick a stage (the short names, SHORT_NAMES), A starts it
+#   LEVEL: <stage>  - Left / Right pick a stage (its full name, without THE: level_name), A starts it
 #   SOUND TEST      - three lines, Up / Down between them: MUSIC: nn and SOUND FX: nn NAME (Left / Right step
 #                     through the music and the kept sound effects in SFX_LABELS), A plays the line,
 #                     B stops all; EXIT (A) stops everything and goes back. Commands go straight into the game's
@@ -71,13 +71,13 @@ STAGES = [
 CHOICE_NEW_GAME, CHOICE_OPTIONS, CHOICE_CONTINUE = 0, 1, 2
 MENU = [("NEW GAME", CHOICE_NEW_GAME), ("OPTIONS", CHOICE_OPTIONS)]       # title menu, no save on the card
 MENU_SAVE = [("CONTINUE", CHOICE_CONTINUE)] + MENU                        # ... with a save to continue
-LEVEL_WIDTH = 15             # the LEVEL: line's name field (SHORT_NAMES padded to it)
+LEVEL_WIDTH = 20             # the LEVEL: line's name field (the names padded to it: LOWER EARTH EMPIRE 4 the
+                             # longest - the line then ends at column 32, inside the frame)
 OPTIONS = ["LEVEL: " + " " * LEVEL_WIDTH, "SOUND TEST", "DIFFICULTY: 4", "AUTO SAVE: OFF", "MEMORY CARD",
            "BACK TO TITLE"]
 # The LEVEL: and DIFFICULTY: lines are set with Left / Right (no wrapping); A on LEVEL: starts that stage. Stage
-# names use the approved short forms.
-SHORT_NAMES = {"JUNGLE ZONE": "JUNGLE", "THE LOWER EARTH EMPIRE": "LOW EARTH EMP", "EMPIRE MARSH": "EMP MARSH",
-               "MECHANICAL CITY": "MECH CITY", "STRANGE SPACE": "STRANGE SP", "DARUMA EMPIRE": "DARUMA EMP"}
+# names are written out in full, without a leading THE (the user, 2026-11-18; they were short forms - LOW EARTH
+# EMP, MECH CITY ...).
 OPT_DIFFICULTY, OPT_AUTO_SAVE = 2, 3         # their values are filled in when the screen is drawn
 CARD_ACTIONS = ["DELETE SAVE", "FORMAT CARD", "BACK"]
 CONFIRM = ["NO", "YES"]
@@ -136,9 +136,11 @@ SFX_LABELS = "docs/sfx_labels_title_menu.csv"   # (frozen: the names as of 2026-
                                                 # docs/sfx_labels.csv's)
 
 
-def short_name(name):
-    head, num = name.rsplit(" ", 1)
-    return (SHORT_NAMES[head] + " " + num).ljust(LEVEL_WIDTH)
+def level_name(name):
+    if name.startswith("THE "):
+        name = name[len("THE "):]
+    assert len(name) <= LEVEL_WIDTH, name
+    return name.ljust(LEVEL_WIDTH)
 
 
 def sfx_list():
@@ -891,8 +893,8 @@ opt_left_right:
     bsr store_setting
 9:  rts
 
-short_names:
-    .byte SHORT_STAGE_NAMES
+level_names:
+    .byte LEVEL_NAMES
     .even
 
 | a1 = the options' string table, copied to RAM with the settings filled in (the difficulty's digit, ON / OFF)
@@ -911,7 +913,7 @@ opt_build:
     moveq #0,%d0
     move.b %d0,CURSOR
 4:  mulu #LEVEL_WIDTH,%d0
-    lea short_names(%pc),%a0
+    lea level_names(%pc),%a0
     add.w %d0,%a0
     moveq #LEVEL_WIDTH-1,%d0
 3:  move.b (%a0)+,OPT_LEVEL_AT(%a1)
@@ -1645,7 +1647,7 @@ TABLES
         "PROBED": "0x%X" % PROBED, "TO_MENU_WORD": "0x%X" % TO_MENU, "FROM_ATTRACT_BYTE": "0x%X" % FROM_ATTRACT, "DIFF_WORD": "0x%X" % DIFF, "DIFF_SET": "0x%X" % DIFF_SET,
         "DIFF_HEARTS": "0x%X" % DIFF_HEARTS, "OPT_BUF": "0x%X" % OPT_BUF, "OPT_T_LEN": str(opt_len),
         "OPT_DIGIT": str(opt_digit), "OPT_LEVEL_AT": str(opt_level), "LEVEL_WIDTH": str(LEVEL_WIDTH),
-        "SHORT_STAGE_NAMES": ",".join("0x%02X" % ord(c) for i, nm in STAGES for c in short_name(nm)), "OPT_ONOFF": str(opt_onoff), "OPT_DIFFICULTY": str(OPT_DIFFICULTY),
+        "LEVEL_NAMES": ",".join("0x%02X" % ord(c) for i, nm in STAGES for c in level_name(nm)), "OPT_ONOFF": str(opt_onoff), "OPT_DIFFICULTY": str(OPT_DIFFICULTY),
         "OPT_AUTO_SAVE": str(OPT_AUTO_SAVE), "OPT_MEMORY_CARD": str(OPTIONS.index("MEMORY CARD")), "AUTO_ON": "0x%X" % AUTO_ON, "AUTO_WORD": "0x%X" % AUTO,
         "GAME_SAVE_PREP": "0x%X" % GAME_SAVE_PREP, "RAM_CLEAR_REST": "0x%X" % RAM_CLEAR_REST, "BEST_SUB": "0x%X" % BEST_SUB,
         "SAVE_BUF": "0x%X" % SAVE_BUF, "HACK_SLOT": str(HACK_CARD_SUB), "LINE_BUF": "0x%X" % LINE_BUF,
